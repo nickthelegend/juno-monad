@@ -3,6 +3,7 @@ import { Linking, Modal, TextInput } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import styled from "styled-components/native";
 
+import { FinalityTimeline } from "./Finality";
 import { Tappable } from "./Press";
 import { Button, Caption, Col, ExternalGlyph, Label, Row } from "./kit";
 import { sameAddress } from "../lib/address";
@@ -505,6 +506,9 @@ export function TradeSheet({
                   number that says why this runs on Monad. */}
               {confirmedInMs !== null ? ` in ${(confirmedInMs / 1000).toFixed(confirmedInMs < 10_000 ? 1 : 0)}s` : ""}.
             </Label>
+            {/* Watch the block this trade landed in reach finality — the
+                node reports each stage and the dots fill as it does. */}
+            {txHash ? <FinalityTimeline txHash={txHash} /> : null}
             {filledCurve ? (
               <Label muted style={{ textAlign: "center" }}>
                 That buy filled the curve. It can graduate into its Uniswap v2 pair now — anyone can

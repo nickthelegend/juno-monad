@@ -16,6 +16,7 @@ import { invalidateMarkets, loadMarkets } from "../../lib/markets";
 import { useFeedRevision } from "../../lib/refresh";
 import { shareCoin, useViewerOnce } from "../../lib/social";
 import { useApi } from "../../lib/useApi";
+import { LiveTape } from "../../components/LiveTape";
 import { useWallet } from "../../lib/wallet";
 import { useTabBarHeight } from "../../lib/tabbar";
 import { theme } from "../../theme";
@@ -215,6 +216,10 @@ export default function SocialScreen() {
               ))}
             </ScrollView>
           ) : null}
+
+          {/* Trades as Monad commits them. Renders nothing until the server
+              has seen one, so a quiet chain costs no space. */}
+          {scope === "everyone" ? <LiveTape coins={markets.data?.posts} /> : null}
 
           {(markets.data?.missing ?? 0) > 0 ? (
             <Text style={styles.footnote}>
