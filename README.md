@@ -1,0 +1,116 @@
+# Juno — every post is a market
+
+**Post a photo or a reel and it launches its own token on a bonding curve on
+Monad.** People buy into the post itself as they scroll, the creator earns the
+trading fees instead of ad revenue, and when the curve fills it graduates into
+a Uniswap v2 pair whose liquidity is locked for good — a market that outlives
+the app.
+
+The same machinery issues **pre-IPO and stock trackers**: curves shaped like
+issuances and marked against a real reference — **Tessera** marks for OpenAI,
+Kalshi and SpaceX, **Pyth** feeds for AAPL, NVDA, TSLA and friends.
+
+Built for Monad's **Metropolis** hackathon — Track 03, *Social, Attention &
+Culture*: a feed where curation is paid for by the people who benefit from it.
+
+| | |
+|---|---|
+| **Network** | Monad **testnet** (chain 10143). No real money. |
+| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad`, `JunoToken`, `UniswapV2Graduator`. Addresses are filled in by [`contracts/deploy.sh`](contracts/deploy.sh); see [DEPLOY.md](DEPLOY.md). |
+| **App** | [`juno-expo/`](juno-expo/) — Expo (iOS, Android, web). |
+| **API** | [`app/api/juno/`](app/api/juno/) — the Next.js server the app talks to. [docs/API.md](docs/API.md). |
+| **Indexer** | [`indexer/`](indexer/) — Envio HyperIndex over the launchpad's events. |
+| **Deep dive** | [JUNO.md](JUNO.md) — the curve, the contracts, what is and is not built. |
+
+## Sixty seconds in the app
+
+1. **Feed** — posts, each one a market: worth, likes, replies, share, **Buy**.
+   "Bought by" is read from real trades.
+2. **Reels** — full-screen video; tap for sound, double-tap to like, and a dock
+   under the caption with the reel's market cap, curve progress, **Sell** and **Buy**.
+3. **Trade → Pre-IPO** — OpenAI, Kalshi, SpaceX from Tessera's marks, with the
+   Juno curve tracking each and how far its implied price sits from the mark.
+4. **+ → Post a photo** — pick a photo, name it, pick a curve shape; **one
+   signature** later it is a live market with your post on it.
+5. **Profile** — fund the wallet from the testnet faucet, choose a name, see
+   holdings, cost basis and P&L; claim the fees your posts have earned.
+
+Every number is read from the chain, Postgres, Mongo, Pyth or Tessera. When a
+read fails the app says so — it does not print a zero it never measured.
+
+## What makes it more than a launchpad
+
+- **Sixteen-range curves with a shape.** A curve is a start price and sixteen
+  ranges, each holding its own liquidity — concentrated-liquidity maths, in
+  [`CurveMath.sol`](contracts/src/libraries/CurveMath.sol). The weights are the
+  character of a launch: `content` (back-loaded), `thin-name` (front-loaded, for
+  a low-float stock), `ipo-book` (deep at both ends), `tight-nav` (uniform,
+  tracks a reference). The TypeScript builder and the contract share one
+  arithmetic, and a parity test holds them to it.
+- **Graduation is continuous.** The base reserved for the AMM is the curve's
+  quote priced at the curve's top, so the pair opens at exactly the price the
+  curve finished on. The pair is created at launch and locked until then, so
+  nobody can seed it at a price of their choosing first.
+- **Fees that decay, paid to the poster.** A launch fee that blunts snipers
+  decays exponentially to a resting fee over sixty periods. The creator takes
+  the trading fees, claimable any time.
+- **One transaction per action.** Launch — token, curve, AMM pair and the
+  creator's optional first buy — is one call. Selling needs no approval.
+- **Keys never leave the device.** The server builds unsigned transactions;
+  the phone signs; the server submits and records what the receipt says.
+- **History without hammering the RPC.** Monad's public RPC answers
+  `eth_getLogs` over 100 blocks — thirty seconds of chain. Trades are recorded
+  from receipts as they land, a single log cursor tails the launchpad for the
+  rest, and the Envio indexer serves full history.
+
+## Layout
+
+| Path | What |
+|---|---|
+| `contracts/` | Foundry project: the launchpad, the token, the graduator, tests, deploy script. |
+| `juno-expo/` | **The app** — Expo (iOS, Android, web). |
+| `app/api/juno/` | The API the app calls. |
+| `lib/juno/` | Curves, the launchpad client, trade history, Pyth, Tessera, portfolio. |
+| `indexer/` | Envio HyperIndex: trades, pools, positions. |
+| `scripts/juno-*.ts` | Launch, trade, claim, graduate from the command line. |
+| `docs/` | API reference and hackathon notes. |
+
+## Run it
+
+```bash
+git clone --recurse-submodules <this repo> && cd juno-monad
+npm install
+cp .env.local.example .env.local      # DATABASE_URL, MONGODB_URI, PINATA_JWT, the launchpad address
+npm run db:migrate
+npm run dev                            # API on http://localhost:3000
+
+cd juno-expo && npm install
+npx expo start                         # i = iOS simulator, a = Android, w = web
+```
+
+Contracts: `cd contracts && forge test`. Unit tests: `npm run test:unit`.
+Deploying the contracts and the app: [DEPLOY.md](DEPLOY.md).
+
+## Provenance, and how this was built
+
+Juno began on **16 September 2026** as a Solana app — Meteora's Dynamic Bonding
+Curve for the curves, DAMM v2 for graduation — and that version's history is in
+[nickthelegend/zorr-solana](https://github.com/nickthelegend/zorr-solana). This
+repository is its port to Monad, started on **24 September 2026**, inside the
+Metropolis build window. What carried over and what is new:
+
+| Carried over from the Solana version | New for Monad |
+|---|---|
+| The Expo app's screens and design | `JunoLaunchpad`, `JunoToken`, `CurveMath`, `UniswapV2Graduator` — the curve, fees, graduation and their Foundry tests are Juno's own contracts now, not a third-party program |
+| The four curve presets and their weights | The TypeScript curve builder, rewritten against Juno's own arithmetic, with a Solidity parity test |
+| The social layer (follows, likes, comments, names, plans) | Wallet, signing and submission on EVM; EIP-191 name claims |
+| The API's shape and its "never print an unmeasured zero" rules | Trade history from `Trade` events: receipt recording, a launchpad log cursor, the Envio indexer |
+| | Pyth read from its contract on Monad; the testnet faucet in MON |
+
+**AI disclosure.** This port was written with AI coding assistance (Claude
+Code). Every contract is covered by Foundry tests, including fuzzed invariants,
+and the numbers the app shows are read from the chain, not generated.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
