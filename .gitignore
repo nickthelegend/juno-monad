@@ -1,0 +1,43 @@
+# dependencies
+/node_modules
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# env files — only the templates, which hold placeholders, are committed
+.env*
+!.env.local.example
+!juno-expo/.env.example
+!indexer/.env.example
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+.claude/
+# Scratch files: name throwaway work *.tmp.* and it can never be committed.
+*.tmp.*
+# Local keys for the CLI scripts (see scripts/juno-launch.ts). Never commit.
+.juno/
+
+# Foundry build output (the ABIs the app uses are exported to lib/juno/abi.ts)
+/contracts/out/
+/contracts/cache/
+/contracts/broadcast/*/31337/
+/contracts/broadcast/**/dry-run/
+
+# The Expo app keeps its own dependencies and build output.
+/juno-expo/node_modules
+/juno-expo/.expo
+/juno-expo/ios
+/juno-expo/android
+/juno-expo/dist
+/juno-expo/web-build

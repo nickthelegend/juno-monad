@@ -1,0 +1,59 @@
+{
+  "name": "juno-monad",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Juno — every post is a market. A social app on Monad where each post launches its own bonding-curve token.",
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:contracts": "cd contracts && forge test",
+    "contracts:build": "cd contracts && forge build && node script/export-abi.mjs",
+    "contracts:fixtures": "tsx scripts/curve-fixtures.ts",
+    "db:generate": "dotenv -e .env.local -- drizzle-kit generate",
+    "db:migrate": "dotenv -e .env.local -- drizzle-kit migrate",
+    "db:studio": "dotenv -e .env.local -- drizzle-kit studio",
+    "juno:launch": "dotenv -e .env.local -- tsx scripts/juno-launch.ts",
+    "juno:inspect": "dotenv -e .env.local -- tsx scripts/juno-inspect.ts",
+    "juno:trade": "dotenv -e .env.local -- tsx scripts/juno-trade.ts",
+    "juno:claim": "dotenv -e .env.local -- tsx scripts/juno-claim.ts",
+    "juno:graduate": "dotenv -e .env.local -- tsx scripts/juno-graduate.ts",
+    "juno:seed-posts": "dotenv -e .env.local -- tsx scripts/juno-seed-posts.ts"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "decimal.js": "^10.6.0",
+    "drizzle-orm": "^0.45.2",
+    "fluent-ffmpeg": "^2.1.3",
+    "mongodb": "^7.6.0",
+    "next": "16.2.9",
+    "pg": "^8.21.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "server-only": "^0.0.1",
+    "sharp": "^0.35.1",
+    "viem": "^2.56.8"
+  },
+  "optionalDependencies": {
+    "@img/sharp-libvips-linux-x64": "1.3.0",
+    "@img/sharp-linux-x64": "0.35.1"
+  },
+  "devDependencies": {
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.22.4",
+    "typescript": "^5",
+    "vitest": "^4.1.10"
+  }
+}
