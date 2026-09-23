@@ -523,6 +523,8 @@ export type SubmitResult = {
   graduated?: { token: Address; venue: Address };
   /** Set when a buy filled a curve to its top. */
   completed?: Address[];
+  /** Milliseconds from broadcast to a receipt in hand, as the server measured it. */
+  confirmedInMs?: number;
 };
 
 export type SwapBuild = {

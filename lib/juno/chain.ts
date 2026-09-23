@@ -256,8 +256,11 @@ export async function hydratePool(
   // A partial read is short of the truth, so a total from it would understate
   // volume while looking authoritative. Null says "unknown" instead.
   const complete = history !== null && !history.partial;
-  const volume24h = complete ? volumeWithin(swaps, DAY_MS) : null;
-  const allVolume = complete ? sumVolume(swaps) : null;
+  // A complete history with no trades in it is a measured zero, not an
+  // unknown: "—" there said the app could not read a market that was simply
+  // quiet. `volumeWithin` answers null for an empty list, so say 0 here.
+  const volume24h = complete ? (volumeWithin(swaps, DAY_MS) ?? 0) : null;
+  const allVolume = complete ? (sumVolume(swaps) ?? 0) : null;
   const priceChange = complete ? changeWithin(swaps, DAY_MS, snapshot.price) : null;
 
   /*

@@ -4,6 +4,7 @@ import {
   BaseError,
   decodeErrorResult,
   getAddress,
+  keccak256,
   isAddress,
   parseEventLogs,
   parseTransaction,
@@ -383,6 +384,8 @@ export type SubmitResult = {
   graduated?: { token: Address; venue: Address };
   /** Set when a buy filled the curve to its top. */
   completed?: Address[];
+  /** Milliseconds from broadcast to a receipt in hand. */
+  confirmedInMs?: number;
 };
 
 /** How long to wait for a receipt. Monad finalises in about a second. */
@@ -411,24 +414,57 @@ export async function submitSigned(params: { signed: Hex }): Promise<SubmitResul
     throw new CallerError(`This transaction was signed for chain ${parsed.chainId}, not ${chainId()}`);
   }
 
-  let hash: Hex;
-  try {
-    hash = await client.sendRawTransaction({ serializedTransaction: params.signed });
-  } catch (error) {
-    // A node refusing *this transaction* is not a fault in this server, and
-    // reporting it as one hides the one thing the person can act on.
-    throw new CallerError(explainFailure(error), 422);
-  }
-
+  /*
+   * One call, not two. Monad implements `eth_sendRawTransactionSync`
+   * (EIP-7966): the node broadcasts the transaction and answers with its
+   * receipt once the block that includes it is proposed — a round trip where
+   * `sendRawTransaction` + `waitForTransactionReceipt` is a send and a poll.
+   * The time it took is measured here and shown on the phone, because "it
+   * confirmed before you let go of the button" is the thing Monad is for.
+   *
+   * The hash is the keccak of the signed bytes, known before anything is
+   * sent, so a timeout can still hand the person a transaction to look up.
+   */
+  const hash = keccak256(params.signed);
+  const started = performance.now();
   let receipt: TransactionReceipt;
   try {
-    receipt = await client.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
-  } catch {
-    throw new CallerError(
-      `The network accepted this transaction but it has not confirmed yet. It is ${hash}.`,
-      504,
-    );
+    // No `timeout` argument: EIP-7966 leaves its encoding loose and nodes
+    // disagree (viem sends a JSON number; anvil wants a hex quantity), while
+    // every implementation accepts the bare transaction. The transport's own
+    // timeout bounds the wait instead.
+    receipt = await client.sendRawTransactionSync({
+      serializedTransaction: params.signed,
+      throwOnReceiptRevert: false,
+    });
+  } catch (error) {
+    if (!unsupportedMethod(error)) {
+      if (/timed? ?out|timeout/i.test(String((error as Error)?.message ?? ""))) {
+        throw new CallerError(
+          `The network accepted this transaction but it has not confirmed yet. It is ${hash}.`,
+          504,
+        );
+      }
+      // A node refusing *this transaction* is not a fault in this server, and
+      // reporting it as one hides the one thing the person can act on.
+      throw new CallerError(explainFailure(error), 422);
+    }
+    // An endpoint without the sync method: broadcast, then wait.
+    try {
+      await client.sendRawTransaction({ serializedTransaction: params.signed });
+    } catch (sendError) {
+      throw new CallerError(explainFailure(sendError), 422);
+    }
+    try {
+      receipt = await client.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
+    } catch {
+      throw new CallerError(
+        `The network accepted this transaction but it has not confirmed yet. It is ${hash}.`,
+        504,
+      );
+    }
   }
+  const confirmedInMs = Math.round(performance.now() - started);
 
   if (receipt.status !== "success") {
     const reason = await revertReason(hash, receipt).catch(() => null);
@@ -438,7 +474,29 @@ export async function submitSigned(params: { signed: Hex }): Promise<SubmitResul
     );
   }
 
-  return describeReceipt(receipt, from);
+  return { ...(await describeReceipt(receipt, from)), confirmedInMs };
+}
+
+/**
+ * The endpoint does not implement the method, or not in the form it was
+ * called — either way the transaction was never broadcast, so falling back to
+ * a plain send cannot submit it twice. A refusal of the transaction itself
+ * (bad nonce, no funds, a revert) is a different error and is not caught here.
+ */
+function unsupportedMethod(error: unknown): boolean {
+  const text = error instanceof BaseError ? `${error.shortMessage}\n${error.details}` : String(error);
+  const code = (error as { code?: number } | null)?.code ?? findCode(error);
+  return (
+    code === -32601 ||
+    code === -32602 ||
+    /method (not found|not supported|does not exist)|not implemented|invalid parameters were provided/i.test(text)
+  );
+}
+
+function findCode(error: unknown): number | undefined {
+  if (!(error instanceof BaseError)) return undefined;
+  const found = error.walk((cause) => typeof (cause as { code?: unknown }).code === "number");
+  return (found as { code?: number } | null)?.code;
 }
 
 async function describeReceipt(receipt: TransactionReceipt, from: Address): Promise<SubmitResult> {

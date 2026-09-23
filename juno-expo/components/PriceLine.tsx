@@ -105,7 +105,13 @@ export function PriceLine({
     // The live price is a real reading and the newest one there is. Appending
     // it is what stops the line ending at the last trade and implying nothing
     // has happened since.
-    return Number.isFinite(livePrice) && livePrice > 0 && livePrice !== last.price
+    //
+    // Appended even when it equals the last point if that point is the only
+    // one. The series opens at the curve's price at launch, so a coin nobody
+    // has traded is one point — and a flat line from launch to now is exactly
+    // what happened to its price, where "not enough to draw a line" was not.
+    const live = Number.isFinite(livePrice) && livePrice > 0;
+    return live && (livePrice !== last.price || base.length === 1)
       ? [...base, { t: new Date().toISOString(), price: livePrice }]
       : base;
   }, [ticks, span, livePrice]);

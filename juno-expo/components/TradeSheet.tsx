@@ -159,6 +159,8 @@ export function TradeSheet({
   const [progress, setProgress] = useState<string | null>(null);
   /** This buy was the one that filled the curve. */
   const [filledCurve, setFilledCurve] = useState(false);
+  /** How long the last step took from broadcast to receipt, when the server measured it. */
+  const [confirmedInMs, setConfirmedInMs] = useState<number | null>(null);
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState<string | null>(null);
   /**
@@ -377,6 +379,7 @@ export function TradeSheet({
         if (step.total > 1) setProgress(`${step.label}… (${step.index + 1}/${step.total})`);
       });
       const landed = results[results.length - 1].hash;
+      setConfirmedInMs(results[results.length - 1].confirmedInMs ?? null);
       setFilledCurve(results.some((result) => result.completed?.some((token) => sameAddress(token, coin.address))));
       setTxHash(landed);
       setStage("done");
@@ -497,7 +500,10 @@ export function TradeSheet({
               {side === "buy"
                 ? `Bought ${receiving ?? ""}`
                 : `Sold ${tokens(value)} ${coin.symbol} for ${receiving ?? ""}`}{" "}
-              — confirmed on Monad.
+              — confirmed on Monad
+              {/* Measured on the server from broadcast to receipt — the one
+                  number that says why this runs on Monad. */}
+              {confirmedInMs !== null ? ` in ${(confirmedInMs / 1000).toFixed(confirmedInMs < 10_000 ? 1 : 0)}s` : ""}.
             </Label>
             {filledCurve ? (
               <Label muted style={{ textAlign: "center" }}>
