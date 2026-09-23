@@ -1,0 +1,12 @@
+node_modules/
+# HyperIndex v2 wrote generated code here; v3 writes .envio/types.d.ts instead.
+generated/
+build/
+.envio/types.d.ts
+*.log
+
+# Secrets. The parent repo's `.env*` rule would also hide the template, so
+# re-include it explicitly.
+.env
+.env.*
+!.env.example

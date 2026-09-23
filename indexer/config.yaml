@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+#
+# Juno launchpad indexer — Envio HyperIndex v3.
+#
+# One contract, `JunoLaunchpad`, holds every bonding curve. Every token it
+# launches is also registered dynamically (see `contractRegister` in
+# src/EventHandlers.ts) so its ERC-20 `Transfer`s are indexed too: that is what
+# turns trade-derived positions into real balances and holder counts.
+#
+# Addresses and start blocks come from the environment, because the launchpad is
+# deployed per network. Envio only passes `ENVIO_`-prefixed variables through
+# (and Envio Cloud only accepts that prefix), hence the names. See .env.example.
+name: juno-indexer
+description: Juno — every post is a market. Trades, pools, positions and graduations on Monad.
+
+# Handlers live in src/ (not the default src/handlers/). Every .ts file there is
+# loaded; *.test.ts files are skipped.
+handlers: src
+
+# Rows are keyed by (id, chainId): a token address on testnet and the same
+# address on mainnet are two different pools. GraphQL exposes `chainId` on
+# every entity for filtering when both chains are enabled.
+disable_default_cross_chain: true
+
+contracts:
+  - name: JunoLaunchpad
+    # Block number and timestamp come with every event. The transaction hash is
+    # fetched only for the events that store it.
+    events:
+      - event: "Launched(address indexed token, address indexed creator, address indexed quote, uint8 preset, string name, string symbol, string uri, uint160 sqrtStartPriceX96, uint160 sqrtEndPriceX96, uint256 curveBase, uint256 migrationBase, uint256 migrationQuoteThreshold, address venue)"
+        field_selection:
+          transaction_fields: [hash]
+      - event: "Trade(address indexed token, address indexed trader, bool isBuy, uint256 baseAmount, uint256 quoteAmount, uint256 fee, uint160 sqrtPriceX96, uint256 quoteReserve)"
+        field_selection:
+          transaction_fields: [hash]
+      - event: "CurveCompleted(address indexed token, uint256 quoteReserve)"
+      - event: "Graduated(address indexed token, address indexed venue, uint256 baseAmount, uint256 quoteAmount, uint256 liquidity, uint256 burned)"
+        field_selection:
+          transaction_fields: [hash]
+      - event: "CreatorFeesClaimed(address indexed token, address indexed creator, address to, uint256 amount)"
+        field_selection:
+          transaction_fields: [hash]
+      - event: "ProtocolFeesClaimed(address indexed quote, address to, uint256 amount)"
+      - event: "QuoteAllowed(address indexed quote, bool allowed)"
+      - event: "GraduatorSet(address indexed graduator)"
+      - event: "ProtocolShareSet(uint16 bps)"
+
+  # Every token the launchpad deploys. No address here: each one is added from
+  # its `Launched` event, and HyperIndex backfills the whole creation block, so
+  # the constructor's mint is seen too.
+  - name: JunoToken
+    events:
+      - event: "Transfer(address indexed from, address indexed to, uint256 value)"
+
+chains:
+  # Monad testnet. HyperSync: https://monad-testnet.hypersync.xyz
+  - id: 10143
+    # Set this to the launchpad's deployment block. It must not be later than
+    # the deployment: the constructor emits `ProtocolShareSet` and
+    # `QuoteAllowed(native)`, which the fee split and quote table depend on.
+    start_block: ${ENVIO_JUNO_TESTNET_START_BLOCK:-0}
+    contracts:
+      - name: JunoLaunchpad
+        # Placeholder until the launchpad is deployed: nothing emits from it,
+        # so the indexer runs and stays empty.
+        address: "${ENVIO_JUNO_TESTNET_LAUNCHPAD:-0x0000000000000000000000000000000000000000}"
+      - name: JunoToken
+
+  # Monad mainnet. HyperSync: https://monad.hypersync.xyz
+  # Skipped until there is a mainnet launchpad: set ENVIO_JUNO_SKIP_MAINNET=false.
+  - id: 143
+    skip: ${ENVIO_JUNO_SKIP_MAINNET:-true}
+    start_block: ${ENVIO_JUNO_MAINNET_START_BLOCK:-0}
+    contracts:
+      - name: JunoLaunchpad
+        address: "${ENVIO_JUNO_MAINNET_LAUNCHPAD:-0x0000000000000000000000000000000000000000}"
+      - name: JunoToken

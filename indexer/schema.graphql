@@ -1,0 +1,263 @@
+# Juno launchpad — indexed entities.
+#
+# Units. Fields typed BigDecimal are display units: base amounts are tokens
+# (18 decimals), quote amounts are in the pool's quote token (native MON: 18,
+# USDC: 6). Fields ending in `Raw` and every `sqrtPriceX96` are the contract's
+# own integers. Envio's GraphQL serialises BigInt and BigDecimal as strings;
+# Int stays a number.
+#
+# Addresses are EIP-55 checksummed, so filter with checksummed values.
+#
+# Rows are per chain (`disable_default_cross_chain: true` in config.yaml): every
+# entity also carries a generated `chainId`.
+
+"""
+One launchpad deployment: global counters and the settings new launches inherit.
+"""
+type Launchpad {
+  "The launchpad's address."
+  id: ID!
+  "Where completed curves graduate to. Null until one is set."
+  graduator: String
+  "Protocol share of trading fees, in basis points, for launches from now on."
+  protocolShareBps: Int!
+  poolCount: Int!
+  tradeCount: Int!
+  completedCount: Int!
+  graduatedCount: Int!
+}
+
+"""
+A quote token a pool can be priced in. The zero address is native MON.
+Volumes are only summable within one quote, so the protocol-wide totals live here.
+"""
+type QuoteToken {
+  "The quote token's address; 0x000…000 for native MON."
+  id: ID!
+  decimals: Int!
+  "Whether new launches may use it."
+  allowed: Boolean!
+  poolCount: Int!
+  tradeCount: Int!
+  "Sum of every trade's quoteAmount, in this quote."
+  volume: BigDecimal!
+  "Trading fees charged, in this quote."
+  fees: BigDecimal!
+  "The protocol's share of `fees`."
+  protocolFeesAccrued: BigDecimal!
+  protocolFeesClaimed: BigDecimal!
+  pools: [Pool!]! @derivedFrom(field: "quoteToken")
+}
+
+"""
+One post's market: its token, its bonding curve, and everything that happened on it.
+"""
+type Pool {
+  "The token's address."
+  id: ID!
+  launchpad: String!
+  creator: String! @index
+  "Quote token address; 0x000…000 for native MON."
+  quote: String! @index
+  quoteToken: QuoteToken!
+  quoteDecimals: Int!
+  "Which preset shaped the curve (informational)."
+  preset: Int!
+  name: String!
+  symbol: String!
+  "Pinned metadata, usually ipfs://…"
+  uri: String!
+  "The AMM pair this token graduates into. Zero when no graduator was set at launch."
+  venue: String!
+  "Protocol share of this pool's fees, fixed at launch."
+  protocolShareBps: Int!
+
+  sqrtStartPriceX96: BigInt!
+  "The curve's top: the price at which it completes."
+  sqrtEndPriceX96: BigInt!
+  "Supply the curve sells."
+  curveBase: BigDecimal!
+  "Supply reserved for the AMM at graduation."
+  migrationBase: BigDecimal!
+  "Quote the curve holds when full."
+  migrationQuoteThreshold: BigDecimal!
+
+  launchedAt: BigInt! @index
+  launchBlock: BigInt!
+  launchTx: String!
+
+  "Current curve price, as a Q64.96 square root of quote wei per base wei."
+  sqrtPriceX96: BigInt!
+  "Current marginal curve price, quote per token. Market cap is this × 1,000,000,000."
+  spotPrice: BigDecimal! @index
+  "Realised price of the most recent trade."
+  lastPrice: BigDecimal
+  "Curve supply not yet sold."
+  baseReserve: BigDecimal!
+  "Quote the curve holds, fees excluded. Progress is quoteReserve / migrationQuoteThreshold."
+  quoteReserve: BigDecimal!
+
+  tradeCount: Int!
+  buyCount: Int!
+  sellCount: Int!
+  "Sum of trade quoteAmount (buys fee-inclusive, sells net of fee)."
+  volumeQuote: BigDecimal! @index
+  feesQuote: BigDecimal!
+  "The creator's share of fees, earned to date."
+  creatorFeesEarned: BigDecimal!
+  creatorFeesClaimed: BigDecimal!
+  "Addresses holding a non-zero balance, excluding the launchpad itself."
+  holderCount: Int! @index
+  lastTradeAt: BigInt
+
+  complete: Boolean!
+  completedAt: BigInt
+  graduated: Boolean!
+  graduatedAt: BigInt
+  graduationTx: String
+  "LP tokens minted into the pair at graduation (raw)."
+  liquidity: BigInt
+  "Tokens burned at graduation: unsold curve dust plus the rounding buffer."
+  burned: BigDecimal
+
+  trades: [Trade!]! @derivedFrom(field: "pool")
+  positions: [Position!]! @derivedFrom(field: "pool")
+  creatorClaims: [CreatorClaim!]! @derivedFrom(field: "pool")
+}
+
+"""
+One buy or sell on a curve, from the launchpad's `Trade` event.
+"""
+type Trade
+  @index(fields: ["token", "blockNumber", "logIndex"])
+  @index(fields: ["trader", "blockNumber", "logIndex"]) {
+  "`${txHash}:${logIndex}`"
+  id: ID!
+  txHash: String!
+  "Position of the log within its block."
+  logIndex: Int!
+  blockNumber: BigInt!
+  "Block time, unix seconds."
+  timestamp: BigInt!
+
+  token: String! @index
+  "Whose position changed: the recipient of a buy, the seller of a sell."
+  trader: String! @index
+  pool: Pool!
+  account: Account!
+  quote: String!
+
+  isBuy: Boolean!
+  "Tokens that changed hands."
+  baseAmount: BigDecimal!
+  "Quote paid (buy, fee included) or received (sell, fee deducted)."
+  quoteAmount: BigDecimal!
+  fee: BigDecimal!
+  "Realised price: quoteAmount / baseAmount."
+  price: BigDecimal!
+  baseAmountRaw: BigInt!
+  quoteAmountRaw: BigInt!
+  feeRaw: BigInt!
+
+  "Curve price after the trade."
+  sqrtPriceX96: BigInt!
+  "Quote the curve holds after the trade, fees excluded."
+  quoteReserve: BigDecimal!
+}
+
+"""
+An address that has traded, held or launched on Juno.
+"""
+type Account {
+  "The address."
+  id: ID!
+  tradeCount: Int! @index
+  buyCount: Int!
+  sellCount: Int!
+  "Pools this address has traded at least once."
+  poolsTraded: Int!
+  launchCount: Int!
+  firstSeenAt: BigInt!
+  firstSeenBlock: BigInt!
+  lastTradeAt: BigInt
+  trades: [Trade!]! @derivedFrom(field: "account")
+  positions: [Position!]! @derivedFrom(field: "account")
+}
+
+"""
+One address in one pool: its real balance, and what its trades paid and returned.
+Cost basis is average cost, matching the app: a sell releases cost pro rata, and
+tokens sold beyond what trades bought have no cost to match and are left out.
+"""
+type Position @index(fields: ["trader", "balance"]) {
+  "`${trader}-${token}`"
+  id: ID!
+  trader: String! @index
+  token: String! @index
+  account: Account!
+  pool: Pool!
+
+  "ERC-20 balance, from every Transfer (trades, transfers, graduation)."
+  balance: BigDecimal! @index
+  "Bought minus sold through the curve. Differs from balance when tokens moved by transfer."
+  netBase: BigDecimal!
+  boughtBase: BigDecimal!
+  soldBase: BigDecimal!
+  "Quote paid on buys, fees included."
+  spentQuote: BigDecimal!
+  "Quote received on sells, net of fees."
+  receivedQuote: BigDecimal!
+  feesPaid: BigDecimal!
+
+  "Tokens the cost basis still covers."
+  basisBase: BigDecimal!
+  "Quote paid for those tokens. Average cost is costBasis / basisBase."
+  costBasis: BigDecimal!
+  "Profit taken on sells, against average cost, in quote."
+  realizedPnl: BigDecimal! @index
+
+  tradeCount: Int!
+  buyCount: Int!
+  sellCount: Int!
+  firstTradeAt: BigInt
+  lastTradeAt: BigInt
+  updatedAt: BigInt!
+}
+
+"""
+A completed curve's reserves moving into its AMM pair.
+"""
+type Graduation {
+  "The token's address."
+  id: ID!
+  pool: Pool!
+  token: String!
+  venue: String!
+  "Tokens sent to the pair."
+  baseAmount: BigDecimal!
+  "Quote sent to the pair."
+  quoteAmount: BigDecimal!
+  "LP tokens minted (raw)."
+  liquidity: BigInt!
+  burned: BigDecimal!
+  txHash: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
+
+"""
+A creator withdrawing the fees their post's market earned.
+"""
+type CreatorClaim {
+  "`${txHash}:${logIndex}`"
+  id: ID!
+  pool: Pool!
+  token: String! @index
+  creator: String! @index
+  to: String!
+  amount: BigDecimal!
+  amountRaw: BigInt!
+  txHash: String!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+}
