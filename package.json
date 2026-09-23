@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Juno — every post is a market. A social app on Monad where each post launches its own bonding-curve token.",
+  "description": "Juno \u2014 every post is a market. A social app on Monad where each post launches its own bonding-curve token.",
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
@@ -23,7 +23,8 @@
     "juno:trade": "dotenv -e .env.local -- tsx scripts/juno-trade.ts",
     "juno:claim": "dotenv -e .env.local -- tsx scripts/juno-claim.ts",
     "juno:graduate": "dotenv -e .env.local -- tsx scripts/juno-graduate.ts",
-    "juno:seed-posts": "dotenv -e .env.local -- tsx scripts/juno-seed-posts.ts"
+    "juno:seed-posts": "dotenv -e .env.local -- tsx scripts/juno-seed-posts.ts",
+    "juno:pyth-push": "dotenv -e .env.local -- tsx scripts/pyth-push.ts"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

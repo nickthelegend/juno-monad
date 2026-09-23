@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Everything here runs without secrets and without touching a live network.
+# The integration suite (tests/integration) reads Monad testnet, Pyth and
+# Tessera, so it is run by hand — `npm run test:integration` — not here.
+jobs:
+  contracts:
+    name: Contracts (Foundry)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Submodules (forge-std, OpenZeppelin, Uniswap v2)
+        run: git submodule update --init --recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Build
+        working-directory: contracts
+        run: forge build
+
+      - name: Test
+        working-directory: contracts
+        run: forge test
+
+  app:
+    name: App (types, unit tests, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Build-time placeholders only. Nothing here connects to anything; real
+      # values are injected by the host at deploy.
+      NEXT_PUBLIC_MONAD_NETWORK: testnet
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      MONGODB_URI: mongodb://localhost:27017/ci
+      JUNO_KEY_SECRET: Y2ktb25seS1ub3QtYS1yZWFsLXNlY3JldC0zMmJ5dGVz
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Route types
+        # `tsc` reads the route types Next generates; this writes them without
+        # a full build.
+        run: npx next typegen
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p .
+
+      - name: Unit tests
+        # Pure logic: no network, no database, no keys.
+        run: npx vitest run tests/unit
+
+      - name: Contract fixtures match the app's curve builder
+        # contracts/test/PresetParity.t.sol launches every preset from these
+        # fixtures and checks the chain agrees to the wei. Regenerating them
+        # from lib/juno/curves.ts must change nothing, or the two have drifted.
+        run: |
+          npx tsx scripts/curve-fixtures.ts
+          git diff --exit-code -- contracts/test/fixtures
+
+      - name: Production build
+        run: npx next build --webpack
+
+  expo:
+    name: Expo app (types)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: juno-expo/package-lock.json
+
+      - name: Install
+        working-directory: juno-expo
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: juno-expo
+        run: npx tsc --noEmit
