@@ -1,0 +1,114 @@
+import { getAddress, isAddress, zeroAddress, type Address, type Chain } from "viem";
+import { monad, monadTestnet } from "viem/chains";
+
+/**
+ * Which Monad network Juno talks to, where its contracts live, and how to link
+ * to them.
+ *
+ * Testnet is the default on purpose: a launch is permanent, and rehearsing the
+ * whole lifecycle — launch, trade, fill, graduate, claim — costs nothing there.
+ * Switching to mainnet is `NEXT_PUBLIC_MONAD_NETWORK=mainnet` plus the
+ * addresses of a mainnet deployment; nothing in the code is testnet-specific.
+ */
+
+export type Network = "testnet" | "mainnet";
+
+export function network(): Network {
+  return process.env.NEXT_PUBLIC_MONAD_NETWORK === "mainnet" ? "mainnet" : "testnet";
+}
+
+export function isMainnet(): boolean {
+  return network() === "mainnet";
+}
+
+/**
+ * The value stored in every row's `network` column. Distinct per chain so a
+ * database shared between environments cannot mix them.
+ */
+export function networkKey(): string {
+  return isMainnet() ? "monad" : "monad-testnet";
+}
+
+export function chain(): Chain {
+  return isMainnet() ? monad : monadTestnet;
+}
+
+export function chainId(): number {
+  return chain().id;
+}
+
+/**
+ * The public endpoints are rate-limited, and a live demo hits them in bursts.
+ * A dedicated RPC (Alchemy, QuickNode, Dwellir…) belongs in `MONAD_RPC_URL`.
+ * Falling back is deliberate — it keeps local development working without
+ * credentials.
+ */
+export function rpcEndpoint(): string {
+  return (
+    process.env.MONAD_RPC_URL?.trim() ||
+    process.env.NEXT_PUBLIC_MONAD_RPC_URL?.trim() ||
+    chain().rpcUrls.default.http[0]
+  );
+}
+
+export function usingPublicRpc(): boolean {
+  return !process.env.MONAD_RPC_URL?.trim() && !process.env.NEXT_PUBLIC_MONAD_RPC_URL?.trim();
+}
+
+/* ------------------------------------------------------------------ */
+/* Contracts                                                           */
+/* ------------------------------------------------------------------ */
+
+function envAddress(name: string): Address | null {
+  const value = process.env[name]?.trim();
+  return value && isAddress(value) ? getAddress(value) : null;
+}
+
+/**
+ * The Juno launchpad. Null until one is deployed and configured — every read
+ * and every route checks, and says so, rather than calling the zero address.
+ */
+export function launchpadAddress(): Address | null {
+  return envAddress("NEXT_PUBLIC_JUNO_LAUNCHPAD");
+}
+
+export function requireLaunchpad(): Address {
+  const address = launchpadAddress();
+  if (!address) {
+    throw new Error(
+      "NEXT_PUBLIC_JUNO_LAUNCHPAD is not set. Deploy the launchpad (contracts/script/Deploy.s.sol) and set its address.",
+    );
+  }
+  return address;
+}
+
+/**
+ * The block the launchpad was deployed in — where the log scan starts. Zero
+ * falls back to a recent window rather than scanning from genesis.
+ */
+export function launchpadDeployBlock(): bigint {
+  const raw = process.env.JUNO_LAUNCHPAD_DEPLOY_BLOCK?.trim();
+  return raw && /^\d+$/.test(raw) ? BigInt(raw) : 0n;
+}
+
+/** Native MON, as the launchpad spells it. */
+export const NATIVE: Address = zeroAddress;
+
+/* ------------------------------------------------------------------ */
+/* Explorer links — the proof a judge clicks                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MonadVision on both networks: it serves testnet and mainnet under parallel
+ * paths, verifies contracts through Sourcify, and decodes the launchpad's
+ * events once it is verified.
+ */
+function explorerBase(): string {
+  return isMainnet() ? "https://monadvision.com" : "https://testnet.monadvision.com";
+}
+
+export const explorer = {
+  tx: (hash: string) => `${explorerBase()}/tx/${hash}`,
+  address: (address: string) => `${explorerBase()}/address/${address}`,
+  token: (address: string) => `${explorerBase()}/token/${address}`,
+};
