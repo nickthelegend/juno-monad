@@ -11,6 +11,7 @@ import {
 
 import { junoLaunchpadAbi } from "./abi";
 import { publicClient } from "./client";
+import { sqrtX96ToPrice } from "./curve-math";
 import { envioConfigured, envioTrades } from "./envio";
 import { quoteTokenOfPool } from "./launchpad";
 import { launchpadAddress, launchpadDeployBlock } from "./network";
@@ -58,7 +59,16 @@ export type PoolSwap = {
   quoteAmount: number;
   /** Trading fee, in quote UI units. */
   fee: number;
-  /** Realised price of this trade, in quote per token. */
+  /**
+   * The curve's price right after this trade, in quote per token — the mark a
+   * chart plots.
+   *
+   * Not `quoteAmount / baseAmount`. That is the trade's execution price, and it
+   * includes the fee: on a fresh launch, whose fee starts at 9%, a buy executes
+   * about 9% above the curve, so charting execution prices drew every first buy
+   * as a price *drop* — a red line under the word "Bought". The execution price
+   * is still recoverable from the two amounts; cost basis uses those directly.
+   */
   price: number;
   /** Whose position changed. */
   trader: string;
@@ -75,6 +85,8 @@ type TradeArgs = {
   baseAmount: bigint;
   quoteAmount: bigint;
   fee: bigint;
+  /** The curve's square-root price after the trade, Q64.96. */
+  sqrtPriceX96: bigint;
 };
 
 /** Turn one decoded `Trade` into a row, or null when it moved nothing. */
@@ -99,7 +111,10 @@ export function swapFromTrade(params: {
     baseAmount,
     quoteAmount,
     fee: Number(args.fee) / 10 ** quoteDecimals,
-    price: quoteAmount / baseAmount,
+    price:
+      args.sqrtPriceX96 > 0n
+        ? sqrtX96ToPrice(args.sqrtPriceX96, BASE_DECIMALS, quoteDecimals)
+        : quoteAmount / baseAmount,
     trader: getAddress(args.trader),
     timestamp: new Date(Number(params.timestamp) * 1000).toISOString(),
     blockNumber: Number(params.blockNumber),
@@ -395,12 +410,12 @@ function chronological(a: PoolSwap, b: PoolSwap): number {
 }
 
 /**
- * Realised price over time, oldest first — the series a chart draws.
+ * Price over time, oldest first — the series a chart draws.
  *
- * These are executed prices, not marks: each point is a trade that happened at
- * that price, which is why a flat stretch means nobody traded rather than a
- * price that held. Size rides along so the chart can aggregate the series into
- * candles with real volume rather than counting trades.
+ * One point per trade: the curve's price right after it. A flat stretch means
+ * nobody traded rather than a price that held. Size rides along so the chart
+ * can aggregate the series into candles with real volume rather than counting
+ * trades.
  */
 export function priceSeries(swaps: PoolSwap[]): PricePoint[] {
   return [...swaps].sort(chronological).map((swap) => ({

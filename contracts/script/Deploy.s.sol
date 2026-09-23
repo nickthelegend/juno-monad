@@ -206,9 +206,12 @@ contract Deploy is Script {
         string memory json = vm.serializeUint(k, "deployBlock", d.deployBlock);
 
         bool dryRun = vm.isContext(VmSafe.ForgeContext.ScriptDryRun);
-        string memory path = string.concat(
-            vm.projectRoot(), "/deployments/", vm.toString(d.chainId), dryRun ? ".dry-run.json" : ".json"
-        );
+        // A rehearsal against a local fork shares the real network's chain id,
+        // so it names its own record (`JUNO_DEPLOYMENT_TAG=10143-fork`) rather
+        // than posing as the record of a real deployment.
+        string memory tag = vm.envOr("JUNO_DEPLOYMENT_TAG", vm.toString(d.chainId));
+        string memory path =
+            string.concat(vm.projectRoot(), "/deployments/", tag, dryRun ? ".dry-run.json" : ".json");
         vm.writeJson(json, path);
         console.log("Wrote", path);
     }

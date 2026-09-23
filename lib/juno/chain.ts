@@ -10,6 +10,7 @@ import {
   quoteTokenUsdPrice,
 } from "./pyth";
 import { curveShape } from "./curve-shape";
+import { sqrtX96ToPrice } from "./curve-math";
 import { CURVE_PRESETS } from "./curves";
 import { feeSchedule, tokenomics } from "./economics";
 import { identicon } from "./identicon";
@@ -292,11 +293,28 @@ export async function hydratePool(
     volume24h: volume24h === null ? null : volume24h * rate,
     totalVolume: allVolume === null ? null : allVolume * rate,
     priceHistory: history
-      ? priceSeries(swaps).map((point) => ({
-          ...point,
-          price: point.price * rate,
-          volume: point.volume * rate,
-        }))
+      ? [
+          /*
+           * The opening price, at the moment of launch — the curve's start,
+           * read from the pool. Without it a chart has nothing to draw from
+           * until the second trade, and a one-trade market has no line at all.
+           */
+          ...(complete
+            ? [
+                {
+                  t: row.createdAt.toISOString(),
+                  price: sqrtX96ToPrice(snapshot.pool.sqrtStartPriceX96, snapshot.baseDecimals, snapshot.quoteDecimals) * rate,
+                  volume: 0,
+                  side: "buy" as const,
+                },
+              ]
+            : []),
+          ...priceSeries(swaps).map((point) => ({
+            ...point,
+            price: point.price * rate,
+            volume: point.volume * rate,
+          })),
+        ]
       : undefined,
     priceHistoryPartial: history ? history.partial : undefined,
     nav,

@@ -153,8 +153,10 @@ type Trade
   "Quote paid (buy, fee included) or received (sell, fee deducted)."
   quoteAmount: BigDecimal!
   fee: BigDecimal!
-  "Realised price: quoteAmount / baseAmount."
+  "The curve's price right after this trade (from sqrtPriceX96) — what a chart plots."
   price: BigDecimal!
+  "Execution price: quoteAmount / baseAmount, fee included."
+  executionPrice: BigDecimal!
   baseAmountRaw: BigInt!
   quoteAmountRaw: BigInt!
   feeRaw: BigInt!

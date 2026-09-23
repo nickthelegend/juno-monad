@@ -128,6 +128,7 @@ describe("Trade on a native-MON pool", () => {
       quoteAmount: buy.quoteAmount.toString(),
       fee: buy.fee.toString(),
       price: buy.price.toString(),
+      executionPrice: buy.executionPrice.toString(),
       quoteReserve: buy.quoteReserve.toString(),
       blockNumber: buy.blockNumber,
       timestamp: buy.timestamp,
@@ -141,14 +142,17 @@ describe("Trade on a native-MON pool", () => {
       baseAmount: "1000",
       quoteAmount: "0.5",
       fee: "0.005",
-      price: "0.0005",
+      // The mark after the trade, from the event's sqrt price (Q96 / 30,000 → 1/9e8)…
+      price: spotPrice(Q96 / 30_000n, 18).toString(),
+      // …and what the trader actually paid per token, fee included.
+      executionPrice: "0.0005",
       quoteReserve: "0.495",
       blockNumber: 102n,
       timestamp: 1_758_700_102n,
     });
 
     const sell = await indexer.Trade.getOrThrow(`${tx(103)}:3`);
-    t.expect([sell.isBuy, sell.baseAmount.toString(), sell.quoteAmount.toString(), sell.price.toString()]).toEqual([
+    t.expect([sell.isBuy, sell.baseAmount.toString(), sell.quoteAmount.toString(), sell.executionPrice.toString()]).toEqual([
       false,
       "400",
       "0.25",
@@ -248,7 +252,7 @@ describe("Trade on a USDC pool", () => {
     t.expect(pool.migrationQuoteThreshold.toString()).toBe("100000000000000"); // 100e18 raw read as 6-decimals quote
 
     const fill = await indexer.Trade.getOrThrow(`${tx(201)}:0`);
-    t.expect([fill.quoteAmount.toString(), fill.fee.toString(), fill.price.toString(), fill.quoteReserve.toString()]).toEqual([
+    t.expect([fill.quoteAmount.toString(), fill.fee.toString(), fill.executionPrice.toString(), fill.quoteReserve.toString()]).toEqual([
       "1.5",
       "0.015",
       "0.0005",

@@ -210,7 +210,11 @@ indexer.onEvent({ contract: "JunoLaunchpad", event: "Trade" }, async ({ event, c
   const base = toUnits(baseAmount, BASE_DECIMALS);
   const quote = toUnits(quoteAmount, decimals);
   const feeUnits = toUnits(fee, decimals);
-  const price = tradePrice(baseAmount, quoteAmount, decimals);
+  // A chart plots the curve's mark after the trade, not the execution price:
+  // the execution price includes the fee, so on a fresh launch every first buy
+  // would chart as a drop. `executionPrice` keeps the other number.
+  const price = spotPrice(sqrtPriceX96, decimals);
+  const executionPrice = tradePrice(baseAmount, quoteAmount, decimals);
   const split = splitFee(fee, pool.protocolShareBps);
 
   context.Trade.set({
@@ -229,6 +233,7 @@ indexer.onEvent({ contract: "JunoLaunchpad", event: "Trade" }, async ({ event, c
     quoteAmount: quote,
     fee: feeUnits,
     price,
+    executionPrice,
     baseAmountRaw: baseAmount,
     quoteAmountRaw: quoteAmount,
     feeRaw: fee,
@@ -240,7 +245,7 @@ indexer.onEvent({ contract: "JunoLaunchpad", event: "Trade" }, async ({ event, c
     ...pool,
     sqrtPriceX96,
     spotPrice: spotPrice(sqrtPriceX96, decimals),
-    lastPrice: price,
+    lastPrice: executionPrice,
     baseReserve: isBuy ? pool.baseReserve.minus(base) : pool.baseReserve.plus(base),
     quoteReserve: toUnits(quoteReserve, decimals),
     tradeCount: pool.tradeCount + 1,
