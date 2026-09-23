@@ -56,6 +56,10 @@ contract Deploy is Script {
     /// @dev Compiled from lib/v2-core @ v1.0.1 by src/vendor/UniswapV2Core.sol.
     string internal constant V2_FACTORY_ARTIFACT = "UniswapV2Factory.sol:UniswapV2Factory";
     string internal constant V2_PAIR_ARTIFACT = "UniswapV2Pair.sol:UniswapV2Pair";
+    /// @dev keccak256 of Uniswap's own v2 pair creation code, shared by every
+    /// official v2 deployment — checked against Monad mainnet's WMON/USDC pair.
+    bytes32 internal constant UNISWAP_V2_PAIR_INIT_CODE_HASH =
+        0x96e8ac4277198ff8b6f785478aa9a39f403cb768dd02cbee326c3e7da348845f;
 
     uint256 internal constant DEFAULT_PROTOCOL_SHARE_BPS = 2_000;
 
@@ -68,12 +72,14 @@ contract Deploy is Script {
         address graduator;
         address uniswapV2Factory;
         bool uniswapV2FactoryDeployed;
+        bytes32 pairInitCodeHash;
         address wmon;
         address usdc;
         uint256 deployBlock;
     }
 
     error NoSigner();
+    error InitCodeHashMismatch(address pair, address predicted);
     error NoCode(string what, address at);
     error Unconfigured(string envVar);
     error BadUsdcDecimals(uint8 decimals);
@@ -136,10 +142,19 @@ contract Deploy is Script {
             d.uniswapV2FactoryDeployed = true;
         }
 
+        // The graduator locks each token against its pair's CREATE2 address
+        // before the pair exists, so the init code hash must be right for this
+        // factory: ours when we deployed it, Uniswap's otherwise.
+        d.pairInitCodeHash = d.uniswapV2FactoryDeployed
+            ? keccak256(vm.getCode(V2_PAIR_ARTIFACT))
+            : vm.envOr("UNISWAP_V2_PAIR_INIT_CODE_HASH", UNISWAP_V2_PAIR_INIT_CODE_HASH);
+        _checkInitCodeHash(d.uniswapV2Factory, d.pairInitCodeHash);
+
         // Owned by the deployer until it is wired, then handed over.
         JunoLaunchpad launchpad = new JunoLaunchpad(d.deployer, d.protocolShareBps);
-        UniswapV2Graduator graduator =
-            new UniswapV2Graduator(address(launchpad), IUniswapV2Factory(d.uniswapV2Factory), d.wmon);
+        UniswapV2Graduator graduator = new UniswapV2Graduator(
+            address(launchpad), IUniswapV2Factory(d.uniswapV2Factory), d.wmon, d.pairInitCodeHash
+        );
         launchpad.setGraduator(graduator);
         launchpad.setQuoteAllowed(d.usdc, true);
         if (d.owner != d.deployer) launchpad.transferOwnership(d.owner);
@@ -151,6 +166,31 @@ contract Deploy is Script {
 
         _write(d);
         _log(d);
+    }
+
+    /// @dev A wrong init code hash would lock every token against an address
+    /// its pair never lands at, and graduation would refuse to proceed. So when
+    /// the factory already has pairs, predict the first one and compare —
+    /// read-only, before anything is sent.
+    function _checkInitCodeHash(address factory, bytes32 initCodeHash) internal view {
+        (bool ok, bytes memory data) = factory.staticcall(abi.encodeWithSignature("allPairsLength()"));
+        if (!ok || abi.decode(data, (uint256)) == 0) return;
+        (, data) = factory.staticcall(abi.encodeWithSignature("allPairs(uint256)", 0));
+        address pair = abi.decode(data, (address));
+        (, data) = pair.staticcall(abi.encodeWithSignature("token0()"));
+        address token0 = abi.decode(data, (address));
+        (, data) = pair.staticcall(abi.encodeWithSignature("token1()"));
+        address token1 = abi.decode(data, (address));
+        address predicted = address(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(hex"ff", factory, keccak256(abi.encodePacked(token0, token1)), initCodeHash)
+                    )
+                )
+            )
+        );
+        if (predicted != pair) revert InitCodeHashMismatch(pair, predicted);
     }
 
     /* ------------------------------------------------------------------ */
@@ -196,11 +236,9 @@ contract Deploy is Script {
         vm.serializeAddress(k, "graduator", d.graduator);
         vm.serializeAddress(k, "uniswapV2Factory", d.uniswapV2Factory);
         vm.serializeBool(k, "uniswapV2FactoryDeployed", d.uniswapV2FactoryDeployed);
-        if (d.uniswapV2FactoryDeployed) {
-            // A router for this factory needs this in its `pairFor`; it differs
-            // from Uniswap's mainnet constant because the metadata differs.
-            vm.serializeBytes32(k, "uniswapV2PairInitCodeHash", keccak256(vm.getCode(V2_PAIR_ARTIFACT)));
-        }
+        // The graduator's `pairFor` uses this; for a factory built here it
+        // differs from Uniswap's constant because the metadata differs.
+        vm.serializeBytes32(k, "uniswapV2PairInitCodeHash", d.pairInitCodeHash);
         vm.serializeAddress(k, "wmon", d.wmon);
         vm.serializeAddress(k, "usdc", d.usdc);
         string memory json = vm.serializeUint(k, "deployBlock", d.deployBlock);

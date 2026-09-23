@@ -9,13 +9,17 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 /// the graduation path can be tested without the 0.5.16 originals.
 contract MockPair is ERC20 {
     uint256 public constant MINIMUM_LIQUIDITY = 1000;
-    address public immutable token0;
-    address public immutable token1;
+    address public token0;
+    address public token1;
     uint112 private reserve0;
     uint112 private reserve1;
 
-    constructor(address a, address b) ERC20("Mock LP", "MLP") {
-        (token0, token1) = a < b ? (a, b) : (b, a);
+    /// @dev No constructor arguments, like Uniswap's pair, so every pair shares
+    /// one init code hash and its address is predictable from the tokens.
+    constructor() ERC20("Mock LP", "MLP") {}
+
+    function initialize(address a, address b) external {
+        (token0, token1) = (a, b);
     }
 
     function getReserves() external view returns (uint112, uint112, uint32) {
@@ -49,11 +53,18 @@ contract MockPair is ERC20 {
 contract MockFactory {
     mapping(address => mapping(address => address)) public getPair;
 
+    /// @dev The same CREATE2 scheme as Uniswap v2: salt = keccak(token0, token1).
     function createPair(address a, address b) external returns (address pair) {
         require(getPair[a][b] == address(0), "PAIR_EXISTS");
-        pair = address(new MockPair(a, b));
+        (address token0, address token1) = a < b ? (a, b) : (b, a);
+        pair = address(new MockPair{salt: keccak256(abi.encodePacked(token0, token1))}());
+        MockPair(pair).initialize(token0, token1);
         getPair[a][b] = pair;
         getPair[b][a] = pair;
+    }
+
+    function pairCodeHash() external pure returns (bytes32) {
+        return keccak256(type(MockPair).creationCode);
     }
 }
 

@@ -43,7 +43,9 @@ abstract contract JunoBase is Test {
 
         vm.startPrank(owner);
         launchpad = new JunoLaunchpad(owner, PROTOCOL_SHARE_BPS);
-        graduator = new UniswapV2Graduator(address(launchpad), IUniswapV2Factory(address(factory)), address(wmon));
+        graduator = new UniswapV2Graduator(
+            address(launchpad), IUniswapV2Factory(address(factory)), address(wmon), factory.pairCodeHash()
+        );
         launchpad.setGraduator(graduator);
         launchpad.setQuoteAllowed(address(usdc), true);
         vm.stopPrank();

@@ -317,7 +317,9 @@ contract JunoLaunchpadTest is JunoBase {
     function test_graduate_survivesDonatedPair() public {
         address token = launchNative();
         JunoLaunchpad.Pool memory p = launchpad.getPool(token);
-        // Someone makes the pair's reserves one-sided before graduation.
+        // Someone creates the pair early and makes its reserves one-sided.
+        address created = factory.createPair(token, address(wmon));
+        assertEq(created, p.venue, "the pair lands where the token was locked");
         vm.deal(bob, 10 ether);
         vm.startPrank(bob);
         wmon.deposit{value: 5 ether}();
@@ -328,6 +330,19 @@ contract JunoLaunchpadTest is JunoBase {
         buyNative(alice, token, p.migrationQuoteThreshold * 2);
         (, uint256 liquidity) = launchpad.graduate(token);
         assertGt(liquidity, 0);
+    }
+
+    function test_launch_locksPairWithoutDeployingIt() public {
+        address token = launchNative();
+        address venue = launchpad.getPool(token).venue;
+        assertEq(venue.code.length, 0, "no pair deployed at launch");
+        assertEq(factory.getPair(token, address(wmon)), address(0));
+        assertEq(JunoToken(token).pair(), venue);
+
+        buyNative(alice, token, launchpad.getPool(token).migrationQuoteThreshold * 2);
+        (address graduatedInto,) = launchpad.graduate(token);
+        assertEq(graduatedInto, venue, "graduation deploys it exactly where it was locked");
+        assertGt(venue.code.length, 0);
     }
 
     function test_graduate_usdc() public {

@@ -2100,6 +2100,11 @@ export const uniswapV2GraduatorAbi = [
         "name": "wrappedNative_",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "pairInitCodeHash_",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "nonpayable"
@@ -2184,6 +2189,43 @@ export const uniswapV2GraduatorAbi = [
   },
   {
     "type": "function",
+    "name": "pairFor",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "quote",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pairInitCodeHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "prepare",
     "inputs": [
       {
@@ -2199,12 +2241,12 @@ export const uniswapV2GraduatorAbi = [
     ],
     "outputs": [
       {
-        "name": "pair",
+        "name": "",
         "type": "address",
         "internalType": "address"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -2228,6 +2270,22 @@ export const uniswapV2GraduatorAbi = [
     "type": "error",
     "name": "OnlyLaunchpad",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PairMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actual",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",

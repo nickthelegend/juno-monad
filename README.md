@@ -49,12 +49,14 @@ read fails the app says so — it does not print a zero it never measured.
   arithmetic, and a parity test holds them to it.
 - **Graduation is continuous.** The base reserved for the AMM is the curve's
   quote priced at the curve's top, so the pair opens at exactly the price the
-  curve finished on. The pair is created at launch and locked until then, so
-  nobody can seed it at a price of their choosing first.
+  curve finished on. The pair's address is fixed at launch and the token
+  refuses transfers into it until then, so nobody can seed it at a price of
+  their choosing first — and the pair itself is only deployed when a curve
+  graduates, so a launch costs about 2M gas instead of 4.6M.
 - **Fees that decay, paid to the poster.** A launch fee that blunts snipers
   decays exponentially to a resting fee over sixty periods. The creator takes
   the trading fees, claimable any time.
-- **One transaction per action.** Launch — token, curve, AMM pair and the
+- **One transaction per action.** Launch — token, curve, the lock on its AMM pair and the
   creator's optional first buy — is one call. Selling needs no approval.
 - **Keys never leave the device.** The server builds unsigned transactions;
   the phone signs; the server submits and records what the receipt says.

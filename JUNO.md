@@ -24,7 +24,7 @@ This section is deliberately first.
 |---|---|
 | **The launchpad** | `JunoLaunchpad.sol`: sixteen-range concentrated-liquidity curves, exponential fee decay, creator and protocol fee accrual, partial fills at the top, permissionless graduation. Foundry tests, including fuzzed invariants: a buy followed by a full sell never profits; split buys never beat one buy; the contract always holds at least the reserves plus every fee it owes. |
 | **The token** | `JunoToken.sol`: fixed one-billion supply, EIP-2612 permit, `tokenURI` pointing at pinned metadata, transfers into its AMM pair locked until graduation, and no approval needed to sell to its own launchpad. |
-| **Graduation** | `UniswapV2Graduator.sol`: creates the pair at launch, seeds it at graduation with the curve's reserves, mints the LP to the dead address. Survives a pair someone has donated to and `sync`ed. On testnet, where Uniswap has no official v2, the deploy script deploys the unmodified v2-core factory. |
+| **Graduation** | `UniswapV2Graduator.sol`: fixes the pair's CREATE2 address at launch and locks the token against it, deploys the pair only at graduation, seeds it with the curve's reserves and mints the LP to the dead address. Survives a pair someone has donated to and `sync`ed. On testnet, where Uniswap has no official v2, the deploy script deploys the unmodified v2-core factory. |
 | **Curve builder ↔ contract parity** | `lib/juno/curves.ts` builds every curve the app launches; `lib/juno/curve-math.ts` is `CurveMath.sol` in bigint. A generated fixture launches every preset on-chain in Foundry and checks the contract's supply split and threshold against the TypeScript figures exactly. |
 | **Server-built, device-signed transactions** | EIP-1559 requests with nonces and estimated gas; the phone signs with a key in its secure store; the server broadcasts, waits for the receipt, and records what it did. |
 | **Trade history** | From the launchpad's `Trade` events: recorded from receipts as trades land, a single log cursor for everything else, and an Envio HyperIndex indexer for full history. |
@@ -108,8 +108,12 @@ trading. Anyone may then call `graduate`, which moves the quote reserve and the
 reserved base into the token's Uniswap v2 pair and mints the LP to the dead
 address. A MON curve graduates into a WMON pair.
 
-The pair was created at launch and the token refuses transfers into it until
-graduation. Without that lock, anyone could seed the pair at a price of their
+The pair's address is fixed at launch — a Uniswap v2 pair lives at a CREATE2
+address derived from the factory, the two tokens and the pair's init code
+hash — and the token refuses transfers into it until graduation. The pair is
+only deployed when the curve graduates, so a launch costs about 2.06M gas
+rather than 4.57M: most posts never fill, and they no longer pay for a pair
+they will not use. Without that lock, anyone could seed the pair at a price of their
 choosing before the curve's reserves arrive, and the migration's liquidity
 would be minted against that ratio — donating the difference to whoever got
 there first.

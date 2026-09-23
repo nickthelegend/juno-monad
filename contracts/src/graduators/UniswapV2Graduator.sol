@@ -11,14 +11,20 @@ import {IUniswapV2Factory, IUniswapV2Pair, IWrappedNative} from "../interfaces/I
 /// @notice Graduates a completed Juno curve into a Uniswap v2 pair and locks
 /// the liquidity by minting it to the dead address.
 ///
-/// The pair is created at launch, not at graduation, so the token can refuse
-/// transfers into it until the curve's reserves arrive. At graduation the
-/// reserves are transferred in and `mint` is called directly — no router. The
-/// router refuses to add liquidity to a pair whose reserves are one-sided,
-/// and anyone can make them one-sided by donating quote and calling `sync`.
-/// `mint` credits whatever arrived above the recorded reserves, so a donation
-/// only ever nudges the opening price in the curve's favour at the donor's
-/// expense; it cannot stop graduation.
+/// The pair's address is fixed at launch, so the token can refuse transfers
+/// into it until the curve's reserves arrive — but the pair itself is only
+/// deployed at graduation. A v2 pair lives at a CREATE2 address derived from
+/// the factory, the two tokens and the pair's init code hash, so it can be
+/// locked before it exists. Deploying it up front cost every launch about
+/// 2.2M gas for a pair most posts never reach; now only a graduation pays.
+///
+/// At graduation the reserves are transferred in and `mint` is called directly
+/// — no router. The router refuses to add liquidity to a pair whose reserves
+/// are one-sided, and anyone can make them one-sided by creating the pair
+/// early, donating quote and calling `sync`. `mint` credits whatever arrived
+/// above the recorded reserves, so a donation only ever nudges the opening
+/// price in the curve's favour at the donor's expense; it cannot stop
+/// graduation.
 ///
 /// A native-MON curve graduates into a WMON pair.
 contract UniswapV2Graduator is IJunoGraduator {
@@ -30,14 +36,22 @@ contract UniswapV2Graduator is IJunoGraduator {
     address public immutable launchpad;
     IUniswapV2Factory public immutable factory;
     address public immutable wrappedNative;
+    /// @notice keccak256 of the factory's pair creation code. Uniswap's own
+    /// deployments share 0x96e8ac42…845f; a factory built from source differs.
+    bytes32 public immutable pairInitCodeHash;
 
     error OnlyLaunchpad();
     error BadValue();
+    /// @dev The factory created the pair somewhere other than the address the
+    /// token was locked against — the init code hash is wrong for this
+    /// factory. Graduating anyway would seed an unlocked pair.
+    error PairMismatch(address expected, address actual);
 
-    constructor(address launchpad_, IUniswapV2Factory factory_, address wrappedNative_) {
+    constructor(address launchpad_, IUniswapV2Factory factory_, address wrappedNative_, bytes32 pairInitCodeHash_) {
         launchpad = launchpad_;
         factory = factory_;
         wrappedNative = wrappedNative_;
+        pairInitCodeHash = pairInitCodeHash_;
     }
 
     modifier onlyLaunchpad() {
@@ -45,10 +59,18 @@ contract UniswapV2Graduator is IJunoGraduator {
         _;
     }
 
-    function prepare(address token, address quote) external onlyLaunchpad returns (address pair) {
+    /// @notice Where the pair for `token`/`quote` is, or will be.
+    function pairFor(address token, address quote) public view returns (address) {
         address q = quote == address(0) ? wrappedNative : quote;
-        pair = factory.getPair(token, q);
-        if (pair == address(0)) pair = factory.createPair(token, q);
+        (address token0, address token1) = token < q ? (token, q) : (q, token);
+        bytes32 salt = keccak256(abi.encodePacked(token0, token1));
+        return address(
+            uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, pairInitCodeHash))))
+        );
+    }
+
+    function prepare(address token, address quote) external view onlyLaunchpad returns (address) {
+        return pairFor(token, quote);
     }
 
     function graduate(address token, address quote, uint256 baseAmount, uint256 quoteAmount)
@@ -68,6 +90,8 @@ contract UniswapV2Graduator is IJunoGraduator {
 
         pair = factory.getPair(token, q);
         if (pair == address(0)) pair = factory.createPair(token, q);
+        address expected = pairFor(token, q);
+        if (pair != expected) revert PairMismatch(expected, pair);
 
         IERC20(token).safeTransfer(pair, baseAmount);
         IERC20(q).safeTransfer(pair, quoteAmount);

@@ -31,9 +31,9 @@ import { theme } from "../../theme";
  *
  * ## One transaction
  *
- * The launchpad deploys the token, opens its curve and creates the Uniswap v2
- * pair it will graduate into, all in one call — so there is no half-launched
- * state to explain. The server builds it as a list of steps anyway, because a
+ * The launchpad deploys the token, opens its curve and locks the address of the
+ * Uniswap v2 pair it will graduate into, all in one call — so there is no
+ * half-launched state to explain. The server builds it as a list of steps anyway, because a
  * launch that opens with a first buy in USDC needs an approval first; the
  * wallet signs every step and submits them in order.
  *
@@ -357,7 +357,7 @@ export default function PostScreen() {
           {!busy && !unlisted && missing ? <Text style={styles.missing}>{missing}</Text> : null}
           {busy && status ? <Text style={styles.missing}>{status}</Text> : null}
           <Text style={styles.footnote}>
-            One transaction: it deploys the token, opens its curve, and creates
+            One transaction: it deploys the token, opens its curve, and reserves
             the Uniswap v2 pair the curve graduates into — locked until then.
             You pay the gas in MON.
           </Text>
