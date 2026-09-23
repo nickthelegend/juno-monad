@@ -86,7 +86,7 @@ export async function GET(
     const holders = await (async (): Promise<{
       items: Holder[];
       unreadable: boolean;
-      source: "balances" | "fills" | null;
+      source: "indexer" | "balances" | "fills" | null;
     }> => {
       if (!decoded) return { items: [], unreadable: true, source: null };
       const { swaps, partial } = decoded.history;

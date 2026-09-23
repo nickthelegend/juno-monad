@@ -498,6 +498,7 @@ export default function CoinScreen() {
                 <HoldersTab
                   rows={detail.data!.holders}
                   unreadable={detail.data!.holdersUnreadable}
+                  source={detail.data!.holdersSource}
                   onOpenTrader={(target) => router.push(`/trader/${target}` as never)}
                 />
               ) : (
@@ -725,10 +726,13 @@ function ActivityTab({
 function HoldersTab({
   rows,
   unreadable,
+  source,
   onOpenTrader,
 }: {
   rows: import("../../lib/api").Holder[];
   unreadable: boolean;
+  /** How the server built the list — the caption says so, because each misses different wallets. */
+  source: string | null;
   onOpenTrader: (wallet: string) => void;
 }) {
   if (rows.length === 0) {
@@ -763,7 +767,11 @@ function HoldersTab({
         </Line>
       ))}
       <Caption style={{ marginTop: 12 }}>
-        The twenty largest holders, as far as the chain could be read.
+        {source === "indexer"
+          ? "Every holder, from the Envio indexer's record of every transfer of this token."
+          : source === "fills"
+            ? "Rebuilt from trades — the live balance read was refused, and transfers are not visible this way."
+            : "Live balances of every wallet that has traded this coin. A wallet that only received it by transfer is not listed."}
       </Caption>
     </>
   );

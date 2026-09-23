@@ -3,6 +3,7 @@ import "server-only";
 import { getAddress, zeroAddress, type Address } from "viem";
 
 import { junoTokenAbi } from "./abi";
+import { envioConfigured, envioHolders } from "./envio";
 import { publicClient } from "./client";
 import { identicon } from "./identicon";
 import { shortAddress } from "./format";
@@ -68,8 +69,12 @@ export type HolderBook = {
    *
    * `fills` — net position per wallet, rebuilt from its trades. Used when the
    * balance read is refused; it cannot see transfers at all.
+   *
+   * `indexer` — the Envio indexer's positions, built from every `Transfer` the
+   * token has emitted. Complete: a wallet that only ever received tokens by
+   * transfer is in it, which neither of the other two can say.
    */
-  source: "balances" | "fills";
+  source: "indexer" | "balances" | "fills";
 };
 
 /**
@@ -85,6 +90,26 @@ export type HolderBook = {
  * read it" are different claims.
  */
 export async function listPoolHolders(token: string, swaps?: PoolSwap[] | null): Promise<HolderBook | null> {
+  if (envioConfigured()) {
+    const indexed = await envioHolders(token).catch(() => null);
+    // An empty answer while the fills say someone bought means the indexer has
+    // not caught up yet — fall through rather than report nobody.
+    if (indexed && (indexed.length > 0 || !swaps || swaps.length === 0)) {
+      const exclude = new Set<string>([zeroAddress, launchpadAddress() ?? zeroAddress]);
+      const held = indexed.filter((entry) => !exclude.has(entry.wallet));
+      const total = held.reduce((sum, entry) => sum + entry.balance, 0);
+      return {
+        source: "indexer",
+        holders: held.map((entry, index) => ({
+          rank: index + 1,
+          actor: actorFor(entry.wallet),
+          wallet: entry.wallet,
+          balance: entry.balance,
+          share: total > 0 ? entry.balance / total : 0,
+        })),
+      };
+    }
+  }
   if (!swaps || swaps.length === 0) return null;
   const address = getAddress(token);
   const exclude = new Set<string>([zeroAddress, launchpadAddress() ?? zeroAddress]);

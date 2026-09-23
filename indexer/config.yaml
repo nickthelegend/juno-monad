@@ -59,6 +59,14 @@ chains:
     # the deployment: the constructor emits `ProtocolShareSet` and
     # `QuoteAllowed(native)`, which the fee split and quote table depend on.
     start_block: ${ENVIO_JUNO_TESTNET_START_BLOCK:-0}
+    # HyperSync is the fast path and needs ENVIO_API_TOKEN. Without a token,
+    # set ENVIO_TESTNET_RPC_FOR=sync and the RPC becomes the primary source:
+    # slower (the public endpoint answers eth_getLogs over 100 blocks), but a
+    # launchpad indexed from its own deploy block catches up in seconds. With a
+    # token, the RPC stays a fallback.
+    rpc:
+      - url: ${ENVIO_MONAD_TESTNET_RPC_URL:-https://testnet-rpc.monad.xyz}
+        for: ${ENVIO_TESTNET_RPC_FOR:-fallback}
     contracts:
       - name: JunoLaunchpad
         # Placeholder until the launchpad is deployed: nothing emits from it,

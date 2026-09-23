@@ -1,6 +1,8 @@
 import "server-only";
 
-import { zeroAddress } from "viem";
+import { getAddress, zeroAddress } from "viem";
+
+import { envioConfigured, envioPoolStats } from "./envio";
 
 import { fetchPoolSnapshot, weiToUi } from "./launchpad";
 import {
@@ -270,7 +272,14 @@ export async function hydratePool(
    * when the history was short: "0 holders" is a claim a partial read has not
    * earned.
    */
-  const holders = complete ? holdersFromSwaps(swaps).length : null;
+  let holders = complete ? holdersFromSwaps(swaps).length : null;
+  // With the indexer, the count is of every wallet whose balance is above
+  // zero — transfers included — not just of the wallets that traded.
+  if (options.detailed && envioConfigured()) {
+    const stats = await envioPoolStats([row.token]).catch(() => null);
+    const indexed = stats?.get(getAddress(row.token));
+    if (indexed) holders = indexed.holderCount;
+  }
 
   const venue = row.pair ?? (snapshot.pool.venue !== zeroAddress ? snapshot.pool.venue : null);
 

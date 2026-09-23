@@ -9,6 +9,7 @@ import { quoteTokenUsdPrice } from "./pyth";
 import { listPools } from "./registry";
 import { tryRead } from "./rpc";
 import { CallerError } from "./api";
+import { envioConfigured, envioPositions, envioTrades } from "./envio";
 import { listSwapHistory } from "./swaps";
 import type { JunoPoolRow } from "./registry";
 
@@ -301,6 +302,23 @@ export async function loadPortfolio(
    * — reading its price and snapshot anyway would be pure cost. If the balance
    * read itself is refused, fall back to asking pool by pool.
    */
+  // With the indexer, the whole portfolio is one query: every position this
+  // wallet has taken, with real balances (transfers included), average cost
+  // and realised P&L already worked out, plus its trades for the chart.
+  if (envioConfigured()) {
+    const indexed = await portfolioFromIndexer(owner, rows).catch(() => null);
+    if (indexed) {
+      const totals = totalsFor(indexed, false);
+      return {
+        wallet: owner,
+        positions: indexed,
+        history: valueOverTime(indexed, totals.sum),
+        ...totals.portfolio,
+        partial: false,
+      };
+    }
+  }
+
   const held = await heldBalances(owner, rows);
 
   if (held && (await provablyUntouched(owner, held))) {
@@ -346,6 +364,65 @@ export async function loadPortfolio(
     ...totals.portfolio,
     partial,
   };
+}
+
+/**
+ * The portfolio as the Envio indexer has it, or null when it cannot answer.
+ *
+ * Positions come with the indexer's own average-cost basis, computed with the
+ * same rule as `basisFromSwaps`. Only coins this app lists are shown — a
+ * position in some other token the launchpad sold has no name or media here.
+ */
+async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promise<Position[] | null> {
+  const [indexed, trades] = await Promise.all([
+    envioPositions(owner),
+    envioTrades({ trader: owner, limit: 1_000 }),
+  ]);
+  const byToken = new Map(rows.map((row) => [row.token, row]));
+  const positions: Position[] = [];
+  for (const entry of indexed) {
+    if (!(entry.balance > 0) && entry.realizedPnl === 0) continue;
+    const row = byToken.get(entry.token);
+    if (!row) continue;
+    const quoteUsd = await quoteTokenUsdPrice(row.quoteToken).catch(() => null);
+    const rate = quoteUsd ?? 1;
+    const snapshot = await fetchPoolSnapshot(row.token, rate, row.launchpad).catch(() => null);
+    if (!snapshot) continue;
+
+    const price = snapshot.price * rate;
+    const value = entry.balance * price;
+    // A cost is only claimed for tokens the indexer saw bought; tokens that
+    // arrived by transfer have none, and the average is not stretched over them.
+    const averageCost = entry.basisBase > 0 ? (entry.costBasis / entry.basisBase) * rate : null;
+    const covered = entry.basisBase >= entry.balance * 0.999_999;
+    const unrealisedPnl = averageCost !== null && covered ? value - entry.balance * averageCost : null;
+    const mine = trades.filter((trade) => trade.token === entry.token);
+
+    positions.push({
+      token: row.token,
+      name: row.name,
+      symbol: row.symbol,
+      mediaUrl: row.mediaUrl,
+      mediaMime: row.mediaMime,
+      curvePreset: row.curvePreset,
+      balance: entry.balance,
+      price,
+      value,
+      averageCost: covered ? averageCost : null,
+      unrealisedPnl,
+      unrealisedPnlPct:
+        unrealisedPnl === null || averageCost === null || averageCost <= 0 || entry.balance <= 0
+          ? null
+          : (price - averageCost) / averageCost,
+      realisedPnl: entry.realizedPnl * rate,
+      currency: quoteUsd === null ? snapshot.quote.symbol : "USD",
+      graduated: snapshot.curve.graduated,
+      trades: [...mine]
+        .sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex)
+        .map((swap) => ({ t: swap.timestamp, side: swap.side, base: swap.baseAmount, price: swap.price * rate })),
+    });
+  }
+  return positions.sort((a, b) => b.value - a.value);
 }
 
 /**
