@@ -1,0 +1,97 @@
+[profile.default]
+src = "src"
+test = "test"
+script = "script"
+out = "out"
+libs = ["lib"]
+
+# No `solc` pin. Two compilers build this project:
+#   - 0.8.30 for Juno's own contracts, tests and scripts (every one of them
+#     says `pragma solidity 0.8.30`, so auto-detection always lands there);
+#   - 0.5.16 for the unmodified Uniswap v2-core factory (lib/v2-core), which
+#     the deploy script puts on Monad testnet, where there is no official v2.
+# A global `solc = "0.8.30"` would force one compiler on both and break v2-core.
+auto_detect_solc = true
+
+# Why cancun on Monad: Monad executes a superset of it (Prague and Osaka
+# features included), so cancun is a strict subset that every Monad node runs.
+# All the launchpad needs beyond Shanghai is TSTORE/TLOAD (the transient
+# reentrancy guard), MCOPY and PUSH0 — all cancun. Targeting something newer
+# buys nothing and ties the bytecode to a fork an older local tool may not
+# simulate. Foundry lowers this per compiler, so the 0.5.16 build of v2-core
+# gets `istanbul` (0.5.16's newest target) automatically — see `out/*.json`
+# metadata `settings.evmVersion`.
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+via_ir = true
+
+# Verification (Monad's recommendation for MonadVision/Sourcify and Monadscan):
+# no metadata hash appended to runtime bytecode, and the full source text in
+# the metadata, so the explorer rebuilds byte-for-byte from what we upload.
+# (0.5.16 predates `bytecodeHash`; Foundry drops the setting for v2-core.)
+bytecode_hash = "none"
+use_literal_content = true
+
+# deployments/: Deploy.s.sol writes <chainid>.json there. out/: read-only, for
+# `vm.getCode`/`deployCode` of the 0.5.16 Uniswap v2 factory artifact, which a
+# 0.8.30 script or test cannot `import` and `new`.
+fs_permissions = [
+  { access = "read-write", path = "./deployments" },
+  { access = "read", path = "./out" },
+]
+
+# Uniswap v2-core is built exactly as Uniswap built it (see lib/v2-core/.waffle.json):
+# solc 0.5.16, optimizer on at 999999 runs, istanbul, legacy codegen. via_ir
+# and our 200-run setting apply to Juno's 0.8.30 sources only.
+additional_compiler_profiles = [
+  { name = "uniswap-v2", via_ir = false, optimizer_runs = 999999, evm_version = "istanbul" },
+]
+compilation_restrictions = [
+  { paths = "lib/v2-core/contracts/**", via_ir = false, min_optimizer_runs = 999999 },
+  { paths = "src/vendor/UniswapV2Core.sol", via_ir = false, min_optimizer_runs = 999999 },
+]
+
+# Foundry >= 1.8.0 simulates with Monad's gas model when told the network is
+# Monad, either per command (`--network monad`) or persistently here:
+#
+#   network = "monad"
+#
+# Monad charges the full gas LIMIT of a transaction, not the gas used, so the
+# estimate matters more than on Ethereum. Forge 1.7.x refuses the key outright
+# ("unknown variant: found `monad`, expected one of `ethereum`, `optimism`,
+# `tempo`") and every forge command then fails, so it stays commented out
+# here; deploy.sh passes `--network monad` itself when forge is >= 1.8.0 and
+# warns otherwise. Uncomment after `foundryup` if you want it project-wide.
+
+[profile.default.fuzz]
+runs = 512
+
+# `--rpc-url monad_testnet` / `--rpc-url monad` resolve to Monad's public RPCs.
+# Foundry cannot give an env var a default (`${X:-y}` is read as a variable
+# named `X:-y`), so these are the defaults and deploy.sh prefers
+# $MONAD_TESTNET_RPC / $MONAD_RPC when they are set — a dedicated RPC beats the
+# rate-limited public one.
+[rpc_endpoints]
+monad_testnet = "https://testnet-rpc.monad.xyz"
+monad = "https://rpc.monad.xyz"
+
+# Contract verification. MonadVision verifies through Sourcify and needs no
+# key — pass the flags on the command line (deploy.sh does):
+#
+#   --verify --verifier sourcify --verifier-url https://sourcify-api-monad.blockvision.org/
+#
+# Monadscan verifies through the Etherscan v2 API (one key for every chain,
+# the chain picked by id). To use it instead, uncomment and set the key, then
+# pass `--verify --verifier etherscan`:
+#
+# [etherscan]
+# monad_testnet = { key = "${ETHERSCAN_API_KEY}", chain = 10143 }
+# monad = { key = "${ETHERSCAN_API_KEY}", chain = 143 }
+
+[fmt]
+line_length = 110
+
+# forge-lint only understands 0.8 ASTs; the 0.5.16 shim just imports v2-core.
+[lint]
+ignore = ["src/vendor/UniswapV2Core.sol"]

@@ -1,0 +1,9 @@
+# Build output
+cache/
+out/
+
+# Rehearsals, never records of a real deployment: forge's simulation logs, a
+# local anvil's broadcasts, and Deploy.s.sol's dry-run output.
+broadcast/*/dry-run/
+broadcast/*/31337/
+deployments/*.dry-run.json
