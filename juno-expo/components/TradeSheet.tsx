@@ -622,6 +622,29 @@ export function TradeSheet({
               {quoting ? "Quoting against the curve…" : receiving ? `You'll receive ${receiving}` : " "}
             </Receive>
 
+            {/* A buy bigger than what is left on the curve fills it and gets
+                the rest back in the same transaction. Said before signing,
+                with the exact size, rather than discovered on the receipt. */}
+            {side === "buy" && quote && !quoting && quote.quote.amountUsed < value * (1 - 1e-9) ? (
+              <FillNote>
+                <HintText>
+                  {`This fills the curve: it uses ${tokens(quote.quote.amountUsed)} ${coin.quote.symbol} and refunds the rest in the same transaction.`}
+                </HintText>
+                <LinkTap
+                  onPress={() =>
+                    // A hair over what is left, so fee decay between now and
+                    // the block cannot leave the last range unfilled; the
+                    // excess is refunded.
+                    setAmount(trimTrailingZeros(quote.quote.amountUsed * 1.0005 + 1e-6))
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="Buy only what's left on the curve"
+                >
+                  <LinkText>Buy only what's left</LinkText>
+                </LinkTap>
+              </FillNote>
+            ) : null}
+
             {/* The announcement. Optional, and never the default — a trade is
                 not a post unless you say so. */}
             <Note>
@@ -708,8 +731,20 @@ export function TradeSheet({
  * than any curve quote needs and still exact enough that the dollar figure
  * beside it rounds to the preset.
  */
+/**
+ * A size for the input field, to six significant digits — rounded *down*.
+ *
+ * `toPrecision` rounds to nearest, and a spend amount rounded up can exceed
+ * the balance it was computed from: Max on 999,999.9 MON became 1,000,000 and
+ * the sheet then refused it for not leaving gas. An amount the app proposes
+ * must never be more than the person has.
+ */
 function trimTrailingZeros(value: number): string {
-  return String(Number(value.toPrecision(6)));
+  if (!(value > 0) || !Number.isFinite(value)) return "0";
+  const magnitude = Math.floor(Math.log10(value));
+  const factor = 10 ** (5 - magnitude);
+  const floored = Math.floor(value * factor) / factor;
+  return String(Number(floored.toPrecision(6)));
 }
 
 function Info() {
@@ -727,6 +762,15 @@ const HintText = styled.Text`
   line-height: 19px;
   color: ${(p) => p.theme.colors.muted};
   text-align: center;
+`;
+
+const FillNote = styled.View`
+  align-items: center;
+  gap: 2px;
+  padding: ${(p) => p.theme.space(2)}px ${(p) => p.theme.space(3)}px;
+  margin-top: ${(p) => p.theme.space(1)}px;
+  border-radius: ${(p) => p.theme.radius.md}px;
+  background-color: ${(p) => p.theme.colors.limeSoft};
 `;
 
 const HintLink = styled.Text`
