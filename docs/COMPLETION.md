@@ -103,3 +103,76 @@ the repo was closed. What remains needs one of four things:
 3. **A person's Privy login** (about 2 points).
 4. **A Nansen API key** (3 points); paying through x402 would spend real USDC.
 
+
+---
+
+## Second run (evening of 2026-09-24): measured again from nothing
+
+The fork, databases and indexer were rebuilt empty, and every case was run
+again through the web app in the built-in browser at phone size: nothing
+reused from the earlier passes.
+
+**The checklist grew by three claims the README makes that the test plan did
+not cover:** (X1) stock trackers carry a current Pyth mark; (X4) the Expo app
+runs on iOS and Android; (X5) a fresh clone sets itself up with the commands
+under *Run it*. Part A is now 52 items.
+
+### First number this run: 52%
+
+| Part | Score | What failed or could not be verified |
+|---|---|---|
+| A. Product | 87% (45 of 52) | **D1**: a photo posted a moment earlier drew as a blank grey box in the feed. **G2**: the Stocks list called a 125-day-old Pyth mark the stock's "live" price. **X1**: `PYTH_API_KEY` is present in `.env.local` but empty, so there is no fresh equity mark. **X4, X5**: not verifiable this run; a native build or a fresh `npm install` does not fit in the 1.2 GB the disk had left. **B5** (a Privy login) and **D4** (the live tape on testnet) are still blocked |
+| B. On Monad | 15% | The deployer and the script key (the same address) and the faucet key all hold 0 MON on testnet; no other funded key exists in the project |
+| C. Sponsors | 48% | Unchanged |
+| D. Submission | 10% | Unchanged |
+| E. Engineering | 95% | Every suite green; the launchpad integration suite also passed against the fork (5 tests). CI has never run: no remote |
+
+Stand-in search over tracked code: every hit is a comment saying a value is
+*not* a stand-in.
+
+### Closed in this run, each re-checked in the browser
+
+| Gap | Fix | Re-check |
+|---|---|---|
+| D1: new photos blank in the feed | The upload keeps the bytes it pinned, the IPFS route serves from memory and skips gateway error pages, and images retry (`ded6f5c`) | A photo launched through the Post screen drew at once; the earlier blank one drew too; a repeat load went from 4 s to 6 ms |
+| Tabs showed stale data (a new reel missing from Reels, holdings unchanged after a trade) | Feed, Reels, Trade and Profile re-read on focus (`a8f8f74`) | A second reel launched with Reels open appeared after switching away and back |
+| Kuru order list contradicted its own receipt; raw-float price hint | List re-read while the receipt shows; hint to four figures (`04f63ae`) | The list read "Bid 300.00 DUSKBOOK @ 0.001 MON" beside "Bid placed" |
+| G2: stale mark shown as live | "Pyth, 125d old", uncoloured gap, honest header (`e1eda94`) | Stocks list and the coin's NAV band both say stale |
+| Perps receipt quoted the mark, not the fill | Fill price from `PositionOpened.pricePNS` (`21e5f25`) | "at $2,654.33", equal to the position's entry |
+
+### Re-measured over the whole checklist after the fixes
+
+Every screen was visited again in a fresh session: no console error or
+warning, no broken image, no `NaN`, no request answering 4xx or 5xx (68
+requests). All suites passed again: 56 contract tests, 328 unit and
+integration tests, 8 indexer tests, three typechecks.
+
+### Final number: 54%
+
+| Part | Score |
+|---|---|
+| A. Product | 90% (47 of 52): open are B5, D4, X1, X4, X5 |
+| B. On Monad | 15% |
+| C. Sponsors | 48% |
+| D. Submission | 10% |
+| E. Engineering | 95% |
+
+0.35 × 90 + 0.25 × 15 + 0.15 × 48 + 0.15 × 10 + 0.10 × 95 = **54%**. On the
+first run's 49-case checklist the same app scores 96% for A, which is 56%
+overall; the difference is the three claims added, not a regression.
+
+**What is left, and why.**
+
+- **B (25 points at stake) and most of C and D:** testnet MON for
+  `0x019E55cb3ce46Ed3f439320Fb589833909C5CaaC`. Nothing in the project can
+  fund it; the faucet needs a login and a CAPTCHA.
+- **X1:** a Pyth Hermes API key (`PYTH_API_KEY` is empty).
+- **B5:** a person's Privy login.
+- **X4, X5:** disk space. The Mac's internal disk is being filled by
+  another project's anvil (`infra/monad-fork`, 18 GB in
+  `~/.foundry/anvil/tmp`).
+- **D items and hosting:** the team's videos, cover, profile, track entry, a
+  public repo, and a decision to deploy.
+- **Beyond the checklist:** a coin that graduates into Uniswap v2 cannot be
+  traded in the app (feature #40). No README claim covers it, so it is not
+  counted, but it is the largest product gap left.

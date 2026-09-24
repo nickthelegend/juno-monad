@@ -244,3 +244,14 @@ write its output. The cause was anvil: with one-second blocks and no
 `--prune-history`, it writes old fork states to a temp directory. Stopping it
 returned about 5.8 GB. It now runs with `--prune-history 300` (states in
 memory only), and the fork was rebuilt.
+
+### Third pass (evening of 2026-09-24): the whole plan from an empty fork
+
+Every case was run again through the Post screen, trade sheet, Kuru card,
+Perps tab and profile, on data created in this pass. Results: all cases pass
+except **B5** (needs a person) and **D4** (needs real testnet). Found and
+fixed on the way: D1 (fresh photos blank), stale tab data, the Kuru order
+list lagging its receipt, G2 (a stale Pyth mark shown as live), and the
+perps receipt quoting the mark instead of the fill. Details and commits in
+[`COMPLETION.md`](COMPLETION.md).
+
