@@ -28,12 +28,18 @@ function amountMon(): number {
 /**
  * Monad's reserve balance.
  *
- * An account that sends value must keep this much MON behind, or the transfer
- * can be dropped or revert — the chain holds it back so that transactions it
- * has already accepted can still pay for their gas when they execute. The
- * faucet refuses to dip into it rather than find out the hard way.
+ * A transaction that sends value and leaves its sender below 10 MON reverts —
+ * and still pays its gas — *unless* the sender sent nothing in the previous
+ * three blocks and has never delegated its code (EIP-7702). The faucet key is
+ * a plain account and its sends are serialised, so it may spend below the
+ * reserve as long as its sends are three blocks apart: when a send would dip
+ * into it, the faucet first waits out the spacing rather than send a transfer
+ * the chain would revert.
  */
 const RESERVE_WEI = parseEther("10");
+
+/** The block the faucet's last transfer landed in, for the spacing above. */
+let lastSentBlock: bigint | null = null;
 
 /** A plain value transfer. Fixed by the protocol. */
 const TRANSFER_GAS = 21_000n;
@@ -47,7 +53,7 @@ const TRANSFER_GAS = 21_000n;
  * into a "not enough MON" refusal on their first buy.
  */
 const SETTLE_BLOCKS = 3n;
-/** Blocks are about 400 ms; three of them, with room for a slow one. */
+/** Blocks are about 300 ms; three of them, with room for a slow one. */
 const SETTLE_BUDGET_MS = 4_000;
 const SETTLE_POLL_MS = 300;
 
@@ -175,15 +181,15 @@ export async function POST(request: Request) {
         client.estimateFeesPerGas(),
       ]);
 
-      // What this send costs the faucet, and what it must still hold after.
-      const needed = value + RESERVE_WEI + TRANSFER_GAS * fees.maxFeePerGas;
+      // What this send costs the faucet.
+      const needed = value + TRANSFER_GAS * fees.maxFeePerGas;
       if (balance < needed) {
         return junoJson(
           {
             error:
               balance === 0n
                 ? `Juno's faucet is empty. Get testnet MON at ${PUBLIC_FAUCET} with your address, then pull to refresh.`
-                : `Juno's faucet is running low — it has to keep Monad's 10 MON reserve. Get testnet MON at ${PUBLIC_FAUCET} with your address, then pull to refresh.`,
+                : `Juno's faucet is running low. Get testnet MON at ${PUBLIC_FAUCET} with your address, then pull to refresh.`,
             faucetUrl: PUBLIC_FAUCET,
             // So an operator reading the response knows what to fund.
             faucetAddress: account.address,
@@ -191,6 +197,26 @@ export async function POST(request: Request) {
           },
           { status: 503 },
         );
+      }
+
+      // Below the reserve after this send: only allowed three blocks clear of
+      // the last one. Serialised, the previous request already waited, so this
+      // is normally instant; a slow head gets a short wait, then a refusal
+      // rather than a transfer that would revert.
+      if (balance - needed < RESERVE_WEI && lastSentBlock !== null) {
+        const clearAt = lastSentBlock + SETTLE_BLOCKS;
+        const until = Date.now() + SETTLE_BUDGET_MS;
+        let head = await client.getBlockNumber({ cacheTime: 0 }).catch(() => null);
+        while ((head === null || head < clearAt) && Date.now() < until) {
+          await new Promise((resolve) => setTimeout(resolve, SETTLE_POLL_MS));
+          head = await client.getBlockNumber({ cacheTime: 0 }).catch(() => null);
+        }
+        if (head === null || head < clearAt) {
+          return junoJson(
+            { error: "The faucet is busy — try again in a second.", faucetUrl: PUBLIC_FAUCET },
+            { status: 503, headers: { "Retry-After": "1" } },
+          );
+        }
       }
 
       const walletClient = createWalletClient({
@@ -245,6 +271,7 @@ export async function POST(request: Request) {
        * better than holding the request — the worst case is one retry of the
        * person's first transaction, which the app already explains.
        */
+      lastSentBlock = receipt.blockNumber;
       const spendableAt = receipt.blockNumber + SETTLE_BLOCKS;
       const deadline = Date.now() + SETTLE_BUDGET_MS;
       while (Date.now() < deadline) {
