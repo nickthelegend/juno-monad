@@ -19,6 +19,7 @@ const contracts = [
   // Kuru's own contracts, as far as Juno uses them (src/interfaces/IKuru.sol).
   ["kuruOrderBookAbi", "IKuru.sol/IKuruOrderBook.json"],
   ["kuruRouterAbi", "IKuru.sol/IKuruRouter.json"],
+  ["kuruMarginAccountAbi", "IKuru.sol/IKuruMarginAccount.json"],
 ];
 
 let body = `/**

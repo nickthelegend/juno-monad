@@ -336,3 +336,30 @@ type KuruTrade @index(fields: ["token", "blockNumber", "logIndex"]) @index(field
   filledSizeRaw: BigInt!
   priceRaw: BigInt!
 }
+
+"""
+A limit order resting on a graduated coin's Kuru book. Its `remaining` size
+follows every fill (Kuru's `Trade.updatedSize`) until it is filled or cancelled.
+Fills credit the owner's Kuru MarginAccount, not their wallet.
+"""
+type KuruOrder @index(fields: ["owner", "status"]) {
+  "`${market}-${orderId}`"
+  id: ID!
+  market: KuruMarket!
+  token: String! @index
+  owner: String! @index
+  orderId: BigInt!
+  isBuy: Boolean!
+  "MON per token."
+  price: BigDecimal!
+  priceRaw: BigInt!
+  "Tokens, as placed."
+  size: BigDecimal!
+  "Tokens not yet filled."
+  remaining: BigDecimal!
+  "open, filled or cancelled."
+  status: String! @index
+  createdAt: BigInt!
+  createdTx: String!
+  updatedAt: BigInt!
+}

@@ -63,7 +63,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 28 | Verified X handle on profiles through Privy | S | 4 | 5 | 5 | 100 | BUILT, login unverified | `lib/juno/privy.ts`, `POST profiles/privy` (401 on a bad token verified) |
 | 29 | Comments, likes, follows, saved posts | F | 4 | 5 | 4 | 80 | BUILT | Mongo-backed routes |
 | 30 | Graduation moment: a sheet that shows the market opening | D | 4 | 4 | 5 | 80 | NOT BUILT | today a pill and a link |
-| 31 | Limit orders on Kuru-graduated coins | S | 4 | 4 | 5 | 80 | NOT BUILT | `addBuyOrder`/`addSellOrder` from the MarginAccount balance |
+| 31 | Limit orders on Kuru-graduated coins | S | 4 | 4 | 5 | 80 | BUILT | `lib/juno/kuru.ts` `buildKuruLimitOrder`, `components/KuruOrders.tsx`; placed, filled, cancelled and withdrawn through the API and the web app (fork) |
 | 32 | Creator first buy in the launch screen | F | 3 | 5 | 5 | 75 | PARTIAL | the API and CLI support `firstBuy`; the screen does not offer it |
 | 33 | Curve builder ↔ contract parity fixtures | P | 3 | 5 | 5 | 75 | BUILT | `test/PresetParity.t.sol` |
 | 34 | Kuru bid/ask/spread on the coin page | D | 3 | 5 | 5 | 75 | BUILT | coin page graduated block |

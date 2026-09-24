@@ -67,6 +67,15 @@ const signed = await account.signTransaction({
 | `POST tx/submit` | `{ signed: "0x…" }` | `{ hash, blockNumber, from, trades, launched?: { token, pair, creator }, graduated?: { token, venue }, completed?: [token] }` |
 | `GET tx/balance` | `?wallet=&token=` | `{ wallet, token, symbol, decimals, balance }` — `balance` is null when the read failed |
 
+### Kuru (coins that graduated into Kuru)
+
+| Route | Body / query | Answer |
+|---|---|---|
+| `POST kuru/order` | `{ token, owner, side, price, amount }` — `price` MON per token, `amount` tokens | `{ steps, market, price, amount, locks: { asset, amount } }` — deposits any shortfall into Kuru's MarginAccount (approving first for a sell), then places the order; the price is snapped to the tick, never worse |
+| `GET kuru/orders` | `?token=&owner=` | `{ market, orders: [{ orderId, isBuy, price, size, remaining }] \| null, balances: { mon, tokens } }` — orders named by the indexer and read from the book; `orders` null without an indexer |
+| `POST kuru/cancel` | `{ token, owner, orderIds }` | `{ steps }` — what the orders locked returns to the MarginAccount |
+| `POST kuru/withdraw` | `{ token, owner }` | `{ steps }` — moves the wallet's MON and coin out of the MarginAccount |
+
 `window.deadline` is unix seconds. A swap signed after it reverts on-chain with
 `Expired`, so the app re-quotes rather than submitting a stale build.
 

@@ -385,6 +385,94 @@ describe("The Kuru venue", () => {
   });
 });
 
+describe("Kuru limit orders", () => {
+  const KURU_GRADUATOR = "0x2222222222222222222222222222222222222222" as const;
+  const MARKET = "0x672BceFaE26e8B6699615e507E22902e74c05c97" as const;
+
+  it("follows an order from resting to filled, and a cancel", async (t) => {
+    const indexer = createTestIndexer();
+    const at = (block: number) => ({ number: block, timestamp: 1_758_700_000 + block });
+    await indexer.process({
+      chains: {
+        [TESTNET]: {
+          simulate: [
+            launched(tokenA, NATIVE, 400),
+            {
+              contract: "KuruGraduator",
+              event: "KuruMarketOpened",
+              srcAddress: KURU_GRADUATOR,
+              logIndex: 1,
+              block: at(401),
+              transaction: { hash: tx(401) },
+              params: { token: tokenA, market: MARKET, vault: MARKET, pricePrecision: 1_000_000n },
+            },
+            // Bob bids for 1,000 tokens at 0.000990 MON, and again for 500.
+            {
+              contract: "KuruMarket",
+              event: "OrderCreated",
+              srcAddress: MARKET,
+              logIndex: 0,
+              block: at(402),
+              transaction: { hash: tx(402) },
+              params: { orderId: 7n, owner: bob as `0x${string}`, size: 1_000_000_000n, price: 990n, isBuy: true },
+            },
+            {
+              contract: "KuruMarket",
+              event: "OrderCreated",
+              srcAddress: MARKET,
+              logIndex: 0,
+              block: at(403),
+              transaction: { hash: tx(403) },
+              params: { orderId: 8n, owner: bob as `0x${string}`, size: 500_000_000n, price: 980n, isBuy: true },
+            },
+            // Alice sells 400 into the first, then 600: it fills.
+            ...[
+              [404, 600_000_000n, 400_000_000n],
+              [405, 0n, 600_000_000n],
+            ].map(([block, updatedSize, filledSize]) => ({
+              contract: "KuruMarket" as const,
+              event: "Trade" as const,
+              srcAddress: MARKET,
+              logIndex: 0,
+              block: at(block as number),
+              transaction: { hash: tx(block as number) },
+              params: {
+                orderId: 7n,
+                makerAddress: bob as `0x${string}`,
+                isBuy: false,
+                price: 990_000_000_000_000n,
+                updatedSize: updatedSize as bigint,
+                takerAddress: alice as `0x${string}`,
+                txOrigin: alice as `0x${string}`,
+                filledSize: filledSize as bigint,
+              },
+            })),
+            {
+              contract: "KuruMarket",
+              event: "OrdersCanceled",
+              srcAddress: MARKET,
+              logIndex: 0,
+              block: at(406),
+              transaction: { hash: tx(406) },
+              params: { orderId: [8n], owner: bob as `0x${string}` },
+            },
+          ],
+        },
+      },
+    });
+
+    const filled = await indexer.KuruOrder.getOrThrow(`${MARKET}-7`);
+    t.expect([filled.status, filled.size.toString(), filled.remaining.toString(), filled.price.toString()]).toEqual([
+      "filled",
+      "1000",
+      "0",
+      "0.00099",
+    ]);
+    const cancelled = await indexer.KuruOrder.getOrThrow(`${MARKET}-8`);
+    t.expect([cancelled.status, cancelled.remaining.toString()]).toEqual(["cancelled", "500"]);
+  });
+});
+
 describe("math", () => {
   it("prices a trade and a curve in display units", (t) => {
     // 1 USDC for 3 tokens, kept to 30 significant digits.

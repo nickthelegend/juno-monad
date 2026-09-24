@@ -6,6 +6,7 @@ import {
   ZERO_ADDRESS,
   kuruFill,
   kuruTakerLeg,
+  ratio,
   sellAgainstBasis,
   splitFee,
   spotPrice,
@@ -462,7 +463,7 @@ indexer.onEvent({ contract: "KuruGraduator", event: "KuruMarketOpened" }, async 
 // One fill. The taker is whoever sent the order — the trader's wallet for an
 // order placed on the market directly, which is how Juno places them.
 indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, async ({ event, context }) => {
-  const { orderId, makerAddress, isBuy, price, takerAddress, filledSize } = event.params;
+  const { orderId, makerAddress, isBuy, price, takerAddress, filledSize, updatedSize } = event.params;
   if (filledSize === 0n) return;
   const market = await context.KuruMarket.get(event.srcAddress);
   if (!market) return;
@@ -502,6 +503,20 @@ indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, async ({ event, cont
     lastTradeAt: at,
   });
 
+  // A fill against a resting limit order moves that order along.
+  if (orderId !== 0n) {
+    const order = await context.KuruOrder.get(`${market.id}-${orderId}`);
+    if (order) {
+      const remaining = ratio(updatedSize, market.pricePrecision);
+      context.KuruOrder.set({
+        ...order,
+        remaining,
+        status: updatedSize === 0n ? "filled" : "open",
+        updatedAt: at,
+      });
+    }
+  }
+
   // The same position the curve built, carried across the graduation. Kuru
   // takes its taker fee from what the order receives: tokens on a buy, MON on
   // a sell.
@@ -519,6 +534,41 @@ indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, async ({ event, cont
     at,
     block: BigInt(event.block.number),
   });
+});
+
+indexer.onEvent({ contract: "KuruMarket", event: "OrderCreated" }, async ({ event, context }) => {
+  const { orderId, owner, size, price, isBuy } = event.params;
+  const market = await context.KuruMarket.get(event.srcAddress);
+  if (!market) return;
+  const at = BigInt(event.block.timestamp);
+  // Juno's markets use one precision for price and size.
+  const tokens = ratio(size, market.pricePrecision);
+  context.KuruOrder.set({
+    id: `${market.id}-${orderId}`,
+    market_id: market.id,
+    token: market.token,
+    owner,
+    orderId: BigInt(orderId),
+    isBuy,
+    price: ratio(BigInt(price), market.pricePrecision),
+    priceRaw: BigInt(price),
+    size: tokens,
+    remaining: tokens,
+    status: "open",
+    createdAt: at,
+    createdTx: event.transaction.hash,
+    updatedAt: at,
+  });
+});
+
+indexer.onEvent({ contract: "KuruMarket", event: "OrdersCanceled" }, async ({ event, context }) => {
+  const at = BigInt(event.block.timestamp);
+  const orders = await Promise.all(
+    event.params.orderId.map((id) => context.KuruOrder.get(`${event.srcAddress}-${id}`)),
+  );
+  for (const order of orders) {
+    if (order && order.status === "open") context.KuruOrder.set({ ...order, status: "cancelled", updatedAt: at });
+  }
 });
 
 /* ------------------------------------------------------------------ */

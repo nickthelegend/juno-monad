@@ -88,6 +88,29 @@ interface IKuruOrderBook {
 
     function addSellOrder(uint32 price, uint96 size, bool postOnly) external;
 
+    function batchCancelOrders(uint40[] calldata orderIds) external;
+
+    /// @dev The id the most recent order was given.
+    function s_orderIdCounter() external view returns (uint40);
+
+    /// @dev A resting order; `size` is what is left of it.
+    function s_orders(uint40 orderId)
+        external
+        view
+        returns (
+            address owner,
+            uint96 size,
+            uint40 prev,
+            uint40 next,
+            uint40 flippedId,
+            uint32 price,
+            uint32 flippedPrice,
+            bool isBuy
+        );
+
+    event OrderCreated(uint40 orderId, address owner, uint96 size, uint32 price, bool isBuy);
+    event OrdersCanceled(uint40[] orderId, address owner);
+
     /// @dev Best bid and best ask, 1e18-scaled.
     function bestBidAsk() external view returns (uint256, uint256);
 
@@ -119,6 +142,8 @@ interface IKuruMarginAccount {
     function deposit(address user, address token, uint256 amount) external payable;
 
     function withdraw(uint256 amount, address token) external;
+
+    function batchWithdrawMaxTokens(address[] calldata tokens) external;
 
     function getBalance(address user, address token) external view returns (uint256);
 }

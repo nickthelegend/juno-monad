@@ -18,6 +18,7 @@ import {
   WatchToggle,
   type SavedState,
 } from "../../components/Save";
+import { KuruOrdersCard } from "../../components/KuruOrders";
 import { TradeSheet } from "../../components/TradeSheet";
 import {
   Body,
@@ -447,6 +448,7 @@ export default function CoinScreen() {
                       <ExternalGlyph />
                     </LinkTap>
                   ) : null}
+                  {onKuru ? <KuruOrdersCard coin={coin} onChanged={() => detail.refresh()} /> : null}
                 </Col>
               ) : coin.curve.complete ? (
                 <Col gap={6} style={{ marginTop: 16 }}>

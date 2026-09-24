@@ -289,3 +289,14 @@ export async function envioStatus(): Promise<IndexerStatus | null> {
     ready: row.isReady,
   };
 }
+
+/** Order ids a wallet has placed on a coin's Kuru market that the indexer still has as open. */
+export async function envioKuruOrderIds(owner: string, token: string): Promise<bigint[]> {
+  const data = await query<{ KuruOrder: Array<{ orderId: string }> }>(
+    `query Orders($owner: String!, $token: String!) {
+      KuruOrder(where: { owner: { _eq: $owner }, token: { _eq: $token }, status: { _eq: "open" } }, order_by: { orderId: desc }, limit: 100) { orderId }
+    }`,
+    { owner: getAddress(owner), token: getAddress(token) },
+  );
+  return data.KuruOrder.map((row) => BigInt(row.orderId));
+}

@@ -69,6 +69,11 @@ contracts:
       - event: "Trade(uint40 orderId, address makerAddress, bool isBuy, uint256 price, uint96 updatedSize, address takerAddress, address txOrigin, uint96 filledSize)"
         field_selection:
           transaction_fields: [hash]
+      # Limit orders people rest on a graduated coin's book, and their cancels.
+      - event: "OrderCreated(uint40 orderId, address owner, uint96 size, uint32 price, bool isBuy)"
+        field_selection:
+          transaction_fields: [hash]
+      - event: "OrdersCanceled(uint40[] orderId, address owner)"
 
 chains:
   # Monad testnet. HyperSync: https://monad-testnet.hypersync.xyz

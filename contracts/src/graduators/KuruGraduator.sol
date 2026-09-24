@@ -157,11 +157,17 @@ contract KuruGraduator is IJunoGraduator {
 
     /// @notice The market parameters for a graduation at `quoteAmount / baseAmount`.
     /// @dev Kuru prices are uint32 in `pricePrecision` units, and precisions must
-    /// be powers of ten. This follows Kuru's own SDK (`calculatePrecisions`):
-    /// the precision is the smallest that makes a 1% tick at least one unit —
-    /// three significant digits on the graduation price, at most 1e9 — and
-    /// sizes use the same precision. The minimum order is the round number of
-    /// tokens worth about 0.001 MON; the maximum is the SDK's uint32 bound.
+    /// be powers of ten. The precision follows Kuru's own SDK
+    /// (`calculatePrecisions`): the smallest that puts three significant digits
+    /// on the graduation price (at most 1e9), and sizes use the same precision.
+    /// The minimum order is the round number of tokens worth about 0.001 MON;
+    /// the maximum is the SDK's uint32 bound.
+    ///
+    /// The tick is one unit of price — 0.1% to 1% of the graduation price —
+    /// rather than the SDK example's 1%. The vault quotes a 1% spread, so with
+    /// a 1% tick its bid and ask sit one tick apart and a resting order can
+    /// only queue behind one of them; a finer tick lets people bid and offer
+    /// inside the vault's spread, which is what makes the book a book.
     ///
     /// Prices are capped at (2^32 - 1) / pricePrecision, so three digits leave
     /// ~4,000,000x of headroom above the graduation price. `maxSize` bounds a
@@ -184,8 +190,7 @@ contract KuruGraduator is IJunoGraduator {
         if (priceInt < 10 || priceInt > type(uint32).max / 1_000) revert PriceOutOfRange(priceWad);
 
         m.pricePrecision = uint32(precision);
-        uint256 tick = priceInt / 100;
-        m.tickSize = uint32(tick == 0 ? 1 : tick);
+        m.tickSize = 1;
         m.sizePrecision = uint96(precision);
 
         // Tokens worth ~0.001 MON, rounded down to a power of ten, at least one.

@@ -204,6 +204,9 @@ export type ChainConfig = {
   venues?: Array<{ id: Venue; name: string; quotes: string[] }>;
 };
 
+/** A limit order resting on a Kuru book, as the book holds it now. */
+export type KuruOrder = { orderId: string; isBuy: boolean; price: number; size: number; remaining: number };
+
 /** Where a curve graduates: a Uniswap v2 pair, or a Kuru order-book market. */
 export type Venue = "uniswap-v2" | "kuru";
 
@@ -1055,6 +1058,33 @@ export const juno = {
   /** Pay the creator the trading fees their coin has accrued. Creator only. */
   claim: (input: { creator: string; token: string }) =>
     api.post<{ steps: UnsignedTransaction[] }>("/api/juno/tx/claim", input),
+
+  /**
+   * A limit order on a Kuru-graduated coin's book. `price` is MON per token,
+   * `amount` tokens. The server snaps the price to the market's tick (never
+   * worse) and deposits any shortfall into Kuru's MarginAccount first.
+   */
+  kuruOrder: (input: { token: string; owner: string; side: "buy" | "sell"; price: number; amount: number }) =>
+    api.post<{
+      steps: UnsignedTransaction[];
+      market: string;
+      price: number;
+      amount: number;
+      locks: { asset: "MON" | "token"; amount: number };
+    }>("/api/juno/kuru/order", input),
+
+  /** Open orders on a coin's Kuru market, and what Kuru holds for the wallet. `orders` null: no indexer to ask. */
+  kuruOrders: (token: string, owner: string) =>
+    api.get<{ market: string; orders: KuruOrder[] | null; balances: { mon: number; tokens: number } }>(
+      `/api/juno/kuru/orders?token=${token}&owner=${owner}`,
+    ),
+
+  kuruCancel: (input: { token: string; owner: string; orderIds: string[] }) =>
+    api.post<{ steps: UnsignedTransaction[] }>("/api/juno/kuru/cancel", input),
+
+  /** Move fills and unused change from Kuru's MarginAccount back to the wallet. */
+  kuruWithdraw: (input: { token: string; owner: string }) =>
+    api.post<{ steps: UnsignedTransaction[] }>("/api/juno/kuru/withdraw", input),
 
   /** Move a filled curve into its venue — a Uniswap v2 pair or a Kuru market. Anyone may send it. */
   graduate: (input: { from: string; token: string }) =>

@@ -6,6 +6,7 @@ import {
   getAddress,
   keccak256,
   isAddress,
+  parseAbi,
   parseEventLogs,
   parseTransaction,
   recoverTransactionAddress,
@@ -15,7 +16,7 @@ import {
   type TransactionReceipt,
 } from "viem";
 
-import { junoLaunchpadAbi, junoTokenAbi, kuruOrderBookAbi } from "./abi";
+import { junoLaunchpadAbi, junoTokenAbi, kuruGraduatorAbi, kuruOrderBookAbi } from "./abi";
 import { CallerError } from "./api";
 import { publicClient } from "./client";
 import { CURVE_PRESETS } from "./curves";
@@ -39,7 +40,17 @@ import {
   type ContractCall,
   type TradeQuote,
 } from "./launchpad";
-import { KuruOrderTooSmall, buildKuruOrder, kuruMarketOf, kuruTokenOf, quoteKuruTrade } from "./kuru";
+import {
+  KuruOrderRejected,
+  KuruOrderTooSmall,
+  buildKuruCancel,
+  buildKuruLimitOrder,
+  buildKuruOrder,
+  buildKuruWithdraw,
+  kuruMarketOf,
+  kuruTokenOf,
+  quoteKuruTrade,
+} from "./kuru";
 import { chainId, launchpadAddress, requireLaunchpad } from "./network";
 import { quoteTokenUsdPrice } from "./pyth";
 import { withRetry } from "./rpc";
@@ -680,6 +691,30 @@ export function explainFailure(error: unknown): string {
       return "That amount is too small to trade.";
     case "PairLocked":
       return "Tokens cannot be sent to the AMM pair until the coin graduates.";
+    case "GraduatorNotAllowed":
+      return "That venue is not offered on this launchpad.";
+    // Kuru, for a coin trading on its Kuru market.
+    case "TransferFromFailed":
+      return "Kuru could not take the tokens: this wallet does not hold enough of them.";
+    case "SlippageExceeded":
+      return "The book moved past your slippage while this was being signed. Try again for a fresh quote.";
+    case "SizeError":
+    case "Uint96Overflow":
+      return "That size is outside what this Kuru market allows.";
+    case "PriceError":
+    case "TickSizeError":
+      return "That price is not on this Kuru market's price grid.";
+    case "PostOnlyError":
+      return "That order would have filled at once, and it was set to only rest on the book.";
+    case "InsufficientBalance":
+      return "Kuru's MarginAccount does not hold enough for this order.";
+    case "OrderAlreadyFilledOrCancelled":
+      return "That order is already filled or cancelled.";
+    case "NativeAssetInsufficient":
+    case "NativeAssetMismatch":
+      return "The MON sent did not match the order. Try again for a fresh quote.";
+    case "ProtocolPaused":
+      return "Kuru has paused trading on this market.";
     default:
       break;
   }
@@ -709,8 +744,31 @@ export function explainFailure(error: unknown): string {
     : "The network refused this transaction.";
 }
 
+/**
+ * Kuru's errors a Juno transaction can meet on a graduated coin's market —
+ * the OrderBook's and MarginAccount's, and Solady's `TransferFromFailed`,
+ * which Kuru uses to pull tokens.
+ */
+const KURU_ERRORS = parseAbi([
+  "error TransferFromFailed()",
+  "error SlippageExceeded()",
+  "error SizeError()",
+  "error Uint96Overflow()",
+  "error PriceError()",
+  "error TickSizeError()",
+  "error PostOnlyError()",
+  "error InsufficientBalance()",
+  "error OrderAlreadyFilledOrCancelled()",
+  "error NativeAssetInsufficient()",
+  "error NativeAssetMismatch()",
+  "error ProtocolPaused()",
+  "error InsufficientLiquidity()",
+]);
+
 /** Every custom error a Juno transaction can revert with. */
-const JUNO_ERRORS = [...junoLaunchpadAbi, ...junoTokenAbi].filter((item) => item.type === "error");
+const JUNO_ERRORS = [...junoLaunchpadAbi, ...junoTokenAbi, ...kuruGraduatorAbi, ...KURU_ERRORS].filter(
+  (item) => item.type === "error",
+);
 
 /**
  * The custom error name buried in a viem error, if there is one.
@@ -744,4 +802,53 @@ function decodeLaunchpadError(error: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Kuru limit orders                                                   */
+/* ------------------------------------------------------------------ */
+
+/** The Kuru market of a coin that graduated there, or a sentence saying why not. */
+async function requireKuruMarket(token: string): Promise<{ token: Address; market: Address }> {
+  const snapshot = await fetchPoolSnapshot(token);
+  if (!snapshot) throw new CallerError("This coin has no pool on this network");
+  if (snapshot.venue !== "kuru") throw new CallerError("This coin does not graduate into Kuru");
+  if (!snapshot.curve.graduated) throw new CallerError("Limit orders open once the coin graduates into its Kuru market");
+  const market = await kuruMarketOf(snapshot.token);
+  if (!market) throw new CallerError("This coin's Kuru market could not be found");
+  return { token: snapshot.token, market };
+}
+
+export async function buildKuruLimit(request: {
+  token: string;
+  owner: string;
+  side: TradeSide;
+  price: number;
+  amount: number;
+}): Promise<{ steps: UnsignedTransaction[]; market: Address; price: number; amount: number; locks: { asset: "MON" | "token"; amount: number } }> {
+  if (!(request.price > 0) || !(request.amount > 0)) throw new CallerError("Price and amount must be greater than zero");
+  const owner = requireWallet(request.owner, "owner");
+  const { token, market } = await requireKuruMarket(request.token);
+  const order = await buildKuruLimitOrder({ market, token, owner, side: request.side, price: request.price, amount: request.amount }).catch(
+    (error: unknown) => {
+      if (error instanceof KuruOrderRejected) throw new CallerError(error.message);
+      throw error;
+    },
+  );
+  return { steps: await prepare(owner, order.calls), market, price: order.price, amount: order.amount, locks: order.locks };
+}
+
+export async function buildKuruCancelOrders(request: { token: string; owner: string; orderIds: string[] }): Promise<UnsignedTransaction[]> {
+  const owner = requireWallet(request.owner, "owner");
+  if (request.orderIds.length === 0 || request.orderIds.some((id) => !/^\d+$/.test(id))) {
+    throw new CallerError("orderIds must be a list of order ids");
+  }
+  const { market } = await requireKuruMarket(request.token);
+  return prepare(owner, [buildKuruCancel(market, request.orderIds.map((id) => BigInt(id)))]);
+}
+
+export async function buildKuruWithdrawAll(request: { token: string; owner: string }): Promise<UnsignedTransaction[]> {
+  const owner = requireWallet(request.owner, "owner");
+  const { token } = await requireKuruMarket(request.token);
+  return prepare(owner, [await buildKuruWithdraw(token)]);
 }

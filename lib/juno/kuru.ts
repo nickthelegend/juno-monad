@@ -5,7 +5,7 @@ import {
   type Address,
 } from "viem";
 
-import { junoTokenAbi, kuruGraduatorAbi, kuruOrderBookAbi } from "./abi";
+import { junoTokenAbi, kuruGraduatorAbi, kuruMarginAccountAbi, kuruOrderBookAbi } from "./abi";
 import { publicClient } from "./client";
 import {
   InsufficientLiquidityError,
@@ -283,4 +283,232 @@ export async function buildKuruOrder(params: {
     label: "Selling on Kuru",
   });
   return calls;
+}
+
+/* ------------------------------------------------------------------ */
+/* Limit orders                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Kuru's MarginAccount on this network: where limit orders are paid from and
+ * where their fills land. The graduator was built with it.
+ */
+async function marginAccountAddress(): Promise<Address> {
+  const graduator = kuruGraduatorAddress();
+  if (!graduator) throw new Error("Kuru is not configured on this server");
+  return withRetry(() =>
+    publicClient().readContract({ address: graduator, abi: kuruGraduatorAbi, functionName: "marginAccount" }),
+  );
+}
+
+export type KuruBalances = {
+  /** MON and tokens held for this wallet in Kuru's MarginAccount, UI units. */
+  mon: number;
+  tokens: number;
+};
+
+/** What a wallet holds in Kuru's MarginAccount: unfilled orders' change, and every fill. */
+export async function kuruBalances(owner: Address, token: Address): Promise<KuruBalances> {
+  const margin = await marginAccountAddress();
+  const [mon, tokens] = await Promise.all(
+    [zeroAddress, token].map((asset) =>
+      withRetry(() =>
+        publicClient().readContract({
+          address: margin,
+          abi: kuruMarginAccountAbi,
+          functionName: "getBalance",
+          args: [owner, asset],
+        }),
+      ),
+    ),
+  );
+  return { mon: weiToUi(mon, 18), tokens: weiToUi(tokens, 18) };
+}
+
+export class KuruOrderRejected extends Error {}
+
+/**
+ * A limit order on a coin's Kuru book, paid from the MarginAccount.
+ *
+ * A buy locks MON, a sell locks tokens; whatever the MarginAccount already
+ * holds for the wallet is used first, and only the shortfall is deposited —
+ * with an approval first for tokens. The price is snapped to the market's
+ * tick, down for a buy and up for a sell, so the order is never worse than
+ * asked. It is not post-only: a price that crosses the book fills at once at
+ * the book's better prices, and the rest rests.
+ */
+export async function buildKuruLimitOrder(params: {
+  market: Address;
+  token: Address;
+  owner: Address;
+  side: TradeSide;
+  /** MON per token. */
+  price: number;
+  /** Tokens. */
+  amount: number;
+}): Promise<{ calls: ContractCall[]; price: number; amount: number; locks: { asset: "MON" | "token"; amount: number } }> {
+  const { market, token, owner, side } = params;
+  const { pricePrecision, sizePrecision, tickSize, minSize, maxSize } = await kuruMarketParams(market);
+
+  const exact = params.price * Number(pricePrecision);
+  const ticks = side === "buy" ? Math.floor(exact / tickSize) : Math.ceil(exact / tickSize);
+  const priceInt = BigInt(ticks * tickSize);
+  if (priceInt <= 0n || priceInt > 0xffffffffn) throw new KuruOrderRejected("That price is outside what this market can quote");
+
+  const size = uiToWei(params.amount, decimalsOf(sizePrecision));
+  if (size < minSize) {
+    throw new KuruOrderRejected(`The smallest order here is ${weiToUi(minSize, decimalsOf(sizePrecision))} tokens`);
+  }
+  if (size > maxSize) {
+    throw new KuruOrderRejected(`The largest single order here is ${weiToUi(maxSize, decimalsOf(sizePrecision))} tokens`);
+  }
+
+  // What the order locks, rounded up so the MarginAccount never comes up short.
+  const lockWei =
+    side === "buy"
+      ? (size * priceInt * WAD + sizePrecision * pricePrecision - 1n) / (sizePrecision * pricePrecision)
+      : (size * WAD) / sizePrecision;
+
+  const margin = await marginAccountAddress();
+  const asset = side === "buy" ? zeroAddress : token;
+  const held = await withRetry(() =>
+    publicClient().readContract({ address: margin, abi: kuruMarginAccountAbi, functionName: "getBalance", args: [owner, asset] }),
+  );
+  const shortfall = lockWei > held ? lockWei - held : 0n;
+
+  // Only the shortfall comes from the wallet — check it is there, so the
+  // person hears why now rather than from a reverted deposit.
+  if (shortfall > 0n) {
+    const inWallet =
+      side === "buy"
+        ? await withRetry(() => publicClient().getBalance({ address: owner }))
+        : await withRetry(() =>
+            publicClient().readContract({ address: token, abi: junoTokenAbi, functionName: "balanceOf", args: [owner] }),
+          );
+    if (inWallet < shortfall) {
+      throw new KuruOrderRejected(
+        side === "buy"
+          ? `This order locks ${weiToUi(lockWei, 18)} MON and the wallet holds ${weiToUi(inWallet, 18)}.`
+          : `This order locks ${weiToUi(lockWei, 18)} tokens and the wallet holds ${weiToUi(inWallet, 18)}.`,
+      );
+    }
+  }
+
+  const calls: ContractCall[] = [];
+  if (shortfall > 0n && side === "sell") {
+    const allowance = await withRetry(() =>
+      publicClient().readContract({ address: token, abi: junoTokenAbi, functionName: "allowance", args: [owner, margin] }),
+    );
+    if (allowance < shortfall) {
+      calls.push({
+        to: token,
+        data: encodeFunctionData({ abi: junoTokenAbi, functionName: "approve", args: [margin, maxUint256] }),
+        value: 0n,
+        label: "Allowing Kuru to hold the coin",
+      });
+    }
+  }
+  if (shortfall > 0n) {
+    calls.push({
+      to: margin,
+      data: encodeFunctionData({ abi: kuruMarginAccountAbi, functionName: "deposit", args: [owner, asset, shortfall] }),
+      value: side === "buy" ? shortfall : 0n,
+      label: side === "buy" ? "Moving MON to Kuru" : "Moving the coin to Kuru",
+    });
+  }
+  calls.push({
+    to: market,
+    data: encodeFunctionData({
+      abi: kuruOrderBookAbi,
+      functionName: side === "buy" ? "addBuyOrder" : "addSellOrder",
+      args: [Number(priceInt), size, false],
+    }),
+    value: 0n,
+    label: side === "buy" ? "Placing your bid" : "Placing your offer",
+  });
+
+  return {
+    calls,
+    price: Number(priceInt) / Number(pricePrecision),
+    amount: weiToUi(size, decimalsOf(sizePrecision)),
+    locks: { asset: side === "buy" ? "MON" : "token", amount: weiToUi(lockWei, 18) },
+  };
+}
+
+/** Cancel resting orders; what they locked goes back to the MarginAccount. */
+export function buildKuruCancel(market: Address, orderIds: bigint[]): ContractCall {
+  return {
+    to: market,
+    data: encodeFunctionData({ abi: kuruOrderBookAbi, functionName: "batchCancelOrders", args: [orderIds.map(Number)] }),
+    value: 0n,
+    label: orderIds.length > 1 ? "Cancelling your orders" : "Cancelling your order",
+  };
+}
+
+/** Move everything the MarginAccount holds for this coin — fills and change — back to the wallet. */
+export async function buildKuruWithdraw(token: Address): Promise<ContractCall> {
+  const margin = await marginAccountAddress();
+  return {
+    to: margin,
+    data: encodeFunctionData({
+      abi: kuruMarginAccountAbi,
+      functionName: "batchWithdrawMaxTokens",
+      args: [[zeroAddress, token]],
+    }),
+    value: 0n,
+    label: "Withdrawing from Kuru",
+  };
+}
+
+export type KuruOpenOrder = {
+  orderId: string;
+  isBuy: boolean;
+  /** MON per token. */
+  price: number;
+  size: number;
+  remaining: number;
+};
+
+/**
+ * A wallet's resting orders on a market, checked against the book itself.
+ *
+ * `candidates` are order ids the indexer saw this wallet place; each is read
+ * from `s_orders` so what is shown is what the book holds right now — an
+ * order filled or cancelled a block ago is not listed.
+ */
+export async function kuruOpenOrders(market: Address, owner: Address, candidates: bigint[]): Promise<KuruOpenOrder[]> {
+  if (candidates.length === 0) return [];
+  const { pricePrecision, sizePrecision } = await kuruMarketParams(market);
+  const results = await publicClient().multicall({
+    contracts: candidates.map((id) => ({
+      address: market,
+      abi: kuruOrderBookAbi,
+      functionName: "s_orders" as const,
+      args: [Number(id)] as const,
+    })),
+    allowFailure: true,
+  });
+  const open: KuruOpenOrder[] = [];
+  results.forEach((result, index) => {
+    if (result.status !== "success") return;
+    const [orderOwner, size, , , , price, , isBuy] = result.result as readonly [
+      Address,
+      bigint,
+      number,
+      number,
+      number,
+      number,
+      number,
+      boolean,
+    ];
+    if (size === 0n || orderOwner.toLowerCase() !== owner.toLowerCase()) return;
+    open.push({
+      orderId: candidates[index].toString(),
+      isBuy,
+      price: Number(price) / Number(pricePrecision),
+      size: weiToUi(size, decimalsOf(sizePrecision)),
+      remaining: weiToUi(size, decimalsOf(sizePrecision)),
+    });
+  });
+  return open;
 }

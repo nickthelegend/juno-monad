@@ -15,11 +15,13 @@ contract KuruMarketParamsTest is Test {
     KuruGraduator internal g = new KuruGraduator(address(this), IKuruRouter(address(0)), address(0));
 
     /// Kuru's SDK, for 1,000 MON against 200M tokens (5e-6 MON), picks
-    /// pricePrecision 1e8, tick 5, sizePrecision 1e8, maxSize 1e14.
+    /// pricePrecision 1e8, tick 5, sizePrecision 1e8, maxSize 1e14. Juno keeps
+    /// all but the tick, which is one unit (0.2% here) so orders can rest
+    /// inside the vault's 1% spread.
     function test_matchesKuruSdkExample() public view {
         KuruGraduator.MarketParams memory m = g.marketParams(200_000_000 ether, 1_000 ether);
         assertEq(m.pricePrecision, 1e8);
-        assertEq(m.tickSize, 5);
+        assertEq(m.tickSize, 1);
         assertEq(m.sizePrecision, 1e8);
         assertEq(m.maxSize, 1e14);
         // 100 tokens ≈ 0.0005 MON: the round number under 0.001 MON.
@@ -37,6 +39,7 @@ contract KuruMarketParamsTest is Test {
         if (m.pricePrecision < 1e9) {
             assertGe(priceInt, 100, "three digits");
             assertLe(uint256(m.tickSize) * 100, priceInt, "tick at most 1%");
+            assertGe(uint256(m.tickSize) * 1_000, priceInt, "tick at least 0.1%");
         } else {
             // Kuru's finest precision: under 1e-7 MON the price keeps two digits.
             assertGe(priceInt, 10);
@@ -214,6 +217,67 @@ contract KuruGraduatorForkTest is JunoBase {
         assertGt(got, 0);
         emit log_named_decimal_uint("MON spent", notional, 18);
         emit log_named_decimal_uint("tokens received", got, 18);
+    }
+
+    /// A resting bid inside the vault's spread fills first, credits the
+    /// buyer's MarginAccount, and withdraws to the wallet. A second bid is
+    /// cancelled and its MON comes back the same way.
+    function test_limitOrders_restFillCancelWithdraw() public {
+        address token = launchOnKuru();
+        (address market,) = fillAndGraduate(token);
+        (uint32 pricePrecision, uint96 sizePrecision,,,,, uint32 tickSize,,,,) = ROUTER.verifiedMarket(market);
+        (uint256 bidWad, uint256 askWad) = IKuruOrderBook(market).bestBidAsk();
+
+        // Bob bids halfway between the vault's bid and ask — inside its spread.
+        uint256 midInt = ((bidWad + askWad) / 2) * pricePrecision / 1e18;
+        uint32 price = uint32((midInt / tickSize) * tickSize);
+        uint96 size = uint96(1_000 * uint256(sizePrecision)); // 1,000 tokens
+        uint256 lockedWei = (uint256(size) * price * 1e18) / (uint256(sizePrecision) * pricePrecision);
+
+        vm.startPrank(bob);
+        MARGIN.deposit{value: lockedWei + 1 ether}(bob, address(0), lockedWei + 1 ether);
+        vm.recordLogs();
+        IKuruOrderBook(market).addBuyOrder(price, size, true);
+        vm.stopPrank();
+        uint40 orderId = uint40(IKuruOrderBook(market).s_orderIdCounter());
+        (address owner_, uint96 left,,,, uint32 restingAt,, bool isBuy) =
+            IKuruOrderBook(market).s_orders(orderId);
+        assertEq(owner_, bob);
+        assertEq(left, size);
+        assertEq(restingAt, price);
+        assertTrue(isBuy);
+        (uint256 bestBid,) = IKuruOrderBook(market).bestBidAsk();
+        assertGt(uint256(price) * 1e18 / pricePrecision, bidWad, "inside the vault's spread");
+        assertEq(bestBid, uint256(price) * 1e18 / pricePrecision, "bob's bid is the best bid");
+
+        // Alice market-sells 1,000 tokens: bob's bid takes all of it.
+        vm.startPrank(alice);
+        JunoToken(token).approve(market, type(uint256).max);
+        IKuruOrderBook(market).placeAndExecuteMarketSell(size, 0, false, false);
+        vm.stopPrank();
+        (, left,,,,,,) = IKuruOrderBook(market).s_orders(orderId);
+        assertEq(left, 0, "filled");
+        assertEq(MARGIN.getBalance(bob, token), 1_000 ether, "fills land in bob's MarginAccount");
+
+        // Withdraw the tokens to the wallet.
+        address[] memory tokens = new address[](1);
+        tokens[0] = token;
+        uint256 before = JunoToken(token).balanceOf(bob);
+        vm.prank(bob);
+        MARGIN.batchWithdrawMaxTokens(tokens);
+        assertEq(JunoToken(token).balanceOf(bob) - before, 1_000 ether);
+
+        // A second bid, cancelled: the MON is back in the MarginAccount.
+        uint256 marginBefore = MARGIN.getBalance(bob, address(0));
+        vm.prank(bob);
+        IKuruOrderBook(market).addBuyOrder(price, size, true);
+        uint40 second = uint40(IKuruOrderBook(market).s_orderIdCounter());
+        assertLt(MARGIN.getBalance(bob, address(0)), marginBefore);
+        uint40[] memory ids = new uint40[](1);
+        ids[0] = second;
+        vm.prank(bob);
+        IKuruOrderBook(market).batchCancelOrders(ids);
+        assertEq(MARGIN.getBalance(bob, address(0)), marginBefore, "cancel refunds the locked MON");
     }
 
     function test_graduate_reusesAMarketSomeoneDeployedFirst() public {

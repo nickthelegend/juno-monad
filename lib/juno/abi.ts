@@ -2764,6 +2764,19 @@ export const kuruOrderBookAbi = [
   },
   {
     "type": "function",
+    "name": "batchCancelOrders",
+    "inputs": [
+      {
+        "name": "orderIds",
+        "type": "uint40[]",
+        "internalType": "uint40[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "bestBidAsk",
     "inputs": [],
     "outputs": [
@@ -2958,6 +2971,129 @@ export const kuruOrderBookAbi = [
       }
     ],
     "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "s_orderIdCounter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint40",
+        "internalType": "uint40"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "s_orders",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "uint40",
+        "internalType": "uint40"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "size",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "prev",
+        "type": "uint40",
+        "internalType": "uint40"
+      },
+      {
+        "name": "next",
+        "type": "uint40",
+        "internalType": "uint40"
+      },
+      {
+        "name": "flippedId",
+        "type": "uint40",
+        "internalType": "uint40"
+      },
+      {
+        "name": "price",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "flippedPrice",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "isBuy",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "OrderCreated",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "uint40",
+        "indexed": false,
+        "internalType": "uint40"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "size",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      },
+      {
+        "name": "price",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "isBuy",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OrdersCanceled",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "uint40[]",
+        "indexed": false,
+        "internalType": "uint40[]"
+      },
+      {
+        "name": "owner",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -3228,6 +3364,87 @@ export const kuruRouterAbi = [
       }
     ],
     "stateMutability": "view"
+  }
+] as const;
+
+export const kuruMarginAccountAbi = [
+  {
+    "type": "function",
+    "name": "batchWithdrawMaxTokens",
+    "inputs": [
+      {
+        "name": "tokens",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "deposit",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "getBalance",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdraw",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   }
 ] as const;
 
