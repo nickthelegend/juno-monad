@@ -88,3 +88,28 @@ indexer-backed positions) holds up under inspection. Sponsor bounties:
 - **Envio**: a strong candidate, once it is hosted.
 - **Kuru "New Assets and Markets"**: a literal fit, but only if the team enters Track 01.
 - **Privy**: possible, once the signing flow is shown working.
+
+## Re-judged later the same day
+
+Same method, after the second test pass and the fixes it produced
+(`38a7d51` to `7a20c26`).
+
+| Criterion | Before | Now | Why it moved, or did not |
+|---|---|---|---|
+| Product quality | 7.5 | 8 | Numbers on one screen now agree with each other: price impact without the fee, a sell hint that respects what you hold, trade rows that say what was paid, a "Trades" count that counts trades. Reels were seen playing with their market dock. No console errors or warnings on any screen |
+| Technical excellence | 8 | 8 | Slither found one real trap (a pool with no graduator could strand its buyers' quote), fixed with a test. The indexer's broken typecheck was caught. Still proven only on a fork |
+| Monad integration | 6 | 6 | Unchanged, and it cannot change from inside the repo: nothing is on testnet. The fork now labels itself everywhere, so no demo credits Monad with anvil's timings |
+| Track fit | 7 | 7 | Unchanged |
+| Innovation | 6.5 | 6.5 | The Kuru market's address from launch is neat, not new |
+| **Weighted** | **7.0** | **7.1** | |
+
+**Fakery.** Still none found. The one piece of misleading copy (Monad credited
+with a fork's confirmation time) is gone.
+
+**Ranked issues now.** 1. Nothing on Monad testnet (blocker, unchanged).
+2. The Privy flow has never been completed by a person. 3. The indexer is not
+hosted. 4. Only the web build is demonstrable. 5. Track focus: perps and Kuru
+dilute a Track 03 story.
+
+**Verdict.** Unchanged: it does not place until it is on Monad testnet, and it
+contends once it is.
