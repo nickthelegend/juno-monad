@@ -5,6 +5,7 @@ import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from "react-native-svg"
 import { Identicon } from "./art";
 import { HeartBurst } from "./HeartBurst";
 import { Handle } from "./Handle";
+import { useRetryingUri } from "../lib/retry-image";
 import { useHandle } from "../lib/names";
 import { HeartGlyph, PlayGlyph, ReelBadgeGlyph, ReplyBubble, ShareGlyph, TriangleGlyph } from "./icons";
 import { Tappable } from "./Press";
@@ -62,6 +63,7 @@ export function FeedCard({
 
   const reel = coin.format === "reel" && coin.media.kind === "video";
   const art = juno.still(coin.media);
+  const artImage = useRetryingUri(art);
   const change = coin.marketCapChangePct;
   const tone = change === null ? theme.colors.text : change >= 0 ? theme.colors.pos : theme.colors.neg;
   const comments = (coin.commentCount ?? 0) + extraComments;
@@ -126,7 +128,12 @@ export function FeedCard({
       <Pressable onPress={onMediaPress} accessibilityRole="imagebutton" accessibilityLabel={coin.name}>
         <View style={[styles.media, { aspectRatio: reel ? 4 / 5 : 1 }]}>
           {art ? (
-            <Image source={{ uri: art }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <Image
+              source={{ uri: artImage.uri ?? art }}
+              onError={artImage.onError}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
           ) : (
             <ArtCover seed={coin.address} symbol={coin.symbol} name={coin.name} />
           )}

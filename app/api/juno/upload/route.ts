@@ -1,5 +1,6 @@
 
 import { junoJson, junoOptions } from "@/lib/juno/api";
+import { rememberContent } from "@/lib/juno/ipfs-cache";
 import { pinFile } from "@/lib/juno/pinata";
 import { videoPoster } from "@/lib/juno/poster";
 import sharp from "sharp";
@@ -46,6 +47,8 @@ export async function POST(request: Request) {
   try {
     const pinned = await pinFile(file);
     const bytes = Buffer.from(await file.arrayBuffer());
+    // The feed asks for this within seconds, before public gateways have it.
+    rememberContent(pinned.cid, bytes, file.type);
 
     /*
      * Dimensions for both kinds, and a poster for video.
@@ -61,6 +64,7 @@ export async function POST(request: Request) {
         new File([new Uint8Array(poster.jpeg)], "poster.jpg", { type: "image/jpeg" }),
         `${file.name || "reel"}-poster`,
       );
+      rememberContent(pinnedPoster.cid, poster.jpeg, "image/jpeg");
       return junoJson(
         {
           ...pinned,

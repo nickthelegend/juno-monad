@@ -37,6 +37,7 @@ import {
   Stat,
   Title,
 } from "../../components/kit";
+import { useRetryingUri } from "../../lib/retry-image";
 import { sameAddress } from "../../lib/address";
 import {
   juno,
@@ -203,6 +204,7 @@ export default function CoinScreen() {
   }, [copied]);
 
   const art = coin ? juno.still(coin.media) : null;
+  const heroImage = useRetryingUri(art);
   const ticks = useMemo(
     () => (coin?.priceHistory ?? []).map((point) => ({ t: point.t, price: point.price })),
     [coin?.priceHistory],
@@ -286,7 +288,8 @@ export default function CoinScreen() {
                   accessibilityLabel={coin.media.kind === "video" ? `Play ${coin.name}` : coin.name}
                 >
                   <Hero
-                    source={{ uri: art }}
+                    source={{ uri: heroImage.uri ?? art }}
+                    onError={heroImage.onError}
                     resizeMode="cover"
                     style={{
                       aspectRatio:
