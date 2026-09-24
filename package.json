@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Juno \u2014 every post is a market. A social app on Monad where each post launches its own bonding-curve token.",
+  "description": "Juno — every post is a market. A social app on Monad where each post launches its own bonding-curve token.",
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
@@ -29,6 +29,7 @@
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@ffprobe-installer/ffprobe": "^2.1.2",
+    "@privy-io/node": "0.35.0",
     "decimal.js": "^10.6.0",
     "drizzle-orm": "^0.45.2",
     "fluent-ffmpeg": "^2.1.3",

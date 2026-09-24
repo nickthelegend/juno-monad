@@ -7,6 +7,7 @@ import styled from "styled-components/native";
 import { AreaChart, RANGES, withinRange, type Range } from "../../components/AreaChart";
 import { CoinArt, Identicon } from "../../components/art";
 import { Tappable } from "../../components/Press";
+import { SignerChoice } from "../../components/SignerChoice";
 import { WalletCard } from "../../components/WalletCard";
 import { Handle } from "../../components/Handle";
 import {
@@ -35,7 +36,9 @@ import {
 import { juno, type Plan, type WatchItem } from "../../lib/api";
 import { useLinkedState } from "../../lib/linked";
 import { money, tokens, useApi } from "../../lib/useApi";
+import { useIdentity } from "../../lib/names";
 import { useWallet } from "../../lib/wallet";
+import { useWalletChoice } from "../../lib/wallet-choice";
 import { theme } from "../../theme";
 
 type Tab = "holdings" | "watching" | "plans" | "activity" | "about";
@@ -63,6 +66,8 @@ const TABS = [
  */
 export default function ProfileScreen() {
   const wallet = useWallet();
+  const walletChoice = useWalletChoice();
+  const identity = useIdentity(wallet.address);
   const router = useRouter();
   /* Addressable, for the same reason the market list's segment is: a link, a
      share and a demo all want to land on a view rather than on a tap. */
@@ -143,15 +148,25 @@ export default function ProfileScreen() {
   if (!wallet.address) {
     return (
       <Page edges={["top"]}>
+        <Padded>
+          <SignerChoice />
+        </Padded>
         <Placeholder
           title="No wallet yet"
-          detail="Create one to trade and to launch your own coins. No sign-up."
+          detail={
+            walletChoice.choice === "privy"
+              ? "Sign in with Privy to get an embedded wallet for trading and launching."
+              : "Create one to trade and to launch your own coins. No sign-up."
+          }
           action={
             // Not `.then(portfolio.refresh)`: that refresh was captured before
             // the wallet existed, re-ran the read with no address, and its
             // null landed last — "Holdings could not be read" on a wallet
             // created a second ago. The address change re-reads on its own.
-            <Button label="Create wallet" onPress={() => void wallet.connect()} />
+            <Button
+              label={walletChoice.choice === "privy" ? "Sign in with Privy" : "Create wallet"}
+              onPress={() => void wallet.connect().catch(() => undefined)}
+            />
           }
         />
       </Page>
@@ -183,8 +198,10 @@ export default function ProfileScreen() {
               ? "Device key · Monad testnet"
               : wallet.mode === "mera"
                 ? "Passkey wallet"
-                : "Embedded wallet"}
+                : "Privy embedded wallet · Monad testnet"}
           </Caption>
+          {identity?.twitter ? <Pill label={`𝕏 @${identity.twitter}`} tone="ink" /> : null}
+          <SignerChoice />
         </Identity>
 
         <WalletCard address={wallet.address} />

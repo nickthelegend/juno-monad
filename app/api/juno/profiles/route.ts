@@ -1,6 +1,7 @@
 import { getAddress, isAddress } from "viem";
 
 import { junoHandler, junoJson, junoOptions, readJson, requireString } from "@/lib/juno/api";
+import { identitiesFor } from "@/lib/juno/privy";
 import { claimName, namesFor } from "@/lib/juno/profiles";
 
 export const runtime = "nodejs";
@@ -8,8 +9,9 @@ export const dynamic = "force-dynamic";
 export const OPTIONS = junoOptions;
 
 /**
- * `GET ?wallets=a,b,c` — names for up to 100 wallets. Wallets without one are
- * absent. Names are stored against the checksummed address, so that is the
+ * `GET ?wallets=a,b,c` — names for up to 100 wallets, and the identities
+ * verified through Privy (`POST profiles/privy`). Wallets without one are
+ * absent. Both are stored against the checksummed address, so that is the
  * spelling the answer is keyed by, whatever case the query used.
  */
 export async function GET(request: Request) {
@@ -20,7 +22,13 @@ export async function GET(request: Request) {
       .filter((wallet) => isAddress(wallet))
       .map((wallet) => getAddress(wallet))
       .slice(0, 100);
-    return junoJson({ names: await namesFor([...new Set(wallets)]) });
+    const unique = [...new Set(wallets)];
+    const [names, identities] = await Promise.all([
+      namesFor(unique),
+      // Optional: a read failure here must not cost the names.
+      identitiesFor(unique).catch(() => ({})),
+    ]);
+    return junoJson({ names, identities });
   });
 }
 

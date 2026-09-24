@@ -9,7 +9,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "styled-components/native";
 
 import { juno } from "../lib/api";
-import { WalletProvider } from "../lib/wallet";
+import { PrivyBridge } from "../lib/privy";
+import { WalletRoot } from "../lib/wallet-choice";
 import { theme } from "../theme";
 
 /**
@@ -36,7 +37,10 @@ export default function RootLayout() {
     <PhoneFrame>
     <ThemeProvider theme={theme}>
       <SafeAreaProvider>
-        <WalletProvider>
+        {/* Privy (web): email, Google or X sign-in and an embedded wallet.
+            WalletRoot picks the signer — the device key or Privy's. */}
+        <PrivyBridge>
+        <WalletRoot>
           <StatusBar style="dark" />
           <Stack
             screenOptions={{
@@ -51,7 +55,8 @@ export default function RootLayout() {
             <Stack.Screen name="trader/[wallet]" />
             <Stack.Screen name="post/[id]" />
           </Stack>
-        </WalletProvider>
+        </WalletRoot>
+        </PrivyBridge>
       </SafeAreaProvider>
     </ThemeProvider>
     </PhoneFrame>

@@ -13,6 +13,14 @@ import { api } from "./api";
  */
 const known = new Map<string, string | null>();
 const listeners = new Map<string, Set<(name: string | null) => void>>();
+
+/**
+ * Who a wallet is, as verified through Privy (`POST profiles/privy`): an X
+ * handle Privy checked by OAuth. Arrives in the same batched answer as names.
+ */
+export type Identity = { twitter?: string; emailVerified: boolean; via: "privy"; verifiedAt: string };
+const knownIdentities = new Map<string, Identity | null>();
+const identityListeners = new Map<string, Set<(identity: Identity | null) => void>>();
 let queue = new Set<string>();
 let scheduled = false;
 
@@ -22,9 +30,14 @@ function flush() {
   queue = new Set();
   if (batch.length === 0) return;
   api
-    .get<{ names: Record<string, string> }>(`/api/juno/profiles?wallets=${batch.join(",")}`)
-    .then(({ names }) => {
-      for (const wallet of batch) publish(wallet, names[wallet] ?? null);
+    .get<{ names: Record<string, string>; identities?: Record<string, Identity> }>(
+      `/api/juno/profiles?wallets=${batch.join(",")}`,
+    )
+    .then(({ names, identities }) => {
+      for (const wallet of batch) {
+        publish(wallet, names[wallet] ?? null);
+        publishIdentity(wallet, identities?.[wallet] ?? null);
+      }
     })
     // A failed read leaves these unknown, so a later screen can ask again.
     .catch(() => undefined);
@@ -45,6 +58,36 @@ function request(wallet: string) {
     scheduled = true;
     queueMicrotask(flush);
   }
+}
+
+function publishIdentity(wallet: string, identity: Identity | null) {
+  knownIdentities.set(wallet, identity);
+  identityListeners.get(wallet)?.forEach((listener) => listener(identity));
+}
+
+/** After a Privy verification, so the badge appears without a reload. */
+export function rememberIdentity(wallet: string, identity: Identity) {
+  publishIdentity(wallet, identity);
+}
+
+/** The identity verified for this wallet, or null while unknown or when there is none. */
+export function useIdentity(wallet: string | null | undefined): Identity | null {
+  const [identity, setIdentity] = useState<Identity | null>(wallet ? (knownIdentities.get(wallet) ?? null) : null);
+  useEffect(() => {
+    if (!wallet) {
+      setIdentity(null);
+      return;
+    }
+    setIdentity(knownIdentities.get(wallet) ?? null);
+    const set = identityListeners.get(wallet) ?? new Set();
+    set.add(setIdentity);
+    identityListeners.set(wallet, set);
+    request(wallet);
+    return () => {
+      set.delete(setIdentity);
+    };
+  }, [wallet]);
+  return identity;
 }
 
 /** After a successful claim, so every row showing this wallet updates at once. */

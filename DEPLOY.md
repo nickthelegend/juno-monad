@@ -146,7 +146,10 @@ Developer / Play Console accounts). A local Android release build:
 
 - **Faucet MON** for the deployer and the server's faucet key.
 - **Envio**: an API token (or RPC sync mode) and, for hosting, an Envio Cloud project.
-- **Privy** (if the embedded-wallet signer is used): the app id, and in the
-  Privy dashboard the app's web domain, the native bundle id `fun.juno.app`
-  and URL scheme `juno`, and fee sponsorship on Monad testnet.
+- **Privy** (web sign-in and the embedded-wallet signer): `NEXT_PUBLIC_PRIVY_APP_ID`
+  and `PRIVY_APP_SECRET` on the API, `EXPO_PUBLIC_PRIVY_APP_ID` on the web
+  build. In the Privy dashboard: the web app's origin under allowed domains
+  (`http://localhost:3000` for local runs), email / Google / X login, and
+  Ethereum embedded wallets. The native builds keep the device key until they
+  move to `@privy-io/expo` and a development build.
 - **Pyth**: a Hermes API key for live equity marks.

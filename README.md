@@ -71,8 +71,13 @@ read fails the app says so — it does not print a zero it never measured.
   the trading fees, claimable any time.
 - **One transaction per action.** Launch — token, curve, the lock on its AMM pair and the
   creator's optional first buy — is one call. Selling needs no approval.
-- **Keys never leave the device.** The server builds unsigned transactions;
-  the phone signs; the server submits and records what the receipt says.
+- **Keys never leave the device — or sign in with Privy.** The server builds
+  unsigned transactions; the wallet signs; the server submits and records
+  what the receipt says. The wallet is a device key by default, or on the web
+  a Privy embedded wallet behind email, Google or X sign-in, with Privy's own
+  confirmation on every trade and launch. An X account linked in Privy can be
+  shown on the creator's profile once the server has verified it with Privy
+  ([`lib/juno/privy.ts`](lib/juno/privy.ts)).
 - **History without hammering the RPC.** Monad's public RPC answers
   `eth_getLogs` over 100 blocks — thirty seconds of chain. Trades are recorded
   from receipts as they land, a single log cursor tails the launchpad for the
