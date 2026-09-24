@@ -3,6 +3,7 @@ import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from "re
 import styled from "styled-components/native";
 
 import { Caption } from "./kit";
+import { svgHit } from "./svgHit";
 import { theme } from "../theme";
 
 /**
@@ -226,7 +227,7 @@ export function AreaChart({
               width={band}
               height={H}
               fill="transparent"
-              onPressIn={() => setActive(i)}
+              {...svgHit(() => setActive(i))}
             />
           ))}
         </G>

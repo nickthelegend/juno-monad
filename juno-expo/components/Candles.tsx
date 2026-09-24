@@ -4,6 +4,7 @@ import styled from "styled-components/native";
 
 import { Caption, Segmented } from "./kit";
 import { BUCKETS, defaultBucket, toCandles, type Bucket, type Tick } from "../lib/candles";
+import { svgHit } from "./svgHit";
 import { theme } from "../theme";
 
 /**
@@ -226,7 +227,7 @@ export function Candles({
                 width={slot}
                 height={PRICE_H + VOL_H + 14}
                 fill="transparent"
-                onPressIn={() => setActive(i)}
+                {...svgHit(() => setActive(i))}
               />
             </React.Fragment>
           );

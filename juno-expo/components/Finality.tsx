@@ -1,5 +1,6 @@
 import { Text, View, StyleSheet } from "react-native";
 
+import { juno } from "../lib/api";
 import { COMMIT_STAGES, stageOffsets, useLive, type LiveEvent } from "../lib/live";
 import { theme } from "../theme";
 
@@ -43,6 +44,12 @@ export function FinalityTimeline({ txHash }: { txHash: string }) {
     {
       intervalMs: 350,
       until: (snapshot) => snapshot.events.some((event) => event.stages.Finalized !== undefined),
+      // The server follows Monad's own stream, so a trade on a local fork
+      // never appears in it; asking would poll for as long as the sheet is
+      // open. On Monad a block is final in about a second, so fifteen seconds
+      // without it means the stream missed it and asking again will not help.
+      enabled: !juno.loadedConfig()?.localFork,
+      forMs: 15_000,
     },
   );
   const event = live?.events[0];

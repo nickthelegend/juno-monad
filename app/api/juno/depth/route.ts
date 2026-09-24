@@ -1,6 +1,6 @@
 import { junoError, junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
 import { fetchPoolSnapshot } from "@/lib/juno/launchpad";
-import { sampleDepth, suggestSize } from "@/lib/juno/depth";
+import { capacity, sampleDepth, suggestSize } from "@/lib/juno/depth";
 import { quoteTokenUsdPrice } from "@/lib/juno/pyth";
 import { getPool } from "@/lib/juno/registry";
 import { requireAddress } from "../_lib/guards";
@@ -47,13 +47,12 @@ export async function GET(request: Request) {
      * means the same thing on every pool.
      */
     const remaining = Math.max(snapshot.curve.thresholdUsd - snapshot.curve.raisedUsd, 0) / rate;
-    // For a sell, roughly the tokens that have been bought out of the curve so
-    // far — quote raised, at the current price. It is only where the search
-    // stops looking, never a figure this route publishes, so an approximation
-    // is the right kind of number here. The search itself is capped at what
-    // the curve can actually take back.
-    const sold = snapshot.price > 0 ? snapshot.curve.raisedUsd / rate / snapshot.price : 0;
-    const fallback = side === "buy" ? Math.max(remaining, 0.1) : sold;
+    // For a sell, exactly what the curve can take back: the tokens it has
+    // sold. This was "quote raised at the current price", which lands a little
+    // under the truth (the average price paid is below the current one), so
+    // the search stopped just short of the curve's floor and told a seller
+    // that 0.01% was "the most you can sell before the curve moves 1%".
+    const fallback = side === "buy" ? Math.max(remaining, 0.1) : capacity(snapshot, "sell");
     const asked = Number(url.searchParams.get("max"));
     const max = Number.isFinite(asked) && asked > 0 ? asked : fallback;
 

@@ -4,6 +4,8 @@ import styled from "styled-components/native";
 
 import { OnboardingArt } from "../components/art";
 import { Body, Button, Display } from "../components/kit";
+import { juno, networkLabel } from "../lib/api";
+import { useApi } from "../lib/useApi";
 
 /**
  * Onboarding.
@@ -15,6 +17,10 @@ import { Body, Button, Display } from "../components/kit";
  */
 export default function Onboarding() {
   const router = useRouter();
+  // Which chain, from the server rather than compiled in: the badge said
+  // "Monad testnet" on a local fork and would have said it on mainnet too.
+  const config = useApi(() => juno.config(), []);
+  const network = config.data?.network ?? "monad-testnet";
 
   return (
     <Page edges={["top", "bottom"]}>
@@ -29,7 +35,10 @@ export default function Onboarding() {
       <Copy>
         <Network>
           <Dot />
-          <NetworkText>Monad testnet · no real money</NetworkText>
+          <NetworkText>
+            {networkLabel(network)}
+            {network === "monad-testnet" ? " · no real money" : ""}
+          </NetworkText>
         </Network>
         <Display>Every post{"\n"}is a market.</Display>
         <Body muted>

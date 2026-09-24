@@ -258,6 +258,9 @@ export function TradeSheet({
   // An amount the wallet cannot cover is refused in words above; quoting it
   // would spend a round trip on a transaction nobody can sign.
   const overBalance = valid && balance !== null && value > balance;
+  /** The hint's size is more than this wallet holds to sell. */
+  const sellsAll =
+    side === "sell" && suggestion !== null && holding !== null && holding > 0 && holding < suggestion.amountIn;
 
   useEffect(() => {
     if (!valid || !wallet.address || overBalance) {
@@ -581,29 +584,46 @@ export function TradeSheet({
                 <Caption>Measuring what this curve will take…</Caption>
               </Depth>
             ) : suggestion ? (
-              <Tappable
-                onPress={() => setAmount(trimTrailingZeros(suggestion.amountIn))}
-                to={0.98}
-              >
-                <Depth accessibilityRole="button">
-                  <Col gap={2} style={{ flex: 1 }}>
-                    <Label style={{ fontWeight: "700" }}>
-                      {tokens(suggestion.amountIn)} {unit} moves it{" "}
-                      {(suggestion.curveImpact * 100).toFixed(2)}%
-                    </Label>
-                    <Caption>
-                      {suggestion.ceilingReached
-                        ? `Everything this curve can still fill stays under ${
-                            IMPACT_BUDGET * 100
-                          }%.`
-                        : `The most you can ${side} before the curve moves ${
-                            IMPACT_BUDGET * 100
-                          }%.`}
-                    </Caption>
-                  </Col>
-                  <UseIt>Use</UseIt>
-                </Depth>
-              </Tappable>
+              /* A seller can only sell what they hold. When that is less than
+                 the curve would take inside the budget, the useful answer is
+                 about their holding, and every smaller sale moves it less. */
+              sellsAll ? (
+                <Tappable onPress={() => setAmount(trimTrailingZeros(holding!))} to={0.98}>
+                  <Depth accessibilityRole="button">
+                    <Col gap={2} style={{ flex: 1 }}>
+                      <Label style={{ fontWeight: "700" }}>
+                        All {tokens(holding!)} {unit} you hold
+                      </Label>
+                      <Caption>
+                        Selling all of it moves the curve less than {IMPACT_BUDGET * 100}%.
+                      </Caption>
+                    </Col>
+                    <UseIt>Use</UseIt>
+                  </Depth>
+                </Tappable>
+              ) : (
+                <Tappable
+                  onPress={() => setAmount(trimTrailingZeros(suggestion.amountIn))}
+                  to={0.98}
+                >
+                  <Depth accessibilityRole="button">
+                    <Col gap={2} style={{ flex: 1 }}>
+                      <Label style={{ fontWeight: "700" }}>
+                        {tokens(suggestion.amountIn)} {unit} moves it{" "}
+                        {(suggestion.curveImpact * 100).toFixed(2)}%
+                      </Label>
+                      <Caption>
+                        {suggestion.ceilingReached
+                          ? side === "sell"
+                            ? `Everything the curve has sold, sold back, stays under ${IMPACT_BUDGET * 100}%.`
+                            : `Everything this curve can still fill stays under ${IMPACT_BUDGET * 100}%.`
+                          : `The most you can ${side} before the curve moves ${IMPACT_BUDGET * 100}%.`}
+                      </Caption>
+                    </Col>
+                    <UseIt>Use</UseIt>
+                  </Depth>
+                </Tappable>
+              )
             ) : null}
 
             {/* Network fee, and the curve's own cost beside it. They are
@@ -624,12 +644,16 @@ export function TradeSheet({
                     : "—"}
               </Mono_>
             </Line>
+            {/* How far the trade moves the price, with the fee left out: the
+                fee has its own row above. Showing the total here counted the
+                fee twice, and made 0.2 MON "move" a curve more than the
+                97 MON the size hint quotes for 1%. */}
             <Line>
               <Label muted>Price impact</Label>
               <Mono_
-                $warn={(quote?.quote.priceImpact ?? 0) > 0.02}
+                $warn={(quote?.quote.curveImpact ?? 0) > 0.02}
               >
-                {quote ? `${(quote.quote.priceImpact * 100).toFixed(2)}%` : quoting ? "…" : "—"}
+                {quote ? `${(quote.quote.curveImpact * 100).toFixed(2)}%` : quoting ? "…" : "—"}
               </Mono_>
             </Line>
 
