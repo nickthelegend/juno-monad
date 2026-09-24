@@ -157,7 +157,7 @@ export function CommentsSheet({
             <Body muted style={{ textAlign: "center" }}>
               {error}
             </Body>
-            <Tappable onPress={() => void load()} to={0.96}>
+            <Tappable onPress={() => void load()} to={0.96} accessibilityRole="button">
               <Retry>
                 <RetryText>Try again</RetryText>
               </Retry>
@@ -204,7 +204,7 @@ export function CommentsSheet({
           />
         </Field>
         {draft.trim() ? (
-          <Tappable onPress={() => void send()} to={0.94}>
+          <Tappable onPress={() => void send()} to={0.94} accessibilityRole="button" aria-label="Post comment">
             <Send $busy={sending}>
               <SendText>{sending ? "…" : "Post"}</SendText>
             </Send>

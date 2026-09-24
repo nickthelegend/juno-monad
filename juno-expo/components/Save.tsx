@@ -169,6 +169,7 @@ export function SaveCard({
   onContribute: (plan: Omit<Plan, "coin">) => void;
   onTogglePlan: (plan: Omit<Plan, "coin">) => void;
 }) {
+  const tradesInApp = !coin.curve.graduated || coin.venue === "kuru";
   if (!wallet || !saved) return null;
 
   const direction = alertDirection(saved, coin.priceUsd);
@@ -257,12 +258,16 @@ export function SaveCard({
         );
       })}
 
-      <Button
-        label={saved.plans.length === 0 ? "Buy this every week" : "Add another schedule"}
-        variant="quiet"
-        onPress={onNewPlan}
-        style={{ marginTop: 14, alignSelf: "stretch" }}
-      />
+      {/* A schedule is a promise to buy here. A coin that graduated to its
+          Uniswap pair no longer trades in the app, so it is not offered one. */}
+      {tradesInApp ? (
+        <Button
+          label={saved.plans.length === 0 ? "Buy this every week" : "Add another schedule"}
+          variant="quiet"
+          onPress={onNewPlan}
+          style={{ marginTop: 14, alignSelf: "stretch" }}
+        />
+      ) : null}
     </Box>
   );
 }

@@ -169,11 +169,16 @@ export async function suggestSize(
   };
 
   // Search inside what the curve can actually fill.
-  const top = Math.min(ceiling, capacity(snapshot, side));
+  const fillable = capacity(snapshot, side);
+  const top = Math.min(ceiling, fillable);
   if (!(top > 0)) return null;
 
   const atTop = await at(top);
-  if (atTop && atTop.curveImpact <= budget) return { ...atTop, ceilingReached: top < ceiling };
+  // "Everything the curve can still fill stays under budget" whenever the
+  // answer is the curve's whole capacity — including when the caller's
+  // ceiling was that same capacity. `top < ceiling` alone missed that case and
+  // called all of it "the most you can sell before the curve moves 1%".
+  if (atTop && atTop.curveImpact <= budget) return { ...atTop, ceilingReached: top >= fillable };
 
   let low = top / 100_000;
   let high = top;

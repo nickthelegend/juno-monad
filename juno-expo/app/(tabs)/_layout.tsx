@@ -143,9 +143,11 @@ function Slot({
     <SlotBox
       onPress={onPress}
       $on={active}
-      accessibilityRole="tab"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
+      role="tab"
+      aria-label={label}
+      // `accessibilityState` never reached the DOM on web, so no screen reader
+      // could tell which tab was current; the aria prop does.
+      aria-selected={active}
     >
       <Icon color={active ? theme.colors.onLime : night ? theme.colors.onNightMuted : theme.colors.faint} />
     </SlotBox>
@@ -187,7 +189,7 @@ function PostSlot({ open, night = false, onPress }: { open: boolean; night?: boo
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       accessibilityRole="button"
-      accessibilityState={{ expanded: open }}
+      aria-expanded={open}
       accessibilityLabel={open ? "Close" : "Create — a photo or a reel"}
     >
       <Animated.View style={{ transform: [{ scale }] }}>

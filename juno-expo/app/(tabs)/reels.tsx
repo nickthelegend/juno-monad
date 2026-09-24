@@ -435,7 +435,9 @@ function Reel({
             </Text>
             <Text style={styles.dockMuted} numberOfLines={1}>
               {coin.curve.graduated
-                ? "Graduated · trading on its Uniswap v2 pair"
+                ? coin.venue === "kuru"
+                  ? "Graduated · trading on its Kuru market"
+                  : "Graduated · trading on its Uniswap v2 pair"
                 : coin.curve.complete
                   ? "Curve full · graduates next"
                   : `${progressLabel(pct)} to graduation`}
@@ -444,7 +446,8 @@ function Reel({
         </Pressable>
         {/* A full curve takes no trades until it graduates; the coin screen,
             one tap away, is where anyone can send it on. */}
-        {coin.curve.graduated || coin.curve.complete ? null : (
+        {/* A coin that graduated into Kuru keeps trading here, on its market. */}
+        {(coin.curve.graduated || coin.curve.complete) && !(coin.curve.graduated && coin.venue === "kuru") ? null : (
           <>
             <Tappable onPress={() => onTrade("sell")} to={0.94}>
               <View style={styles.sell} accessibilityRole="button" accessibilityLabel={`Sell $${coin.symbol}`}>

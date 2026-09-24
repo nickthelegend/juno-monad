@@ -144,7 +144,7 @@ export default function SocialScreen() {
                 onPress={() => setScope(id)}
                 style={[styles.scopeItem, scope === id ? styles.scopeOn : null]}
                 accessibilityRole="tab"
-                accessibilityState={{ selected: scope === id }}
+                aria-selected={scope === id}
               >
                 <Text style={[styles.scopeText, scope === id ? styles.scopeTextOn : null]}>
                   {id === "everyone" ? "For you" : "Following"}

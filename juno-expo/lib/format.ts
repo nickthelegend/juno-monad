@@ -105,3 +105,15 @@ export function tokens(value: number): string {
   if (value >= 1_000) return `${Math.round(value).toLocaleString("en-US")}`;
   return value.toFixed(value < 1 ? 4 : 2);
 }
+
+/**
+ * A price on an order book, in its quote: four significant figures, so two
+ * levels 1% apart read as different numbers. `money` keeps four decimals under
+ * one, which printed a 0.00103 bid and a 0.00104 ask as the same "0.0010".
+ */
+export function bookPrice(value: number, currency = "MON"): string {
+  if (!Number.isFinite(value) || value <= 0) return "—";
+  if (value < 0.0001) return money(value, currency, { compact: false });
+  const figure = value >= 1_000 ? value.toLocaleString("en-US", { maximumFractionDigits: 2 }) : Number(value.toPrecision(4)).toString();
+  return currency === "USD" ? `$${figure}` : `${figure} ${currency}`;
+}

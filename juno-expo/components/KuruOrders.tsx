@@ -4,7 +4,7 @@ import { Linking, StyleSheet, Text, TextInput, View } from "react-native";
 import { BottomSheet } from "./BottomSheet";
 import { Button, Caption, Label, Mono, Pill, Segmented } from "./kit";
 import { juno, type Coin, type KuruOrder } from "../lib/api";
-import { money, tokens, useApi } from "../lib/useApi";
+import { bookPrice, money, tokens, useApi } from "../lib/useApi";
 import { useWallet } from "../lib/wallet";
 import { theme } from "../theme";
 
@@ -123,7 +123,7 @@ function OrderRow({
     <View style={styles.row}>
       <Pill label={order.isBuy ? "Bid" : "Offer"} tone={order.isBuy ? "pos" : "neg"} />
       <Mono style={{ flex: 1 }}>
-        {tokens(order.remaining)} {symbol} @ {money(order.price, "MON", { compact: false })}
+        {tokens(order.remaining)} {symbol} @ {bookPrice(order.price)}
       </Mono>
       <Button label={busy ? "Cancelling…" : "Cancel"} variant="quiet" loading={busy} onPress={onCancel} />
     </View>
@@ -196,7 +196,7 @@ function LimitSheet({
       const last = results[results.length - 1];
       setPlaced(last.hash);
       setStatus(
-        `${side === "buy" ? "Bid" : "Offer"} placed: ${tokens(built.amount)} ${coin.symbol} at ${money(built.price, "MON", { compact: false })}.`,
+        `${side === "buy" ? "Bid" : "Offer"} placed: ${tokens(built.amount)} ${coin.symbol} at ${bookPrice(built.price)}.`,
       );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "The order did not go through");

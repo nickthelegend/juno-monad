@@ -278,7 +278,7 @@ export function PriceLine({
             $on={option.id === span}
             onPress={() => setSpan(option.id)}
             accessibilityRole="button"
-            accessibilityState={{ selected: option.id === span }}
+            aria-selected={option.id === span}
           >
             <SpanText $on={option.id === span}>{option.label}</SpanText>
           </SpanPill>

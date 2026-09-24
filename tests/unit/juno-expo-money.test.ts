@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { money, tokens } from "../../juno-expo/lib/format";
+import { bookPrice, money, tokens } from "../../juno-expo/lib/format";
 
 /**
  * The mobile app's number formatter.
@@ -79,5 +79,14 @@ describe("tokens", () => {
 
   it("returns a dash rather than NaN", () => {
     expect(tokens(Number.NaN)).toBe("—");
+  });
+});
+
+describe("bookPrice", () => {
+  it("keeps two levels 1% apart distinct", () => {
+    expect(bookPrice(0.001029644783)).toBe("0.00103 MON");
+    expect(bookPrice(0.001039941231)).toBe("0.00104 MON");
+    expect(bookPrice(84_333.3, "USD")).toBe("$84,333.3");
+    expect(bookPrice(0)).toBe("—");
   });
 });

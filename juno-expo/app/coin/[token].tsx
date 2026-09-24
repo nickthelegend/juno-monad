@@ -47,7 +47,7 @@ import {
   type Plan,
   type UnsignedTransaction,
 } from "../../lib/api";
-import { money, since, tokens, useApi } from "../../lib/useApi";
+import { bookPrice, money, since, tokens, useApi } from "../../lib/useApi";
 import { shareCoin } from "../../lib/social";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
@@ -408,7 +408,9 @@ export default function CoinScreen() {
 
               {isCreator ? (
                 <FeesCard
-                  claimable={coin.creatorRewards}
+                  // Just claimed and still re-reading: the amount on screen is the
+                  // one that was paid out, so it must not sit beside "Claimed".
+                  claimable={claim.hash && (detail.refreshing || detail.loading) ? 0 : coin.creatorRewards}
                   currency={coin.marketCapCurrency}
                   busy={claim.busy}
                   error={claim.error}
@@ -431,8 +433,8 @@ export default function CoinScreen() {
                   </Row>
                   {onKuru && coin.kuru ? (
                     <Caption>
-                      Bid {money(coin.kuru.bestBid, coin.quote.symbol, { compact: false })} · Ask{" "}
-                      {money(coin.kuru.bestAsk, coin.quote.symbol, { compact: false })}
+                      Bid {bookPrice(coin.kuru.bestBid, coin.quote.symbol)} · Ask{" "}
+                      {bookPrice(coin.kuru.bestAsk, coin.quote.symbol)}
                       {coin.kuru.spread !== null ? ` · spread ${(coin.kuru.spread * 100).toFixed(2)}%` : ""}
                     </Caption>
                   ) : null}
@@ -489,7 +491,7 @@ export default function CoinScreen() {
                       option.id === "comments" ? setCommentsOpen(true) : setTab(option.id)
                     }
                     accessibilityRole="button"
-                    accessibilityState={{ selected: tab === option.id }}
+                    aria-selected={tab === option.id}
                   >
                     <TabLabel $on={tab === option.id}>
                       {option.label}

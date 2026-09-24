@@ -479,7 +479,7 @@ export function TradeSheet({
               $buy
               onPress={() => setSide("buy")}
               accessibilityRole="button"
-              accessibilityState={{ selected: side === "buy" }}
+              aria-selected={side === "buy"}
             >
               <SideText $on={side === "buy"} $buy>
                 Buy
@@ -490,7 +490,7 @@ export function TradeSheet({
               $buy={false}
               onPress={() => setSide("sell")}
               accessibilityRole="button"
-              accessibilityState={{ selected: side === "sell" }}
+              aria-selected={side === "sell"}
             >
               <SideText $on={side === "sell"} $buy={false}>
                 Sell

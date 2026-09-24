@@ -278,7 +278,10 @@ export function Button({
       onPressIn={inactive ? undefined : onPressIn}
       onPressOut={inactive ? undefined : onPressOut}
       accessibilityRole="button"
-      accessibilityState={{ disabled: inactive, busy: loading }}
+      // react-native-web turns `disabled` into aria-disabled (and drops a bare
+      // aria-disabled prop), so a screen reader hears that the button is off.
+      disabled={inactive}
+      aria-busy={loading}
       $bg={fill.bg}
       $inactive={inactive}
       $tall={tall}
@@ -554,7 +557,7 @@ export function Tabs<T extends string>({
           $on={item.id === value}
           onPress={() => onChange(item.id)}
           accessibilityRole="tab"
-          accessibilityState={{ selected: item.id === value }}
+          aria-selected={item.id === value}
         >
           <TabLabel $on={item.id === value}>{item.label}</TabLabel>
         </TabItem>
@@ -599,7 +602,7 @@ export function Segmented<T extends string>({
           $on={item.id === value}
           onPress={() => onChange(item.id)}
           accessibilityRole="tab"
-          accessibilityState={{ selected: item.id === value }}
+          aria-selected={item.id === value}
         >
           <SegLabel $on={item.id === value}>{item.label}</SegLabel>
         </Seg>

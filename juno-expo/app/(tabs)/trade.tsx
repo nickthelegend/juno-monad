@@ -528,13 +528,19 @@ function MarketCard({
                 />
               </View>
               <Text style={styles.marketMeta}>
-                {coin.curve.graduated ? "Graduated" : coin.curve.complete ? "Full" : progressLabel(pct)}
+                {coin.curve.graduated
+                  ? coin.venue === "kuru"
+                    ? "On Kuru"
+                    : "Graduated"
+                  : coin.curve.complete
+                    ? "Full"
+                    : progressLabel(pct)}
               </Text>
             </View>
           </View>
-          {coin.curve.graduated ? (
+          {coin.curve.graduated && coin.venue !== "kuru" ? (
             <Pill label="On Uniswap v2" />
-          ) : coin.curve.complete ? (
+          ) : coin.curve.complete && !coin.curve.graduated ? (
             // Full and waiting to graduate: nothing to trade until it does.
             <Pill label="Curve full" tone="lime" />
           ) : (

@@ -194,7 +194,7 @@ export function FeedCard({
 
         {/* A full curve takes no trades until someone graduates it, so it
             gets a label rather than a Buy that could only fail. */}
-        {coin.curve.graduated || coin.curve.complete ? (
+        {(coin.curve.graduated || coin.curve.complete) && !(coin.curve.graduated && coin.venue === "kuru") ? (
           <View style={styles.graduated}>
             <Text style={styles.graduatedText}>{coin.curve.graduated ? (coin.venue === "kuru" ? "On Kuru" : "On Uniswap v2") : "Curve full"}</Text>
           </View>
