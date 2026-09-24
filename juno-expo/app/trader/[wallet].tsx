@@ -8,6 +8,7 @@ import { CoinArt, Identicon } from "../../components/art";
 import { Handle } from "../../components/Handle";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
+import { TradeList } from "../../components/TradeList";
 import {
   Body,
   Button,
@@ -328,6 +329,15 @@ export default function TraderScreen() {
             ) : null}
           </>
         )}
+
+        {/* What they did, not only what they hold: the fills behind the
+            figures above, from the same portfolio read. */}
+        {!portfolio.loading && !portfolio.error && positions.length > 0 ? (
+          <>
+            <Heading style={{ marginTop: 18, marginBottom: 10 }}>Trades</Heading>
+            <TradeList positions={positions} />
+          </>
+        ) : null}
       </ScrollView>
 
       {copying ? (

@@ -187,7 +187,8 @@ export type Coin = {
   /**
    * The AMM pair the curve graduates into. Created at launch and locked until
    * graduation, so it is known — and linkable — before the curve fills. For
-   * the Kuru venue, the coin's Kuru market once it has graduated, else null.
+   * the Kuru venue, the coin's Kuru market: live once it has graduated, and on
+   * the coin page before that, the CREATE2 address it will open at.
    */
   pair?: string | null;
   /** Where the curve graduates, chosen by the creator at launch. */

@@ -5,7 +5,7 @@ import {
   type Address,
 } from "viem";
 
-import { junoTokenAbi, kuruGraduatorAbi, kuruMarginAccountAbi, kuruOrderBookAbi } from "./abi";
+import { junoTokenAbi, kuruGraduatorAbi, kuruMarginAccountAbi, kuruOrderBookAbi, kuruRouterAbi } from "./abi";
 import { publicClient } from "./client";
 import {
   InsufficientLiquidityError,
@@ -74,6 +74,81 @@ export async function kuruMarketOf(token: Address): Promise<Address | null> {
   marketCache.set(token, market);
   tokenByMarket.set(market, token);
   return market;
+}
+
+/** The Router a graduator deploys through. Immutable, so read once. */
+let routerOf: Promise<Address> | null = null;
+
+/**
+ * Where a Kuru-venue coin's market will be, before it graduates.
+ *
+ * Kuru markets are CREATE2 proxies, and everything that goes into the salt is
+ * fixed at launch: the token, native MON, the fees, the spread, and the
+ * precisions and sizes `KuruGraduator.marketParams` derives from the curve's
+ * final price. So the address is known from the moment the coin exists —
+ * the same thing the Uniswap venue offers with its counterfactual pair, and
+ * the reason a squatter gains nothing: the graduator reuses whatever market
+ * sits there, and the lock keeps the token out of it until graduation.
+ *
+ * `quoteAmount` is what graduation will deposit: the migration threshold
+ * before the curve fills, the actual reserve after. Null when this deployment
+ * has no Kuru graduator.
+ */
+export async function predictKuruMarket(
+  token: Address,
+  baseAmount: bigint,
+  quoteAmount: bigint,
+): Promise<Address | null> {
+  const graduator = kuruGraduatorAddress();
+  if (!graduator) return null;
+  const client = publicClient();
+
+  if (!routerOf) {
+    const read = withRetry(() =>
+      client.readContract({ address: graduator, abi: kuruGraduatorAbi, functionName: "router" }),
+    );
+    routerOf = read;
+    read.catch(() => {
+      if (routerOf === read) routerOf = null;
+    });
+  }
+
+  const [router, params, taker, maker, spread] = await Promise.all([
+    routerOf,
+    withRetry(() =>
+      client.readContract({
+        address: graduator,
+        abi: kuruGraduatorAbi,
+        functionName: "marketParams",
+        args: [baseAmount, quoteAmount],
+      }),
+    ),
+    withRetry(() => client.readContract({ address: graduator, abi: kuruGraduatorAbi, functionName: "TAKER_FEE_BPS" })),
+    withRetry(() => client.readContract({ address: graduator, abi: kuruGraduatorAbi, functionName: "MAKER_FEE_BPS" })),
+    withRetry(() => client.readContract({ address: graduator, abi: kuruGraduatorAbi, functionName: "AMM_SPREAD" })),
+  ]);
+
+  return withRetry(() =>
+    client.readContract({
+      address: router,
+      abi: kuruRouterAbi,
+      functionName: "computeAddress",
+      args: [
+        token,
+        zeroAddress,
+        params.sizePrecision,
+        params.pricePrecision,
+        params.tickSize,
+        params.minSize,
+        params.maxSize,
+        taker,
+        maker,
+        spread,
+        zeroAddress,
+        false,
+      ],
+    }),
+  );
 }
 
 export type KuruMarketParams = {

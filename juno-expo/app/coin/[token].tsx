@@ -852,10 +852,20 @@ function DetailsTab({
         <DetailRow label="Curve" value={coin.curvePreset} shaded />
         <DetailRow label="Format" value={coin.format === "reel" ? "Reel" : "Post"} shaded={false} />
         {/* The pair exists from launch — locked until graduation — so it is
-            a fact about this coin from its first block, not only its last. */}
+            a fact about this coin from its first block, not only its last.
+            A Kuru market does not exist until graduation, but its CREATE2
+            address is fixed at launch, so it is shown with when it opens. */}
         <DetailRow
           label={coin.venue === "kuru" ? "Kuru market" : "Uniswap v2 pair"}
-          value={coin.pair ? short(coin.pair) : coin.venue === "kuru" ? "Opens at graduation" : "—"}
+          value={
+            coin.pair
+              ? coin.venue === "kuru" && !coin.curve.graduated
+                ? `${short(coin.pair)} · opens at graduation`
+                : short(coin.pair)
+              : coin.venue === "kuru"
+                ? "Opens at graduation"
+                : "—"
+          }
           shaded
           copied={copied === "pair"}
           onCopy={coin.pair ? () => void copy("pair", coin.pair!) : undefined}

@@ -39,7 +39,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 4 | Envio indexer as the source of history, holders, positions and ranking | S | 5 | 5 | 5 | 125 | BUILT | `indexer/`; `lib/juno/envio.ts` |
 | 5 | Graduation opens the coin's own Kuru market at the curve's final price | S | 5 | 5 | 5 | 125 | BUILT | `KuruGraduator.sol`; `test/KuruGraduator.t.sol` (fork, live Kuru); ask = curve top in the E2E |
 | 6 | One-transaction launch: token, sixteen-range curve, venue lock and optional first buy | F | 5 | 5 | 5 | 125 | BUILT | `JunoLaunchpad.launch`; `app/(tabs)/post.tsx` |
-| 7 | Server-built, device-signed transactions via `eth_sendRawTransactionSync` with the measured confirm time shown | S | 5 | 5 | 5 | 125 | BUILT | `lib/juno/tx.ts`; "confirmed on Monad in 0.9s" in the trade sheet (fork) |
+| 7 | Server-built, device-signed transactions via `eth_sendRawTransactionSync` with the measured confirm time shown | S | 5 | 5 | 5 | 125 | BUILT | `lib/juno/tx.ts`; on the fork the sheet now says "confirmed on a local fork of Monad testnet in 0.8s" (`localFork` in `GET config`) rather than crediting Monad; "confirmed on Monad in 0.9s" in the trade sheet (fork) |
 | 8 | Trade a Kuru-graduated coin in the app (free quote, market orders) | S | 5 | 5 | 5 | 125 | BUILT | `lib/juno/kuru.ts`; bought 2 MON and sold 19,940 tokens from the web app |
 | 9 | Built-in testnet faucet that respects Monad's reserve and settle rules | S | 4 | 5 | 5 | 100 | BUILT | `app/api/juno/faucet/route.ts` |
 | 10 | Complete holder list (transfers included) with indexer freshness | S | 4 | 5 | 5 | 100 | BUILT | `listPoolHolders`; "current to block N" caption |
@@ -64,7 +64,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 29 | Comments, likes, follows, saved posts | F | 4 | 5 | 4 | 80 | BUILT | Mongo-backed routes |
 | 30 | Graduation moment: a sheet that shows the market opening | D | 4 | 4 | 5 | 80 | NOT BUILT | today a pill and a link |
 | 31 | Limit orders on Kuru-graduated coins | S | 4 | 4 | 5 | 80 | BUILT | `lib/juno/kuru.ts` `buildKuruLimitOrder`, `components/KuruOrders.tsx`; placed, filled, cancelled and withdrawn through the API and the web app (fork) |
-| 32 | Creator first buy in the launch screen | F | 3 | 5 | 5 | 75 | PARTIAL | the API and CLI support `firstBuy`; the screen does not offer it |
+| 32 | Creator first buy in the launch screen | F | 3 | 5 | 5 | 75 | BUILT | first-buy chips in `post.tsx`; test plan C3 (1 MON first buy, tokens held after the launch transaction) |
 | 33 | Curve builder ↔ contract parity fixtures | P | 3 | 5 | 5 | 75 | BUILT | `test/PresetParity.t.sol` |
 | 34 | Kuru bid/ask/spread on the coin page | D | 3 | 5 | 5 | 75 | BUILT | coin page graduated block |
 | 35 | Recurring buy plans executed by a Privy server signer with a policy | S | 5 | 3 | 5 | 75 | PARTIAL | plans are stored (`app/api/juno/plans`); execution needs a Privy key quorum |
@@ -107,7 +107,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 72 | Kuru fork test in CI (opt-in, pinned block) | P | 2 | 4 | 5 | 40 | NOT BUILT | runs locally with `KURU_FORK_TEST=1` |
 | 73 | Privy on iOS/Android (`@privy-io/expo`) | S | 4 | 2 | 5 | 40 | BLOCKED | needs an Expo development build and the app's bundle id on the Privy app |
 | 74 | Push notification when someone buys your post | F | 4 | 2 | 5 | 40 | NOT BUILT | needs Expo push credentials |
-| 75 | Show the Kuru market's future address before graduation | S | 2 | 4 | 5 | 40 | NOT BUILT | `Router.computeAddress` at the planned params |
+| 75 | Show the Kuru market's future address before graduation | S | 2 | 4 | 5 | 40 | BUILT | `lib/juno/kuru.ts` `predictKuruMarket` (`KuruGraduator.marketParams` → `Router.computeAddress`); coin Details "0x36bC…b594 · opens at graduation"; the prediction matched the market graduation opened |
 | 76 | Accessibility roles and states on controls | D | 3 | 4 | 3 | 36 | PARTIAL | radios, tabs and buttons carry roles; not audited |
 | 77 | Custom curve designer (drag sixteen weights) | F | 3 | 3 | 4 | 36 | NOT BUILT | four presets today |
 | 78 | Moderation of reels (report + hide) | F | 3 | 4 | 3 | 36 | NOT BUILT |  |

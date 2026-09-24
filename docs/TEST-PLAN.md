@@ -201,3 +201,28 @@ the harness, not the app, shaped how it was driven:
 
 Every FAIL → fixed above is in commit `e51a19b`. The second pass re-runs the
 whole plan once there is disk space again.
+
+### Second pass (started 2026-09-24, after a restart)
+
+The stack was rebuilt from nothing: a fresh fork at block 65,197,097, Juno
+redeployed, the indexer re-synced. The cases the first pass could not finish
+came first.
+
+| ID | Result | Notes |
+|---|---|---|
+| E2 | FAIL → fixed | A Kuru buy on the fork said "confirmed on Monad in 0.8s", crediting Monad with anvil's time. `GET config` now reports `localFork` and the sheet says "confirmed on a local fork of Monad testnet in 0.8s" (seen in Chrome after the fix). Commit `38a7d51` |
+| F2 | PASS | 2 MON → 39,880 KURU410 at the book's 0.00005 MON ask; the indexer recorded the fill (`KuruTrade` `0xef8d…56c6`) |
+| H1 | FAIL → fixed | Value, P&L and the position were right, but the header said **2 Trades** for a wallet with one. It counted the points of the value chart (`history`), not trades. It now counts the trades the Activity tab lists: "1 Positions · 1 Trades" after the fix |
+| H2 | PASS | Watch → "Stop watching", kept after reload; the profile's Watching tab lists KURU410 with its price |
+| H3 | PASS | Details → "Buy this every week" → 1 MON weekly → Start; the coin shows "Due now", and the profile's Plans tab lists "1.00 MON ($0.0239) weekly" from Postgres |
+| H4 | FAIL → fixed | Another wallet's page showed its rank, stats ("3 Fills") and holdings, but not the trades behind them. It now lists them with the `TradeList` the Activity tab uses. Re-checked in Chrome: three rows for `0x391b…C211` |
+| H4b | FAIL → fixed | Those rows then said the 711.97M-token curve fill went "at $0.0₅120", while the holding's average cost was $0.0₆516. The row printed the mark *after* the trade. Trades now carry what was paid, and rows read "Paid $367.62 · $0.0₆516 each" |
+| E8 | PASS (new behaviour) | A Kuru-venue coin on its curve shows "Kuru market 0x36bC…b594 · opens at graduation", and the Network row says "Monad testnet (local fork)" on the fork. On a coin launched, filled and graduated by script, the address shown before graduation was the market Kuru opened (`0xf749…9a2a`, "PREDICTION MATCHES") |
+| D3 | NOT RUN | Needs a video launch |
+
+The internal disk filled a second time during this pass: free space fell from
+about 600 MB to nothing at roughly 34 MB a minute, and the shell could no longer
+write its output. The cause was anvil: with one-second blocks and no
+`--prune-history`, it writes old fork states to a temp directory. Stopping it
+returned about 5.8 GB. It now runs with `--prune-history 300` (states in
+memory only), and the fork was rebuilt.

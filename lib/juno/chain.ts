@@ -3,6 +3,7 @@ import "server-only";
 import { getAddress, zeroAddress } from "viem";
 
 import { envioConfigured, envioPoolStats } from "./envio";
+import { predictKuruMarket } from "./kuru";
 
 import { fetchPoolSnapshot, weiToUi } from "./launchpad";
 import { markPrice } from "./mark";
@@ -302,10 +303,19 @@ export async function hydratePool(
   }
 
   // For Kuru the locked address is Kuru's MarginAccount, not a pair anyone
-  // should be sent to; the coin's own market is linked once it exists.
+  // should be sent to. The coin's own market is linked instead: live once it
+  // has graduated, and before that the CREATE2 address it will open at. Only
+  // the coin page asks for the prediction — it is five reads.
   const venue =
     snapshot.venue === "kuru"
-      ? (kuru?.market ?? null)
+      ? (kuru?.market ??
+        (options.detailed && !snapshot.curve.graduated
+          ? await predictKuruMarket(
+              snapshot.token,
+              snapshot.pool.migrationBase,
+              snapshot.curve.complete ? snapshot.pool.quoteReserve : snapshot.pool.migrationQuoteThreshold,
+            ).catch(() => null)
+          : null))
       : (row.pair ?? (snapshot.pool.venue !== zeroAddress ? snapshot.pool.venue : null));
 
   return {

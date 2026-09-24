@@ -75,7 +75,15 @@ export type Position = {
    * This wallet's own trades against the pool, oldest first. Kept so the
    * portfolio's value over time can be rebuilt without re-reading the chain.
    */
-  trades: Array<{ t: string; side: "buy" | "sell"; base: number; price: number }>;
+  trades: Array<{
+    t: string;
+    side: "buy" | "sell";
+    base: number;
+    /** The mark right after the trade — what a value-over-time chart plots. */
+    price: number;
+    /** What was paid (buy, fee included) or received (sell), in `currency`. */
+    quote: number;
+  }>;
 };
 
 export type Portfolio = {
@@ -274,6 +282,7 @@ async function positionFor(
           side: swap.side,
           base: swap.baseAmount,
           price: swap.price * rate,
+          quote: swap.quoteAmount * rate,
         })),
     },
     partial: history?.partial ?? false,
@@ -423,7 +432,13 @@ async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promis
       graduated: snapshot.curve.graduated,
       trades: [...mine]
         .sort((a, b) => a.blockNumber - b.blockNumber || a.logIndex - b.logIndex)
-        .map((swap) => ({ t: swap.timestamp, side: swap.side, base: swap.baseAmount, price: swap.price * rate })),
+        .map((swap) => ({
+          t: swap.timestamp,
+          side: swap.side,
+          base: swap.baseAmount,
+          price: swap.price * rate,
+          quote: swap.quoteAmount * rate,
+        })),
     });
   }
   return positions.sort((a, b) => b.value - a.value);

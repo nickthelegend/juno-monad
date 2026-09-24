@@ -161,9 +161,11 @@ const DEFAULT_NETWORK: Network = "monad-testnet";
 
 /** "Monad testnet", for a details row. An unknown value is shown as itself, not guessed at. */
 export function networkLabel(network: string | null | undefined): string {
-  if (network === "monad-testnet") return "Monad testnet";
-  if (network === "monad") return "Monad mainnet";
-  return network ?? "—";
+  const name =
+    network === "monad-testnet" ? "Monad testnet" : network === "monad" ? "Monad mainnet" : (network ?? "—");
+  // A local fork has the testnet's chain id and state, but it is not the
+  // network, and a label that said so would pass one off as the other.
+  return network && configLoaded?.localFork ? `${name} (local fork)` : name;
 }
 
 /** True for native MON, however the address happens to be cased. */
@@ -471,7 +473,15 @@ export type FeedItem =
       } | null;
     };
 
-export type PositionTrade = { t: string; side: "buy" | "sell"; base: number; price: number };
+export type PositionTrade = {
+  t: string;
+  side: "buy" | "sell";
+  base: number;
+  /** The mark right after the trade — what the value chart plots, not what was paid. */
+  price: number;
+  /** What was paid (buy, fee included) or received (sell). Absent on an older server. */
+  quote?: number;
+};
 
 export type Position = {
   /** The coin's token address. */

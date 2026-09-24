@@ -8,6 +8,7 @@ import { AreaChart, RANGES, withinRange, type Range } from "../../components/Are
 import { CoinArt, Identicon } from "../../components/art";
 import { Tappable } from "../../components/Press";
 import { SignerChoice } from "../../components/SignerChoice";
+import { TradeList } from "../../components/TradeList";
 import { WalletCard } from "../../components/WalletCard";
 import { Handle } from "../../components/Handle";
 import {
@@ -33,7 +34,7 @@ import {
   Stat,
   Tabs,
 } from "../../components/kit";
-import { juno, type Plan, type WatchItem } from "../../lib/api";
+import { juno, networkLabel, type Plan, type WatchItem } from "../../lib/api";
 import { useLinkedState } from "../../lib/linked";
 import { money, tokens, useApi } from "../../lib/useApi";
 import { useIdentity } from "../../lib/names";
@@ -129,7 +130,9 @@ export default function ProfileScreen() {
     const byTime = new Map<string, number>();
     for (const position of data.positions) {
       for (const trade of position.trades) {
-        byTime.set(trade.t, (byTime.get(trade.t) ?? 0) + trade.base * trade.price);
+        // Volume is what changed hands; the mark times the size overstates a
+        // large curve buy by everything the curve moved during it.
+        byTime.set(trade.t, (byTime.get(trade.t) ?? 0) + (trade.quote ?? trade.base * trade.price));
       }
     }
     return series.map((point) => byTime.get(point.t) ?? 0);
@@ -195,10 +198,10 @@ export default function ProfileScreen() {
           </Heading>
           <Caption>
             {wallet.mode === "local"
-              ? "Device key · Monad testnet"
+              ? `Device key · ${networkLabel(juno.loadedConfig()?.network ?? "monad-testnet")}`
               : wallet.mode === "mera"
                 ? "Passkey wallet"
-                : "Privy embedded wallet · Monad testnet"}
+                : `Privy embedded wallet · ${networkLabel(juno.loadedConfig()?.network ?? "monad-testnet")}`}
           </Caption>
           {identity?.twitter ? <Pill label={`𝕏 @${identity.twitter}`} tone="ink" /> : null}
           <SignerChoice />
@@ -269,7 +272,15 @@ export default function ProfileScreen() {
                 tone={pnl === null || pnl === 0 ? undefined : pnl > 0 ? "pos" : "neg"}
                 label="P&L"
               />
-              <Stat value={counted(data?.history.length, data?.partial)} label="Trades" />
+              {/* The trades the Activity tab lists. `history` is the value
+                  series behind the chart — counting it counted chart points. */}
+              <Stat
+                value={counted(
+                  data?.positions.reduce((n, position) => n + position.trades.length, 0),
+                  data?.partial,
+                )}
+                label="Trades"
+              />
             </Row>
           </Entry>
         </Ledger>
@@ -342,35 +353,7 @@ export default function ProfileScreen() {
         ) : tab === "plans" ? (
           <PlansTab state={savings} onOpen={(token) => router.push(`/coin/${token}`)} />
         ) : tab === "activity" ? (
-          (data?.positions ?? []).flatMap((p) =>
-            p.trades.map((t) => ({ ...t, name: p.name, symbol: p.symbol, currency: p.currency })),
-          ).length === 0 ? (
-            <Card>
-              <Body muted>No trades yet.</Body>
-            </Card>
-          ) : (
-            (data?.positions ?? [])
-              .flatMap((p) =>
-                p.trades.map((t) => ({ ...t, name: p.name, symbol: p.symbol, currency: p.currency })),
-              )
-              .sort((a, b) => Date.parse(b.t) - Date.parse(a.t))
-              .slice(0, 20)
-              .map((trade, i) => (
-                <Card key={`${trade.t}-${i}`}>
-                  <Row gap={10}>
-                    <Side $buy={trade.side === "buy"}>{trade.side}</Side>
-                    <Label numberOfLines={1} style={{ flex: 1 }}>
-                      {trade.name}
-                    </Label>
-                    <Mono muted>{tokens(trade.base)}</Mono>
-                  </Row>
-                  <Caption style={{ marginTop: 6 }}>
-                    at {money(trade.price, trade.currency, { compact: false })} ·{" "}
-                    {new Date(trade.t).toLocaleString()}
-                  </Caption>
-                </Card>
-              ))
-          )
+          <TradeList positions={data?.positions ?? []} />
         ) : (
           <Card>
             <Body muted>
@@ -623,14 +606,6 @@ const Centered = styled.View`
 const RangeRow = styled.View`
   align-items: center;
   margin-vertical: ${(p) => p.theme.space(3)}px;
-`;
-
-const Side = styled.Text<{ $buy: boolean }>`
-  font-size: ${(p) => p.theme.type.label.size}px;
-  font-weight: 700;
-  text-transform: capitalize;
-  width: 38px;
-  color: ${(p) => (p.$buy ? p.theme.colors.pos : p.theme.colors.neg)};
 `;
 
 /**
