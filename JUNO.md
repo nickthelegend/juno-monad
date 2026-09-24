@@ -5,8 +5,9 @@
 Publishing a post or a reel launches a token for it on Monad, sold on a
 sixteen-range bonding curve by Juno's own launchpad contract. People buy into
 the content itself as they scroll. The creator earns trading fees on their own
-work instead of ad revenue. When the curve fills, its reserves graduate into a
-Uniswap v2 pair with permanently locked liquidity and it becomes a normal AMM
+work instead of ad revenue. When the curve fills, its reserves graduate — into
+a Uniswap v2 pair, or, if the creator chose it at launch, into the coin's own
+Kuru order-book market — with the liquidity locked for good, and it becomes a
 market that outlives the app.
 
 There are two surfaces. **`juno-expo/`** is the mobile app and the one to look
@@ -30,14 +31,18 @@ This section is deliberately first.
 | **Trade history** | From the launchpad's `Trade` events: recorded from receipts as trades land, a single log cursor for everything else, and an Envio HyperIndex indexer for full history. |
 | **Oracles** | MON/USD from Pyth's contract on Monad, no key. Equity marks from the same contract, labelled with their real age, and fresh from Hermes when a key is configured. Pre-IPO marks from Tessera's API. |
 | **Social layer** | Likes, comments, follows, posts and names persisted; a name is claimed with an EIP-191 signature. |
+| **The Kuru venue** | `KuruGraduator.sol`: a creator can choose Kuru at launch. The token is locked against Kuru's MarginAccount until graduation; graduation opens a Kuru market for it against MON, seeds the market's AMM vault at the curve's final price and burns the vault shares. The app then quotes (Kuru's free `eth_call` path) and trades the coin on that market, and the indexer follows it there. Six fork tests run against Kuru's live testnet contracts; the whole lifecycle was run through the API and the web app on a fork. |
+| **Privy (web)** | Sign in with email, Google or X; a Privy embedded wallet signs every server-built transaction behind Privy's own confirmation. An X account linked in Privy is shown on a profile only after the server verifies the session with the app secret. The provider and login modal are verified; a full login needs a real account and has not been run by us. |
+| **Indexed holders, positions and rankings** | Envio indexes every token transfer and every fill (curve and Kuru), so holder lists include wallets that only received tokens by transfer, positions carry one average-cost basis across a graduation, and the leaderboard is built from the complete record. |
 
 ### Not built yet
 
 | | Why / plan |
 |---|---|
 | **A deployment** | Nothing is deployed to Monad yet — this repository is the port. `contracts/deploy.sh testnet` deploys and verifies; the *On-chain proof* section below is where the lifecycle's transactions go. |
-| **Embedded wallets** | The app signs with a device key (`expo-secure-store`), which is real signing but not recoverable. The wallet is built around a `Signer` seam so a Privy embedded wallet or a Mera passkey account can replace it. |
-| **Holders beyond traders** | Holder lists are the live `balanceOf` of every wallet that has traded a coin. A wallet that only ever received tokens by transfer is not in that set; the indexer's `Position` entity is the route to a complete list. |
+| **Embedded wallets on iOS/Android** | The native builds sign with a device key (`expo-secure-store`): real signing, not recoverable. Privy's React Native SDK needs an Expo development build; the web build already uses Privy. |
+| **Holders without the indexer** | Without `ENVIO_GRAPHQL_URL`, holder lists are the live `balanceOf` of every wallet that has traded a coin, which misses wallets that only received tokens by transfer. |
+| **Kuru on mainnet** | Kuru's mainnet Router lets only Kuru's own Safe create markets, so the Kuru venue exists on testnet only. |
 | **Fresh equity marks without a key** | Pyth does not push equities to Monad. Without `PYTH_API_KEY` a stock tracker's mark is the last one posted on-chain, shown with its age and labelled stale. |
 | **TestFlight / Play builds** | `eas.json` is ready; submitting needs Apple Developer and Play Console accounts. |
 
@@ -164,6 +169,7 @@ launch, trade, fill, graduate, claim.*
 |---|---|
 | `JunoLaunchpad` | — |
 | `UniswapV2Graduator` | — |
+| `KuruGraduator` | — |
 | A launch | — |
 | A buy and a sell | — |
 | The buy that completed a curve | — |

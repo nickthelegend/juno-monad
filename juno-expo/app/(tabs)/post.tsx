@@ -103,6 +103,8 @@ export default function PostScreen() {
   const [symbol, setSymbol] = useState("");
   const [preset, setPreset] = useState<string>("content");
   const [venue, setVenue] = useState<Venue>("uniswap-v2");
+  /** MON the creator buys in the launch transaction itself. Zero for none. */
+  const [firstBuy, setFirstBuy] = useState(0);
   // Kuru is offered where the server has a Kuru graduator; posts launch in MON,
   // which every offered venue takes.
   const config = useApi(() => juno.config(), []);
@@ -230,6 +232,7 @@ export default function PostScreen() {
         // currency every wallet here already holds for gas.
         quoteToken: MON_ADDRESS,
         venue: venues.includes(venue) ? venue : "uniswap-v2",
+        firstBuy: firstBuy > 0 ? firstBuy : undefined,
       });
 
       const results = await wallet.signAndSubmit(built.steps, (step) =>
@@ -387,6 +390,29 @@ export default function PostScreen() {
             </>
           ) : null}
 
+          <Text style={styles.sectionTitle}>Your first buy</Text>
+          <Text style={styles.sectionLede}>
+            Bought in the launch transaction itself, at the opening price, so nobody can get in ahead of you.
+          </Text>
+          <View style={styles.chips}>
+            {FIRST_BUYS.map((amount) => {
+              const on = firstBuy === amount;
+              return (
+                <Pressable
+                  key={amount}
+                  onPress={() => setFirstBuy(amount)}
+                  role="radio"
+                  aria-checked={on}
+                  style={[styles.chip, on && styles.chipOn]}
+                >
+                  <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                    {amount === 0 ? "None" : `${amount} MON`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
           {error && (
             <Card style={styles.errorCard}>
               <Text style={styles.errorText}>{error}</Text>
@@ -419,6 +445,8 @@ export default function PostScreen() {
 }
 
 const MAX_CAPTION = 280;
+/** First-buy sizes offered at launch, in MON. */
+const FIRST_BUYS = [0, 1, 5, 10] as const;
 /** Matches the upload route's own limit, so a doomed upload is refused before it starts. */
 const MAX_BYTES = 25 * 1024 * 1024;
 
@@ -532,6 +560,17 @@ const styles = StyleSheet.create({
   presetHead: { flexDirection: "row", alignItems: "center", gap: 8 },
   presetLabel: { fontSize: theme.type.body.size, fontWeight: "600", color: theme.colors.ink },
   presetBlurb: { fontSize: theme.type.label.size, fontWeight: "500", color: theme.colors.muted, lineHeight: 19 },
+  chips: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  chip: {
+    paddingHorizontal: 16,
+    height: 40,
+    borderRadius: 999,
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  chipOn: { backgroundColor: theme.colors.ink },
+  chipText: { fontSize: theme.type.label.size, fontWeight: "700", color: theme.colors.text },
+  chipTextOn: { color: theme.colors.onInk },
   errorCard: { backgroundColor: "rgba(217,45,32,0.08)" },
   errorText: { fontSize: theme.type.body.size, color: theme.colors.neg, lineHeight: 21 },
   caption: { height: 88, paddingTop: 12, textAlignVertical: "top" },
