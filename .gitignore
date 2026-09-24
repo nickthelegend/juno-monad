@@ -31,8 +31,10 @@ npm-debug.log*
 # Foundry build output (the ABIs the app uses are exported to lib/juno/abi.ts)
 /contracts/out/
 /contracts/cache/
-/contracts/broadcast/*/31337/
-/contracts/broadcast/**/dry-run/
+# Forge's broadcast logs: a rehearsal on a local fork of testnet shares chain
+# id 10143 with the real thing, so these cannot tell the two apart. The record
+# of a real deployment is contracts/deployments/<chainid>.json.
+/contracts/broadcast/
 
 # The Expo app keeps its own dependencies and build output.
 /juno-expo/node_modules

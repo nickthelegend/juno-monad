@@ -5,7 +5,7 @@ is the same steps with `mainnet` and funded keys.
 
 | | What | Where it can run |
 |---|---|---|
-| **Contracts** | `JunoLaunchpad`, `UniswapV2Graduator` (+ the v2 factory on testnet) | Monad, via Foundry |
+| **Contracts** | `JunoLaunchpad`, `UniswapV2Graduator` (+ the v2 factory on testnet), `KuruGraduator` (testnet) | Monad, via Foundry |
 | **Indexer** | Envio HyperIndex over the launchpad (`indexer/`) | Envio Cloud, or locally with Docker |
 | **API** | The Next.js server at the repo root | Any Node host that keeps a process running (Railway, Render, Fly) — it holds a WebSocket to Monad for the live tape |
 | **App** | The Expo app (`juno-expo/`) — web export, or iOS/Android builds | Vercel/Netlify for web; EAS for stores |
@@ -30,13 +30,26 @@ export DEPLOYER_ADDRESS=$(cast wallet address --account monad-deployer)
 Fund the deployer at <https://faucet.monad.xyz>. The script checks the chain
 id, refuses an empty deployer, simulates first, writes
 `deployments/10143.json`, verifies through Sourcify on MonadVision, and prints
-the four lines the API needs:
+the lines the API needs:
 
 ```
 NEXT_PUBLIC_MONAD_NETWORK=testnet
 NEXT_PUBLIC_JUNO_LAUNCHPAD=0x…
 JUNO_LAUNCHPAD_DEPLOY_BLOCK=…
 NEXT_PUBLIC_JUNO_USDC=0x534b2f3A21130d7a60830c2Df862319e593943A3
+JUNO_KURU_GRADUATOR=0x…
+```
+
+On testnet the script also deploys a `KuruGraduator` against Kuru's testnet
+Router (`0x7EFb…4630`) and MarginAccount (`0xd029…CE02`) and offers it to
+creators with `setGraduatorAllowed`. It skips it on mainnet, where only Kuru's
+own Safe may create markets (`JUNO_KURU=false` skips it anywhere). A launch
+that chooses Kuru must be priced in MON.
+
+The end-to-end test against Kuru's live testnet contracts is opt-in:
+
+```bash
+KURU_FORK_TEST=1 forge test --match-contract KuruGraduatorForkTest --threads 1
 ```
 
 Testnet has no official Uniswap v2, so the script deploys the unmodified
@@ -51,6 +64,7 @@ cd indexer
 pnpm install
 cp .env.example .env
 #   ENVIO_JUNO_TESTNET_LAUNCHPAD=<launchpad>   ENVIO_JUNO_TESTNET_START_BLOCK=<deploy block>
+#   ENVIO_JUNO_TESTNET_KURU_GRADUATOR=<kuru graduator, if deployed>
 #   ENVIO_API_TOKEN=<token from envio.dev>  — or, with no token, ENVIO_TESTNET_RPC_FOR=sync
 pnpm dev                                    # Docker: Postgres + Hasura on :8080
 ```
@@ -83,6 +97,7 @@ npm run build && npm start
 | `MONAD_RPC_URL`, `JUNO_LOG_RANGE` | recommended | A dedicated RPC and its `eth_getLogs` range (100 on the public one). Never sent to the app. |
 | `MONAD_WS_URL` | optional | WebSocket for the live commit-state tape; defaults to Monad's public one. |
 | `ENVIO_GRAPHQL_URL` | recommended | Step 2. |
+| `JUNO_KURU_GRADUATOR` | optional (testnet) | From step 1. Offers the Kuru venue at launch and trades Kuru-graduated coins on their market. |
 | `PYTH_API_KEY` | optional | Fresh equity marks for stock trackers; MON/USD needs no key. |
 | `JUNO_APP_URL` | recommended | The app's web URL. Page requests to the API redirect there. |
 | `FAUCET_AMOUNT_MON` | optional | MON per faucet request (default 0.5). |

@@ -12,7 +12,7 @@ import {
 import { junoLaunchpadAbi } from "./abi";
 import { publicClient } from "./client";
 import { sqrtX96ToPrice } from "./curve-math";
-import { envioConfigured, envioTrades } from "./envio";
+import { envioConfigured, envioKuruTrades, envioTrades } from "./envio";
 import { quoteTokenOfPool } from "./launchpad";
 import { launchpadAddress, launchpadDeployBlock } from "./network";
 import { ttlCache, withRetry } from "./rpc";
@@ -74,6 +74,11 @@ export type PoolSwap = {
   trader: string;
   timestamp: string;
   blockNumber: number;
+  /**
+   * Where it traded. Absent for the curve; "kuru" for a fill on the coin's
+   * Kuru market after it graduated there, whose `price` is the fill's price.
+   */
+  venue?: "kuru";
 };
 
 const BASE_DECIMALS = 18;
@@ -310,12 +315,17 @@ export async function listSwapHistory(token: string, limit = DEFAULT_LIMIT): Pro
     `${address}:${limit}`,
     async () => {
       if (envioConfigured()) {
-        const fromIndexer = await envioTrades({ token: address, limit }).catch(() => null);
+        const [fromIndexer, onKuru] = await Promise.all([
+          envioTrades({ token: address, limit }).catch(() => null),
+          // After a graduation into Kuru the coin keeps trading there; the
+          // indexer follows it into its market. Empty for every other coin.
+          envioKuruTrades({ token: address, limit }).catch(() => [] as PoolSwap[]),
+        ]);
         if (fromIndexer) {
           // The indexer lags the head by a block or two; anything the receipt
           // path recorded since is merged in so a fresh trade is never missing.
           const recent = await recalledSwaps(address, 20).catch(() => [] as PoolSwap[]);
-          return { swaps: mergeSwaps(fromIndexer, recent).slice(0, limit), partial: false };
+          return { swaps: mergeSwaps([...fromIndexer, ...onKuru], recent).slice(0, limit), partial: false };
         }
       }
 

@@ -25,9 +25,9 @@ import { junoLaunchpadAbi, junoTokenAbi } from "./abi";
 import { publicClient } from "./client";
 import { BASE_DECIMALS, buildPresetParams, presetFromIndex, type BuildPresetOptions, type CurveParams } from "./curves";
 import { sqrtX96ToPrice, type RawSegment } from "./curve-math";
-import { NATIVE, isMainnet, launchpadAddress, requireLaunchpad } from "./network";
+import { NATIVE, isMainnet, kuruGraduatorAddress, launchpadAddress, requireLaunchpad } from "./network";
 import { ttlCache, withRetry } from "./rpc";
-import type { CurvePresetId, CurveState, QuoteToken, TradeSide } from "./types";
+import type { CurvePresetId, CurveState, QuoteToken, TradeSide, Venue } from "./types";
 
 /* ------------------------------------------------------------------ */
 /* Quote tokens                                                        */
@@ -119,9 +119,17 @@ export type PoolSnapshot = {
   /** Price of one token in quote-token units. */
   price: number;
   curve: CurveState;
+  /** Where it graduates — chosen at launch, fixed for good. */
+  venue: Venue;
   baseDecimals: number;
   quoteDecimals: number;
 };
+
+/** Which venue a pool chose at launch, from the graduator it was given. */
+export function venueOf(pool: Pick<OnchainPool, "graduator">): Venue {
+  const kuru = kuruGraduatorAddress();
+  return kuru !== null && getAddress(pool.graduator) === kuru ? "kuru" : "uniswap-v2";
+}
 
 /**
  * A curve never changes after launch, so it is read once per process. Every
@@ -274,6 +282,7 @@ async function readPoolSnapshot(
       complete: pool.complete,
       graduated: pool.graduated,
     },
+    venue: venueOf(pool),
   };
 }
 
@@ -316,6 +325,9 @@ export type TradeQuote = {
   /** Raw amounts, for building the transaction without re-quoting. */
   raw: { amountIn: bigint; amountOut: bigint; minimumAmountOut: bigint };
 };
+
+/** The venue asked for cannot take this launch. The message is for the creator. */
+export class VenueUnavailableError extends Error {}
 
 export class InsufficientLiquidityError extends Error {
   constructor() {
@@ -428,6 +440,8 @@ export type LaunchRequest = {
   migrationMarketCap: number;
   /** Optional first buy in quote units, made atomically with the launch. */
   firstBuy?: number;
+  /** Where the curve graduates. Defaults to the launchpad's own default (Uniswap v2). */
+  venue?: Venue;
 };
 
 export type LaunchPlan = {
@@ -448,6 +462,14 @@ export type LaunchPlan = {
  */
 export async function planLaunch(params: LaunchRequest): Promise<LaunchPlan> {
   const launchpad = requireLaunchpad();
+  let graduator: Address = NATIVE;
+  if (params.venue === "kuru") {
+    const kuru = kuruGraduatorAddress();
+    if (!kuru) throw new VenueUnavailableError("Kuru is not offered on this network");
+    // Kuru markets here are priced in MON; the graduator refuses anything else.
+    if (!params.quote.native) throw new VenueUnavailableError("A Kuru market is priced in MON. Launch in MON to choose Kuru.");
+    graduator = kuru;
+  }
   const curve = buildPresetParams({
     preset: params.preset,
     initialMarketCap: params.initialMarketCap,
@@ -484,6 +506,7 @@ export async function planLaunch(params: LaunchRequest): Promise<LaunchPlan> {
         endFeeBps: curve.endFeeBps,
         feeDecaySeconds: curve.feeDecaySeconds,
         feeDecayWad: curve.feeDecayWad,
+        graduator,
       },
       firstBuy,
       0n,
@@ -639,7 +662,7 @@ export function buildClaimCreatorFeesCall(params: { token: Address; to: Address;
  * early graduation, which is why the UI gates the button on `curve.complete`.
  * Anyone may send it; the outcome does not depend on who does.
  */
-export function buildGraduateCall(params: { token: Address; launchpad?: Address }): ContractCall {
+export function buildGraduateCall(params: { token: Address; launchpad?: Address; venue?: Venue }): ContractCall {
   return {
     to: params.launchpad ?? requireLaunchpad(),
     data: encodeFunctionData({
@@ -648,7 +671,7 @@ export function buildGraduateCall(params: { token: Address; launchpad?: Address 
       args: [params.token],
     }),
     value: 0n,
-    label: "Graduating to the AMM",
+    label: params.venue === "kuru" ? "Opening its Kuru market" : "Graduating to the AMM",
   };
 }
 

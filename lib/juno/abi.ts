@@ -472,6 +472,25 @@ export const junoLaunchpadAbi = [
   },
   {
     "type": "function",
+    "name": "graduatorAllowed",
+    "inputs": [
+      {
+        "name": "graduator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "launch",
     "inputs": [
       {
@@ -545,6 +564,11 @@ export const junoLaunchpadAbi = [
             "name": "feeDecayWad",
             "type": "uint64",
             "internalType": "uint64"
+          },
+          {
+            "name": "graduator",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       },
@@ -813,6 +837,24 @@ export const junoLaunchpadAbi = [
   },
   {
     "type": "function",
+    "name": "setGraduatorAllowed",
+    "inputs": [
+      {
+        "name": "graduator_",
+        "type": "address",
+        "internalType": "contract IJunoGraduator"
+      },
+      {
+        "name": "allowed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setProtocolShare",
     "inputs": [
       {
@@ -976,6 +1018,25 @@ export const junoLaunchpadAbi = [
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "GraduatorAllowed",
+    "inputs": [
+      {
+        "name": "graduator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "allowed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -1266,6 +1327,11 @@ export const junoLaunchpadAbi = [
   {
     "type": "error",
     "name": "Expired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "GraduatorNotAllowed",
     "inputs": []
   },
   {
@@ -2237,6 +2303,16 @@ export const uniswapV2GraduatorAbi = [
         "name": "quote",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
@@ -2297,6 +2373,861 @@ export const uniswapV2GraduatorAbi = [
         "internalType": "address"
       }
     ]
+  }
+] as const;
+
+export const kuruGraduatorAbi = [
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "launchpad_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "router_",
+        "type": "address",
+        "internalType": "contract IKuruRouter"
+      },
+      {
+        "name": "marginAccount_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "AMM_SPREAD",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "LOCK",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "MAKER_FEE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "NATIVE_IN_QUOTE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "TAKER_FEE_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "graduate",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "quote",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "baseAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "quoteAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "liquidity",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "launchpad",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marginAccount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marketOf",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marketParams",
+    "inputs": [
+      {
+        "name": "baseAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "quoteAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "m",
+        "type": "tuple",
+        "internalType": "struct KuruGraduator.MarketParams",
+        "components": [
+          {
+            "name": "pricePrecision",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "tickSize",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "sizePrecision",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "minSize",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "maxSize",
+            "type": "uint96",
+            "internalType": "uint96"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "prepare",
+    "inputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "quote",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "baseAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "quoteAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "router",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IKuruRouter"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "KuruMarketOpened",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "market",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vault",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "pricePrecision",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "BadValue",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NativeQuoteOnly",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OnlyLaunchpad",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PriceOutOfRange",
+    "inputs": [
+      {
+        "name": "priceWad",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+] as const;
+
+export const kuruOrderBookAbi = [
+  {
+    "type": "function",
+    "name": "addBuyOrder",
+    "inputs": [
+      {
+        "name": "price",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "size",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "postOnly",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "addSellOrder",
+    "inputs": [
+      {
+        "name": "price",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "size",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "postOnly",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "bestBidAsk",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getMarketParams",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "pricePrecision",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "sizePrecision",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "baseAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "baseDecimals",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "quoteAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "quoteDecimals",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tickSize",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "minSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "maxSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "takerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "makerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getVaultParams",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "placeAndExecuteMarketBuy",
+    "inputs": [
+      {
+        "name": "quoteSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "minAmountOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "isMargin",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "isFillOrKill",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "baseOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "placeAndExecuteMarketSell",
+    "inputs": [
+      {
+        "name": "size",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "minAmountOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "isMargin",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "isFillOrKill",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "quoteOut",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "event",
+    "name": "Trade",
+    "inputs": [
+      {
+        "name": "orderId",
+        "type": "uint40",
+        "indexed": false,
+        "internalType": "uint40"
+      },
+      {
+        "name": "makerAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "isBuy",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "price",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updatedSize",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      },
+      {
+        "name": "takerAddress",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "txOrigin",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "filledSize",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      }
+    ],
+    "anonymous": false
+  }
+] as const;
+
+export const kuruRouterAbi = [
+  {
+    "type": "function",
+    "name": "computeAddress",
+    "inputs": [
+      {
+        "name": "baseAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "quoteAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "sizePrecision",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "pricePrecision",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "tickSize",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "minSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "maxSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "takerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "makerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "kuruAmmSpread",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "oldImplementation",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "old",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "deployProxy",
+    "inputs": [
+      {
+        "name": "marketType",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "baseAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "quoteAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "sizePrecision",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "pricePrecision",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "tickSize",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "minSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "maxSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "takerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "makerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "kuruAmmSpread",
+        "type": "uint96",
+        "internalType": "uint96"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "verifiedMarket",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "pricePrecision",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "sizePrecision",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "baseAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "baseDecimals",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "quoteAsset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "quoteDecimals",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "tickSize",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "minSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "maxSize",
+        "type": "uint96",
+        "internalType": "uint96"
+      },
+      {
+        "name": "takerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "makerFeeBps",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   }
 ] as const;
 

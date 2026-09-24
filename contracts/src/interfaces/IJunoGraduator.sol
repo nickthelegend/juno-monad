@@ -8,8 +8,14 @@ pragma solidity 0.8.30;
 interface IJunoGraduator {
     /// @notice Create (or find) the venue for `token`/`quote` and return the
     /// address the token must refuse transfers to until graduation.
+    /// @dev Revert here to refuse a launch the venue could not list: the curve
+    /// is fixed at launch, so a graduation that would revert would strand it.
     /// @param quote The quote token, or address(0) for native MON.
-    function prepare(address token, address quote) external returns (address venue);
+    /// @param baseAmount The base the curve will hand over at graduation.
+    /// @param quoteAmount The quote it will raise by then.
+    function prepare(address token, address quote, uint256 baseAmount, uint256 quoteAmount)
+        external
+        returns (address venue);
 
     /// @notice Seed the venue with the curve's reserves and lock the position.
     /// @dev The launchpad has already transferred `baseAmount` of `token` and,

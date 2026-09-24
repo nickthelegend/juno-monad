@@ -2,9 +2,10 @@
 
 **Post a photo or a reel and it launches its own token on a bonding curve on
 Monad.** People buy into the post itself as they scroll, the creator earns the
-trading fees instead of ad revenue, and when the curve fills it graduates into
-a Uniswap v2 pair whose liquidity is locked for good — a market that outlives
-the app.
+trading fees instead of ad revenue, and when the curve fills it graduates —
+into a Uniswap v2 pair, or, if the creator chose it, into **its own Kuru
+order-book market** — with the liquidity locked for good: a market that
+outlives the app.
 
 The same machinery issues **pre-IPO and stock trackers**: curves shaped like
 issuances and marked against a real reference — **Tessera** marks for OpenAI,
@@ -16,7 +17,7 @@ Culture*: a feed where curation is paid for by the people who benefit from it.
 | | |
 |---|---|
 | **Network** | Monad **testnet** (chain 10143). No real money. |
-| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad`, `JunoToken`, `UniswapV2Graduator`. Addresses are filled in by [`contracts/deploy.sh`](contracts/deploy.sh); see [DEPLOY.md](DEPLOY.md). |
+| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad`, `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`. Addresses are filled in by [`contracts/deploy.sh`](contracts/deploy.sh); see [DEPLOY.md](DEPLOY.md). |
 | **App** | [`juno-expo/`](juno-expo/) — Expo (iOS, Android, web). |
 | **API** | [`app/api/juno/`](app/api/juno/) — the Next.js server the app talks to. [docs/API.md](docs/API.md). |
 | **Indexer** | [`indexer/`](indexer/) — Envio HyperIndex over the launchpad's events. |
@@ -53,6 +54,18 @@ read fails the app says so — it does not print a zero it never measured.
   refuses transfers into it until then, so nobody can seed it at a price of
   their choosing first — and the pair itself is only deployed when a curve
   graduates, so a launch costs about 2M gas instead of 4.6M.
+- **Choose where it graduates: Uniswap v2 or Kuru.** A creator picks the venue
+  at launch. With Kuru, the filled curve opens a new spot market for the token
+  on Kuru's CLOB, seeds the market's AMM vault with the curve's reserves at the
+  curve's final price, and burns the vault shares — every post that fills
+  becomes a new asset with an order book
+  ([`KuruGraduator.sol`](contracts/src/graduators/KuruGraduator.sol)). The token
+  refuses transfers into Kuru's MarginAccount until then, which closes every
+  way into Kuru — orders, vault deposits, router swaps — so nobody can price it
+  there first. After graduation the app keeps trading the coin on its Kuru
+  market (quoted free through Kuru's own `eth_call` path), and the indexer
+  follows it there. Testnet only: Kuru's mainnet Router lets only Kuru create
+  markets.
 - **Fees that decay, paid to the poster.** A launch fee that blunts snipers
   decays exponentially to a resting fee over sixty periods. The creator takes
   the trading fees, claimable any time.

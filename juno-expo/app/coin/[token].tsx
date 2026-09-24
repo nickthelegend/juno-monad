@@ -115,6 +115,8 @@ export default function CoinScreen() {
   const wallet = useWallet();
   const detail = useApi(() => juno.coin(token), [token]);
   const coin = detail.data?.coin;
+  /** The creator chose Kuru: the curve graduates into its own Kuru market, and trades there after. */
+  const onKuru = coin?.venue === "kuru";
 
   // Only for the count on the tab — the sheet reads its own list when opened,
   // because a list fetched on mount is stale by the time anyone looks at it.
@@ -419,14 +421,23 @@ export default function CoinScreen() {
               {coin.curve.graduated ? (
                 <Col gap={6} style={{ marginTop: 16 }}>
                   <Row gap={8}>
-                    <Pill label="Graduated" tone="pos" />
+                    <Pill label={onKuru ? "On Kuru" : "Graduated"} tone="pos" />
                     <Caption style={{ flex: 1 }}>
-                      Trades on its Uniswap v2 pair now. The liquidity is locked for good.
+                      {onKuru
+                        ? "Trades on its own Kuru market now: an order book, plus a vault holding the curve's reserves for good."
+                        : "Trades on its Uniswap v2 pair now. The liquidity is locked for good."}
                     </Caption>
                   </Row>
+                  {onKuru && coin.kuru ? (
+                    <Caption>
+                      Bid {money(coin.kuru.bestBid, coin.quote.symbol, { compact: false })} · Ask{" "}
+                      {money(coin.kuru.bestAsk, coin.quote.symbol, { compact: false })}
+                      {coin.kuru.spread !== null ? ` · spread ${(coin.kuru.spread * 100).toFixed(2)}%` : ""}
+                    </Caption>
+                  ) : null}
                   {coin.pair ? (
                     <LinkTap onPress={() => Linking.openURL(juno.explorer("address", coin.pair!))}>
-                      <LinkText>View the pair on MonadVision</LinkText>
+                      <LinkText>{onKuru ? "View the Kuru market on MonadVision" : "View the pair on MonadVision"}</LinkText>
                       <ExternalGlyph />
                     </LinkTap>
                   ) : null}
@@ -442,7 +453,9 @@ export default function CoinScreen() {
                   <Row gap={8}>
                     <Pill label="Curve full" tone="lime" />
                     <Caption style={{ flex: 1 }}>
-                      Trading pauses until someone moves it into its Uniswap v2 pair. Anyone can.
+                      {onKuru
+                        ? "Trading pauses until someone opens its Kuru market. Anyone can."
+                        : "Trading pauses until someone moves it into its Uniswap v2 pair. Anyone can."}
                     </Caption>
                   </Row>
                   {graduate.error ? <ErrorLine>{graduate.error}</ErrorLine> : null}
@@ -537,11 +550,11 @@ export default function CoinScreen() {
                 <PostGlyph />
               </PostTap>
             </Tappable>
-            {coin.curve.graduated ? (
+            {coin.curve.graduated && !onKuru ? (
               <GraduatedNote>Trades on its Uniswap v2 pair.</GraduatedNote>
-            ) : coin.curve.complete ? (
+            ) : coin.curve.complete && !coin.curve.graduated ? (
               <Button
-                label={graduate.busy ? "Graduating…" : "Graduate"}
+                label={graduate.busy ? "Graduating…" : onKuru ? "Open on Kuru" : "Graduate"}
                 variant="ink"
                 tall
                 loading={graduate.busy}
@@ -827,8 +840,8 @@ function DetailsTab({
         {/* The pair exists from launch — locked until graduation — so it is
             a fact about this coin from its first block, not only its last. */}
         <DetailRow
-          label="Uniswap v2 pair"
-          value={coin.pair ? short(coin.pair) : "—"}
+          label={coin.venue === "kuru" ? "Kuru market" : "Uniswap v2 pair"}
+          value={coin.pair ? short(coin.pair) : coin.venue === "kuru" ? "Opens at graduation" : "—"}
           shaded
           copied={copied === "pair"}
           onCopy={coin.pair ? () => void copy("pair", coin.pair!) : undefined}

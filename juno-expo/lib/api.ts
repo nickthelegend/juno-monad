@@ -196,6 +196,25 @@ export type ChainConfig = {
   quoteTokens: QuoteToken[];
   /** Whether `POST faucet` will answer — testnet only. */
   faucet: boolean;
+  /**
+   * Where a launch may graduate, and which quote tokens each venue takes.
+   * Uniswap v2 always; Kuru on deployments with a Kuru graduator (testnet).
+   * Absent on an older server, which offers Uniswap v2 only.
+   */
+  venues?: Array<{ id: Venue; name: string; quotes: string[] }>;
+};
+
+/** Where a curve graduates: a Uniswap v2 pair, or a Kuru order-book market. */
+export type Venue = "uniswap-v2" | "kuru";
+
+/** A graduated coin's Kuru market: the top of its book, in MON per token. */
+export type KuruMarketView = {
+  market: string;
+  bestBid: number;
+  bestAsk: number;
+  /** (ask - bid) / mid; null without both sides. */
+  spread: number | null;
+  takerFeeBps: number;
 };
 
 export type CurveState = {
@@ -295,6 +314,10 @@ export type Coin = {
    * not say, which is not the same as there being no pair.
    */
   pair?: string | null;
+  /** Where the curve graduates, chosen at launch. Absent on an older server. */
+  venue?: Venue;
+  /** The coin's Kuru market once it has graduated there; null otherwise. */
+  kuru?: KuruMarketView | null;
   /** Present when the list was asked for `social=1`. */
   likes?: number;
   commentCount?: number;
@@ -546,6 +569,9 @@ export type SwapBuild = {
   };
   quoteSymbol: string;
   quoteUsdRate: number | null;
+  /** Where the order goes: the curve, or the coin's Kuru market after graduation. */
+  venue?: "curve" | "kuru";
+  market?: string;
 };
 
 export type LaunchBuild = {
@@ -1020,13 +1046,15 @@ export const juno = {
     migrationMarketCap?: number;
     /** The creator's own first buy, in quote units, made in the launch transaction. */
     firstBuy?: number;
+    /** Where the curve graduates. Uniswap v2 when omitted. */
+    venue?: Venue;
   }) => api.post<LaunchBuild>("/api/juno/tx/launch", input),
 
   /** Pay the creator the trading fees their coin has accrued. Creator only. */
   claim: (input: { creator: string; token: string }) =>
     api.post<{ steps: UnsignedTransaction[] }>("/api/juno/tx/claim", input),
 
-  /** Move a filled curve into its Uniswap v2 pair. Anyone may send it. */
+  /** Move a filled curve into its venue — a Uniswap v2 pair or a Kuru market. Anyone may send it. */
   graduate: (input: { from: string; token: string }) =>
     api.post<{ steps: UnsignedTransaction[] }>("/api/juno/tx/graduate", input),
 

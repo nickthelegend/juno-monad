@@ -181,6 +181,12 @@ export function TradeSheet({
   /** When the quote on screen was built. Kept for the "quoted Ns ago" read. */
   const quotedAt = useRef(0);
 
+  /**
+   * A coin that graduated into Kuru trades on its own Kuru market: the server
+   * routes the order there, and the curve-shaped parts of this sheet (the size
+   * suggester, the fill-the-curve note) do not apply.
+   */
+  const onKuru = coin.curve.graduated && coin.venue === "kuru";
   const value = Number(amount || "0");
   const valid = Number.isFinite(value) && value > 0;
   const unit = side === "buy" ? coin.quote.symbol : coin.symbol;
@@ -294,6 +300,8 @@ export function TradeSheet({
   useEffect(() => {
     let cancelled = false;
     setSuggestion(null);
+    // The suggester walks the curve; after a Kuru graduation there is none.
+    if (onKuru) return;
     setSuggesting(true);
     juno
       .depth(coin.address, side, IMPACT_BUDGET)
@@ -316,7 +324,7 @@ export function TradeSheet({
     return () => {
       cancelled = true;
     };
-  }, [coin.address, side]);
+  }, [coin.address, side, onKuru]);
 
   const press = useCallback((key: string) => {
     setError(null);
@@ -501,7 +509,7 @@ export function TradeSheet({
               {side === "buy"
                 ? `Bought ${receiving ?? ""}`
                 : `Sold ${tokens(value)} ${coin.symbol} for ${receiving ?? ""}`}{" "}
-              — confirmed on Monad
+              {onKuru ? "on Kuru " : ""}— confirmed on Monad
               {/* Measured on the server from broadcast to receipt — the one
                   number that says why this runs on Monad. */}
               {confirmedInMs !== null ? ` in ${(confirmedInMs / 1000).toFixed(confirmedInMs < 10_000 ? 1 : 0)}s` : ""}.
@@ -511,8 +519,9 @@ export function TradeSheet({
             {txHash ? <FinalityTimeline txHash={txHash} /> : null}
             {filledCurve ? (
               <Label muted style={{ textAlign: "center" }}>
-                That buy filled the curve. It can graduate into its Uniswap v2 pair now — anyone can
-                send it on from the coin&rsquo;s page.
+                {coin.venue === "kuru"
+                  ? "That buy filled the curve. Its Kuru market can open now — anyone can send it on from the coin\u2019s page."
+                  : "That buy filled the curve. It can graduate into its Uniswap v2 pair now — anyone can send it on from the coin\u2019s page."}
               </Label>
             ) : null}
             {noteError ? <ErrorText>{noteError}</ErrorText> : null}
@@ -629,13 +638,25 @@ export function TradeSheet({
                 saying "type here", and a second voice saying it sat between
                 two rows of figures where a figure belongs. */}
             <Receive>
-              {quoting ? "Quoting against the curve…" : receiving ? `You'll receive ${receiving}` : " "}
+              {quoting
+                ? onKuru
+                  ? "Quoting Kuru's book…"
+                  : "Quoting against the curve…"
+                : receiving
+                  ? `You'll receive ${receiving}`
+                  : " "}
             </Receive>
+            {onKuru ? (
+              <Caption style={{ textAlign: "center" }}>
+                Fills on {coin.symbol}&rsquo;s Kuru market — its order book and the vault holding the curve&rsquo;s
+                reserves. Kuru charges the taker fee.
+              </Caption>
+            ) : null}
 
             {/* A buy bigger than what is left on the curve fills it and gets
                 the rest back in the same transaction. Said before signing,
                 with the exact size, rather than discovered on the receipt. */}
-            {side === "buy" && quote && !quoting && quote.quote.amountUsed < value * (1 - 1e-9) ? (
+            {side === "buy" && !onKuru && quote && !quoting && quote.quote.amountUsed < value * (1 - 1e-9) ? (
               <FillNote>
                 <HintText>
                   {`This fills the curve: it uses ${tokens(quote.quote.amountUsed)} ${coin.quote.symbol} and refunds the rest in the same transaction.`}

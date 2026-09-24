@@ -52,6 +52,24 @@ contracts:
     events:
       - event: "Transfer(address indexed from, address indexed to, uint256 value)"
 
+  # The Kuru venue: a creator can choose to graduate into a Kuru order-book
+  # market instead of a Uniswap v2 pair. The graduator announces each market it
+  # opens, and that market is registered below.
+  - name: KuruGraduator
+    events:
+      - event: "KuruMarketOpened(address indexed token, address indexed market, address vault, uint32 pricePrecision)"
+        field_selection:
+          transaction_fields: [hash]
+
+  # Each Kuru market (OrderBook) a Juno coin graduated into. Kuru's events have
+  # no indexed parameters — everything is in the data — and `isBuy` is the
+  # taker's side. Only markets Juno opened are indexed, never all of Kuru.
+  - name: KuruMarket
+    events:
+      - event: "Trade(uint40 orderId, address makerAddress, bool isBuy, uint256 price, uint96 updatedSize, address takerAddress, address txOrigin, uint96 filledSize)"
+        field_selection:
+          transaction_fields: [hash]
+
 chains:
   # Monad testnet. HyperSync: https://monad-testnet.hypersync.xyz
   - id: 10143
@@ -73,6 +91,10 @@ chains:
         # so the indexer runs and stays empty.
         address: "${ENVIO_JUNO_TESTNET_LAUNCHPAD:-0x0000000000000000000000000000000000000000}"
       - name: JunoToken
+      - name: KuruGraduator
+        # JUNO_KURU_GRADUATOR in the app. Zero until one is deployed.
+        address: "${ENVIO_JUNO_TESTNET_KURU_GRADUATOR:-0x0000000000000000000000000000000000000000}"
+      - name: KuruMarket
 
   # Monad mainnet. HyperSync: https://monad.hypersync.xyz
   # Skipped until there is a mainnet launchpad: set ENVIO_JUNO_SKIP_MAINNET=false.

@@ -107,6 +107,12 @@ export async function POST(request: Request) {
       throw new CallerError('"firstBuy" cannot be negative');
     }
 
+    // Where the curve graduates: a Uniswap v2 pair unless the creator picks Kuru.
+    const venue = body.venue === undefined || body.venue === null ? undefined : body.venue;
+    if (venue !== undefined && venue !== "uniswap-v2" && venue !== "kuru") {
+      throw new CallerError('"venue" must be "uniswap-v2" or "kuru"');
+    }
+
     const result = await buildLaunch({
       creator,
       name,
@@ -117,6 +123,7 @@ export async function POST(request: Request) {
       initialMarketCap,
       migrationMarketCap,
       firstBuy,
+      venue,
     });
 
     return junoJson(result);

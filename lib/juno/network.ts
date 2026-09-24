@@ -91,6 +91,16 @@ export function launchpadDeployBlock(): bigint {
   return raw && /^\d+$/.test(raw) ? BigInt(raw) : 0n;
 }
 
+/**
+ * The Kuru venue's graduator: a launch may choose to graduate into a Kuru
+ * order-book market instead of the default Uniswap v2 pair. Null when this
+ * deployment has none — always on mainnet, where Kuru's Router lets only
+ * Kuru's own Safe create markets.
+ */
+export function kuruGraduatorAddress(): Address | null {
+  return envAddress("JUNO_KURU_GRADUATOR");
+}
+
 /** Native MON, as the launchpad spells it. */
 export const NATIVE: Address = zeroAddress;
 

@@ -53,9 +53,11 @@ Hunyuan)** on top of the track prize.
 ### Why not Track 01
 
 Track 01 unlocks the two Kuru bounties ($5k "Build the Next Consumer Trading App
-on Kuru", $5k "Bring New Assets and Markets to Kuru") — graduating curves into
-Kuru order books instead of Uniswap v2 would be a direct fit, and the graduator
-is an interface for exactly that reason. Two costs: the rules define Track 01's
+on Kuru", $5k "Bring New Assets and Markets to Kuru"). Juno now graduates into
+Kuru when the creator chooses it — each filled post opens its own Kuru market —
+and trades graduated coins on it (`KuruGraduator`, `lib/juno/kuru.ts`), so the
+"new assets and markets" fit is literal. Kuru's prizes are only claimable from
+Track 01, though, so building it does not decide the track. Two costs: the rules define Track 01's
 primary user as "a trader, protocol, or financial product builder", which is a
 weaker fit than Track 03's; and Kuru market creation on **mainnet** is owner-only
 (simulated `Router.deployProxy` reverts `Unauthorized()`), open only on testnet.

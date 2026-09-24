@@ -1,6 +1,14 @@
 import { junoJson, junoOptions } from "@/lib/juno/api";
 import { QUOTE_TOKENS } from "@/lib/juno/launchpad";
-import { chain, chainId, explorer, launchpadAddress, network, networkKey } from "@/lib/juno/network";
+import {
+  chain,
+  chainId,
+  explorer,
+  kuruGraduatorAddress,
+  launchpadAddress,
+  network,
+  networkKey,
+} from "@/lib/juno/network";
 
 export const dynamic = "force-dynamic";
 export const OPTIONS = junoOptions;
@@ -8,7 +16,7 @@ export const OPTIONS = junoOptions;
 /**
  * Which chain this server talks to, and where to look things up on it.
  *
- * `GET` → `{ network, chainId, rpcUrl, launchpad, explorer, quoteTokens, faucet }`.
+ * `GET` → `{ network, chainId, rpcUrl, launchpad, explorer, quoteTokens, faucet, venues }`.
  *
  * The app reads this once at start rather than compiling any of it in, so one
  * build can follow a server from testnet to mainnet. Nothing here is a secret
@@ -22,6 +30,9 @@ export const OPTIONS = junoOptions;
  * `/address/${a}` and `/token/${t}`. `launchpad` is null on a server that has
  * not been pointed at a deployment, which is also why every build route
  * answers 503 there.
+ *
+ * `venues` lists where a launch may graduate. Uniswap v2 always; Kuru when
+ * this deployment has a Kuru graduator (testnet only), priced in MON.
  */
 export async function GET() {
   return junoJson({
@@ -34,5 +45,11 @@ export async function GET() {
     explorer: explorer.tx("").replace(/\/tx\/$/, ""),
     quoteTokens: QUOTE_TOKENS,
     faucet: network() === "testnet",
+    venues: [
+      { id: "uniswap-v2", name: "Uniswap v2", quotes: QUOTE_TOKENS.map((token) => token.address) },
+      ...(kuruGraduatorAddress()
+        ? [{ id: "kuru", name: "Kuru", quotes: QUOTE_TOKENS.filter((t) => t.native).map((t) => t.address) }]
+        : []),
+    ],
   });
 }

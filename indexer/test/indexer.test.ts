@@ -261,6 +261,120 @@ describe("Trade on a USDC pool", () => {
   });
 });
 
+describe("The Kuru venue", () => {
+  // The graduator vitest.config.ts puts in ENVIO_JUNO_TESTNET_KURU_GRADUATOR.
+  const KURU_GRADUATOR = "0x2222222222222222222222222222222222222222" as const;
+  const MARKET = "0x672BceFaE26e8B6699615e507E22902e74c05c97" as const;
+  const VAULT = "0xFeF703b08e9d42543A11E96a429e8Bf729d573ED" as const;
+  const MARGIN_ACCOUNT = "0xd029C2D98ff85D8F64799017fE00a59B1159CE02" as const;
+
+  // Numbers from a real graduation and two market orders on a Monad testnet fork.
+  const kuruTrade = (isBuy: boolean, price: bigint, filledSize: bigint, block: number, logIndex: number) => ({
+    contract: "KuruMarket" as const,
+    event: "Trade" as const,
+    srcAddress: MARKET,
+    logIndex,
+    block: { number: block, timestamp: 1_758_700_000 + block },
+    transaction: { hash: tx(block) },
+    params: {
+      orderId: 0n,
+      makerAddress: VAULT,
+      isBuy,
+      price,
+      updatedSize: 0n,
+      takerAddress: bob as `0x${string}`,
+      txOrigin: bob as `0x${string}`,
+      filledSize,
+    },
+  });
+
+  it("follows a coin from its curve into its Kuru market", async (t) => {
+    const indexer = createTestIndexer();
+    t.expect(indexer.chains[TESTNET].KuruGraduator.addresses).toEqual([KURU_GRADUATOR]);
+
+    await indexer.process({
+      chains: {
+        [TESTNET]: {
+          simulate: [
+            { ...launched(tokenA, NATIVE, 300), params: { ...launched(tokenA, NATIVE, 300).params, venue: MARGIN_ACCOUNT } },
+            {
+              contract: "KuruGraduator",
+              event: "KuruMarketOpened",
+              srcAddress: KURU_GRADUATOR,
+              logIndex: 10,
+              block: { number: 310, timestamp: 1_758_700_310 },
+              transaction: { hash: tx(310) },
+              params: { token: tokenA, market: MARKET, vault: VAULT, pricePrecision: 1_000_000n },
+            },
+            {
+              contract: "JunoLaunchpad",
+              event: "Graduated",
+              logIndex: 11,
+              block: { number: 310, timestamp: 1_758_700_310 },
+              transaction: { hash: tx(310) },
+              params: {
+                token: tokenA,
+                venue: MARKET,
+                baseAmount: 150_000_000n * E18,
+                quoteAmount: 100n * E18,
+                liquidity: 1_000n,
+                burned: 0n,
+              },
+            },
+            // The vault's deposit parks the curve's tokens in Kuru's MarginAccount.
+            transfer(tokenA, LAUNCHPAD, MARGIN_ACCOUNT, 150_000_000n * E18, 310),
+            // A 1 MON market buy, then half of it sold back.
+            transfer(tokenA, MARGIN_ACCOUNT, bob, 1_000n * E18, 311),
+            kuruTrade(true, 995_019_473_682_833n, 1_005_005_456n, 311, 2),
+            kuruTrade(false, 985_167_795_725_577n, 500_995_219n, 312, 4),
+          ],
+        },
+      },
+    });
+
+    const pool = await indexer.Pool.getOrThrow(tokenA);
+    t.expect([pool.graduated, pool.venue, pool.kuruMarket_id, pool.lock]).toEqual([true, MARKET, MARKET, MARGIN_ACCOUNT]);
+    // Bob holds; the MarginAccount holding the vault's tokens does not count.
+    t.expect(pool.holderCount).toBe(1);
+
+    const buy = await indexer.KuruTrade.getOrThrow(`${tx(311)}:2`);
+    t.expect({
+      token: buy.token,
+      trader: buy.trader,
+      maker: buy.maker,
+      isBuy: buy.isBuy,
+      price: buy.price.toString(),
+      baseAmount: buy.baseAmount.toString(),
+      quoteAmount: buy.quoteAmount.toString(),
+    }).toEqual({
+      token: tokenA,
+      trader: bob,
+      maker: VAULT,
+      isBuy: true,
+      price: "0.000995019473682833",
+      baseAmount: "1005.005456",
+      quoteAmount: "0.999999999877495578536848",
+    });
+
+    const market = await indexer.KuruMarket.getOrThrow(MARKET);
+    t.expect({
+      token: market.token,
+      tradeCount: market.tradeCount,
+      buyCount: market.buyCount,
+      sellCount: market.sellCount,
+      volume: market.volumeQuote.toString(),
+      lastPrice: market.lastPrice?.toString(),
+    }).toEqual({
+      token: tokenA,
+      tradeCount: 2,
+      buyCount: 1,
+      sellCount: 1,
+      volume: "1.493564355448778291553211",
+      lastPrice: "0.000985167795725577",
+    });
+  });
+});
+
 describe("math", () => {
   it("prices a trade and a curve in display units", (t) => {
     // 1 USDC for 3 tokens, kept to 30 significant digits.

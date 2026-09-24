@@ -17,8 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CurvePreview } from "../../components/CurvePreview";
 import { Button, Card, Pill } from "../../components/kit";
-import { juno, MON_ADDRESS } from "../../lib/api";
+import { juno, MON_ADDRESS, type Venue } from "../../lib/api";
 import { feedChanged } from "../../lib/refresh";
+import { useApi } from "../../lib/useApi";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
 
@@ -68,6 +69,18 @@ const PRESETS = [
   },
 ] as const;
 
+/** Where the curve goes when it fills. Offered as the server's config allows. */
+const VENUES: Record<Venue, { label: string; blurb: string }> = {
+  "uniswap-v2": {
+    label: "Uniswap v2",
+    blurb: "A constant-product pair. Every aggregator can route to it.",
+  },
+  kuru: {
+    label: "Kuru order book",
+    blurb: "Its own spot market on Monad's CLOB: limit orders, plus an AMM vault seeded with the curve.",
+  },
+};
+
 export default function PostScreen() {
   const router = useRouter();
   const wallet = useWallet();
@@ -89,6 +102,13 @@ export default function PostScreen() {
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
   const [preset, setPreset] = useState<string>("content");
+  const [venue, setVenue] = useState<Venue>("uniswap-v2");
+  // Kuru is offered where the server has a Kuru graduator; posts launch in MON,
+  // which every offered venue takes.
+  const config = useApi(() => juno.config(), []);
+  const venues: Venue[] = (config.data?.venues ?? [{ id: "uniswap-v2" as const, name: "", quotes: [] }])
+    .filter((option) => option.quotes.length === 0 || option.quotes.includes(MON_ADDRESS))
+    .map((option) => option.id);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -209,6 +229,7 @@ export default function PostScreen() {
         // Posts launch against native MON: nothing to approve, and the
         // currency every wallet here already holds for gas.
         quoteToken: MON_ADDRESS,
+        venue: venues.includes(venue) ? venue : "uniswap-v2",
       });
 
       const results = await wallet.signAndSubmit(built.steps, (step) =>
@@ -336,6 +357,36 @@ export default function PostScreen() {
             })}
           </View>
 
+          {venues.length > 1 ? (
+            <>
+              <Text style={styles.sectionTitle}>When it fills</Text>
+              <Text style={styles.sectionLede}>
+                The curve&apos;s reserves move to a venue and stay there for good. Chosen now, fixed at launch.
+              </Text>
+              <View style={styles.presets}>
+                {venues.map((id) => {
+                  const on = venue === id;
+                  return (
+                    <Pressable
+                      key={id}
+                      onPress={() => setVenue(id)}
+                      role="radio"
+                      aria-checked={on}
+                    >
+                      <Card style={[styles.preset, on && styles.presetOn]}>
+                        <View style={styles.presetHead}>
+                          <Text style={styles.presetLabel}>{VENUES[id].label}</Text>
+                          {on && <Pill label="Selected" tone="lime" />}
+                        </View>
+                        <Text style={styles.presetBlurb}>{VENUES[id].blurb}</Text>
+                      </Card>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
+
           {error && (
             <Card style={styles.errorCard}>
               <Text style={styles.errorText}>{error}</Text>
@@ -357,9 +408,9 @@ export default function PostScreen() {
           {!busy && !unlisted && missing ? <Text style={styles.missing}>{missing}</Text> : null}
           {busy && status ? <Text style={styles.missing}>{status}</Text> : null}
           <Text style={styles.footnote}>
-            One transaction: it deploys the token, opens its curve, and reserves
-            the Uniswap v2 pair the curve graduates into — locked until then.
-            You pay the gas in MON.
+            {venue === "kuru"
+              ? "One transaction: it deploys the token and opens its curve. The token cannot enter Kuru until the curve fills; then it opens its own Kuru market at the curve's final price. You pay the gas in MON."
+              : "One transaction: it deploys the token, opens its curve, and reserves the Uniswap v2 pair the curve graduates into — locked until then. You pay the gas in MON."}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

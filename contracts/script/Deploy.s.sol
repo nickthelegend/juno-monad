@@ -7,12 +7,15 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 
 import {JunoLaunchpad} from "../src/JunoLaunchpad.sol";
 import {UniswapV2Graduator} from "../src/graduators/UniswapV2Graduator.sol";
+import {KuruGraduator} from "../src/graduators/KuruGraduator.sol";
 import {IUniswapV2Factory} from "../src/interfaces/IUniswapV2.sol";
+import {IKuruRouter} from "../src/interfaces/IKuru.sol";
 
 /// @title Deploy
-/// @notice Deploys Juno to Monad: the launchpad, a Uniswap v2 graduator, and —
-/// on a network without an official Uniswap v2 (Monad testnet) — the canonical
-/// v2-core factory for it to graduate into.
+/// @notice Deploys Juno to Monad: the launchpad, a Uniswap v2 graduator (the
+/// default venue), on testnet a Kuru graduator creators can choose instead,
+/// and — on a network without an official Uniswap v2 (Monad testnet) — the
+/// canonical v2-core factory for it to graduate into.
 ///
 /// Usually run through `contracts/deploy.sh testnet|mainnet`. Directly:
 ///
@@ -40,6 +43,12 @@ import {IUniswapV2Factory} from "../src/interfaces/IUniswapV2.sol";
 ///   UNISWAP_V2_FACTORY       v2 factory to graduate into. Default: the official
 ///                            one on mainnet; on any other chain, a fresh
 ///                            deployment of the canonical v2-core factory.
+///   KURU_ROUTER, KURU_MARGIN_ACCOUNT
+///                            Kuru v1, for the Kuru venue. Default: Kuru's
+///                            testnet deployment on testnet; none on mainnet,
+///                            where only Kuru's own Safe may create markets —
+///                            a Kuru graduator there would strand every curve
+///                            that chose it. `JUNO_KURU=false` skips it.
 contract Deploy is Script {
     uint256 internal constant MONAD_MAINNET = 143;
     uint256 internal constant MONAD_TESTNET = 10143;
@@ -52,6 +61,9 @@ contract Deploy is Script {
     // Monad testnet. No official Uniswap v2 here: the script deploys one.
     address internal constant TESTNET_WMON = 0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541;
     address internal constant TESTNET_USDC = 0x534b2f3A21130d7a60830c2Df862319e593943A3;
+    // Kuru v1 on testnet, where market creation is open to anyone.
+    address internal constant TESTNET_KURU_ROUTER = 0x7EFbE105Ca7415dE98F96622173458ac1c054630;
+    address internal constant TESTNET_KURU_MARGIN_ACCOUNT = 0xd029C2D98ff85D8F64799017fE00a59B1159CE02;
 
     /// @dev Compiled from lib/v2-core @ v1.0.1 by src/vendor/UniswapV2Core.sol.
     string internal constant V2_FACTORY_ARTIFACT = "UniswapV2Factory.sol:UniswapV2Factory";
@@ -75,6 +87,9 @@ contract Deploy is Script {
         bytes32 pairInitCodeHash;
         address wmon;
         address usdc;
+        address kuruGraduator;
+        address kuruRouter;
+        address kuruMarginAccount;
         uint256 deployBlock;
     }
 
@@ -110,6 +125,20 @@ contract Deploy is Script {
         } else if (d.chainId == MONAD_MAINNET) {
             // Never stand up a private v2 on mainnet by accident.
             revert Unconfigured("UNISWAP_V2_FACTORY");
+        }
+
+        if (vm.envOr("JUNO_KURU", true)) {
+            bool testnet = d.chainId == MONAD_TESTNET;
+            d.kuruRouter = _envAddress("KURU_ROUTER", testnet ? TESTNET_KURU_ROUTER : address(0));
+            d.kuruMarginAccount =
+                _envAddress("KURU_MARGIN_ACCOUNT", testnet ? TESTNET_KURU_MARGIN_ACCOUNT : address(0));
+            if ((d.kuruRouter == address(0)) != (d.kuruMarginAccount == address(0))) {
+                revert Unconfigured(d.kuruRouter == address(0) ? "KURU_ROUTER" : "KURU_MARGIN_ACCOUNT");
+            }
+            if (d.kuruRouter != address(0)) {
+                _requireCode("KURU_ROUTER", d.kuruRouter);
+                _requireCode("KURU_MARGIN_ACCOUNT", d.kuruMarginAccount);
+            }
         }
 
         uint256 share = _envUint("JUNO_PROTOCOL_SHARE_BPS", DEFAULT_PROTOCOL_SHARE_BPS);
@@ -156,6 +185,12 @@ contract Deploy is Script {
             address(launchpad), IUniswapV2Factory(d.uniswapV2Factory), d.wmon, d.pairInitCodeHash
         );
         launchpad.setGraduator(graduator);
+        if (d.kuruRouter != address(0)) {
+            KuruGraduator kuru =
+                new KuruGraduator(address(launchpad), IKuruRouter(d.kuruRouter), d.kuruMarginAccount);
+            launchpad.setGraduatorAllowed(kuru, true);
+            d.kuruGraduator = address(kuru);
+        }
         launchpad.setQuoteAllowed(d.usdc, true);
         if (d.owner != d.deployer) launchpad.transferOwnership(d.owner);
 
@@ -185,7 +220,9 @@ contract Deploy is Script {
             uint160(
                 uint256(
                     keccak256(
-                        abi.encodePacked(hex"ff", factory, keccak256(abi.encodePacked(token0, token1)), initCodeHash)
+                        abi.encodePacked(
+                            hex"ff", factory, keccak256(abi.encodePacked(token0, token1)), initCodeHash
+                        )
                     )
                 )
             )
@@ -241,6 +278,9 @@ contract Deploy is Script {
         vm.serializeBytes32(k, "uniswapV2PairInitCodeHash", d.pairInitCodeHash);
         vm.serializeAddress(k, "wmon", d.wmon);
         vm.serializeAddress(k, "usdc", d.usdc);
+        vm.serializeAddress(k, "kuruGraduator", d.kuruGraduator);
+        vm.serializeAddress(k, "kuruRouter", d.kuruRouter);
+        vm.serializeAddress(k, "kuruMarginAccount", d.kuruMarginAccount);
         string memory json = vm.serializeUint(k, "deployBlock", d.deployBlock);
 
         bool dryRun = vm.isContext(VmSafe.ForgeContext.ScriptDryRun);
@@ -262,6 +302,7 @@ contract Deploy is Script {
             d.uniswapV2FactoryDeployed ? "UniswapV2Factory (new)" : "UniswapV2Factory     ",
             d.uniswapV2Factory
         );
+        if (d.kuruGraduator != address(0)) console.log("KuruGraduator        ", d.kuruGraduator);
         console.log("WMON                 ", d.wmon);
         console.log("USDC (allowed quote) ", d.usdc);
         console.log("Owner                ", d.owner);
@@ -276,6 +317,9 @@ contract Deploy is Script {
         console.log(string.concat("NEXT_PUBLIC_JUNO_LAUNCHPAD=", vm.toString(d.launchpad)));
         console.log(string.concat("JUNO_LAUNCHPAD_DEPLOY_BLOCK=", vm.toString(d.deployBlock)));
         console.log(string.concat("NEXT_PUBLIC_JUNO_USDC=", vm.toString(d.usdc)));
+        if (d.kuruGraduator != address(0)) {
+            console.log(string.concat("JUNO_KURU_GRADUATOR=", vm.toString(d.kuruGraduator)));
+        }
     }
 
     /* ------------------------------------------------------------------ */

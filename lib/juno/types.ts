@@ -186,9 +186,17 @@ export type Coin = {
   viewerLiked?: boolean | null;
   /**
    * The AMM pair the curve graduates into. Created at launch and locked until
-   * graduation, so it is known — and linkable — before the curve fills.
+   * graduation, so it is known — and linkable — before the curve fills. For
+   * the Kuru venue, the coin's Kuru market once it has graduated, else null.
    */
   pair?: string | null;
+  /** Where the curve graduates, chosen by the creator at launch. */
+  venue?: Venue;
+  /**
+   * The coin's Kuru market, once it has graduated there: the top of its book,
+   * in the quote token (MON). Null before graduation and for Uniswap v2 coins.
+   */
+  kuru?: KuruMarketView | null;
   /**
    * The pool's actual sixteen-segment curve, for plotting. Only loaded on the
    * coin page — a grid of tiles has no room to show it.
@@ -198,6 +206,22 @@ export type Coin = {
   fee?: FeeSchedule | null;
   supply?: Tokenomics | null;
 };
+
+export type KuruMarketView = {
+  market: string;
+  /** MON per token. Zero when that side of the book is empty. */
+  bestBid: number;
+  bestAsk: number;
+  /** (ask - bid) / mid; null without both sides. */
+  spread: number | null;
+  takerFeeBps: number;
+};
+
+/**
+ * Where a curve graduates, chosen by its creator at launch: a Uniswap v2 pair,
+ * or a Kuru order-book market (testnet deployments with a Kuru graduator).
+ */
+export type Venue = "uniswap-v2" | "kuru";
 
 /**
  * Bonding-curve progress toward graduation.

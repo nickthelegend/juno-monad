@@ -19,7 +19,7 @@ import {
 import { junoLaunchpadAbi } from "@/lib/juno/abi";
 import { publicClient } from "@/lib/juno/client";
 import { CURVE_PRESETS, presetFromIndex } from "@/lib/juno/curves";
-import { fetchPoolSnapshot, readPool } from "@/lib/juno/launchpad";
+import { fetchPoolSnapshot, readPool, venueOf } from "@/lib/juno/launchpad";
 import { networkKey, requireLaunchpad } from "@/lib/juno/network";
 import { fetchPythPrice, quoteTokenUsdPrice } from "@/lib/juno/pyth";
 import { isTesseraRef, tesseraToken } from "@/lib/juno/tessera";
@@ -133,7 +133,10 @@ export async function POST(request: Request) {
     const row = await recordLaunch({
       token,
       launchpad,
-      pair: launched.args.venue === zeroAddress ? null : getAddress(launched.args.venue),
+      // A Kuru launch locks Kuru's MarginAccount, which is nobody's pair; its
+      // market only exists once the curve graduates.
+      pair:
+        launched.args.venue === zeroAddress || venueOf(pool) === "kuru" ? null : getAddress(launched.args.venue),
       quoteToken,
       creatorWallet: getAddress(pool.creator),
       // As the token itself carries them — what every wallet and explorer

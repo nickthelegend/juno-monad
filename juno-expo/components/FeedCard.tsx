@@ -196,7 +196,7 @@ export function FeedCard({
             gets a label rather than a Buy that could only fail. */}
         {coin.curve.graduated || coin.curve.complete ? (
           <View style={styles.graduated}>
-            <Text style={styles.graduatedText}>{coin.curve.graduated ? "On Uniswap v2" : "Curve full"}</Text>
+            <Text style={styles.graduatedText}>{coin.curve.graduated ? (coin.venue === "kuru" ? "On Kuru" : "On Uniswap v2") : "Curve full"}</Text>
           </View>
         ) : (
           <Tappable onPress={onBuy} to={0.94}>

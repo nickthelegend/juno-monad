@@ -85,3 +85,20 @@ export function sellAgainstBasis(
     realizedRaw: proceeds - cost,
   };
 }
+
+/**
+ * A Kuru fill in display units. Kuru reports the price 1e18-scaled (MON per
+ * token) and the size in `sizePrecision` units of the token, which for Juno's
+ * markets equals `pricePrecision`. The size is gross of Kuru's taker fee.
+ */
+export function kuruFill(
+  filledSize: bigint,
+  priceWad: bigint,
+  sizePrecision: bigint,
+): { base: BigDecimal; quote: BigDecimal; price: BigDecimal } {
+  return {
+    base: ratio(filledSize, sizePrecision),
+    quote: ratio(filledSize * priceWad, sizePrecision * pow10(18)),
+    price: toUnits(priceWad, 18),
+  };
+}

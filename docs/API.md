@@ -60,10 +60,10 @@ const signed = await account.signTransaction({
 
 | Route | Body | Answer |
 |---|---|---|
-| `POST tx/swap` | `{ token, owner, side: "buy"\|"sell", amountIn, slippageBps? }` | `{ steps, window: { deadline }, quote: { amountOut, minimumAmountOut, amountUsed, fee, priceImpact, curveImpact }, quoteSymbol, quoteUsdRate }` |
-| `POST tx/launch` | `{ creator, name, symbol, preset, uri?, quoteToken?, initialMarketCap?, migrationMarketCap?, firstBuy? }` | `{ steps, token, launchpad, migrationQuoteThreshold }` — `token` is where the coin will be deployed, predicted by the launchpad |
+| `POST tx/swap` | `{ token, owner, side: "buy"\|"sell", amountIn, slippageBps? }` | `{ steps, window: { deadline }, quote: { amountOut, minimumAmountOut, amountUsed, fee, priceImpact, curveImpact }, quoteSymbol, quoteUsdRate, venue: "curve"\|"kuru", market? }` — a coin that graduated into Kuru is traded on its Kuru market (`venue: "kuru"`, a market order; a sell adds a one-time approval step) |
+| `POST tx/launch` | `{ creator, name, symbol, preset, uri?, quoteToken?, initialMarketCap?, migrationMarketCap?, firstBuy?, venue?: "uniswap-v2"\|"kuru" }` — `venue` is where the curve graduates, fixed at launch; Kuru needs a MON quote and a server with `JUNO_KURU_GRADUATOR` | `{ steps, token, launchpad, migrationQuoteThreshold }` — `token` is where the coin will be deployed, predicted by the launchpad |
 | `POST tx/claim` | `{ creator, token }` | `{ steps }` — pays the creator their accrued trading fees |
-| `POST tx/graduate` | `{ from, token }` | `{ steps }` — moves a filled curve into its AMM pair; anyone may send it |
+| `POST tx/graduate` | `{ from, token }` | `{ steps }` — moves a filled curve into its venue (its Uniswap v2 pair, or a new Kuru market); anyone may send it |
 | `POST tx/submit` | `{ signed: "0x…" }` | `{ hash, blockNumber, from, trades, launched?: { token, pair, creator }, graduated?: { token, venue }, completed?: [token] }` |
 | `GET tx/balance` | `?wallet=&token=` | `{ wallet, token, symbol, decimals, balance }` — `balance` is null when the read failed |
 
@@ -78,7 +78,7 @@ field is the confirmation to index the coin with `POST pools`.
 
 | Route | Answer |
 |---|---|
-| `GET config` | `{ network, chainId, rpcUrl, launchpad, explorer, quoteTokens: QuoteToken[], faucet: boolean }` — `explorer` is the base URL; links are `${explorer}/tx/${hash}`, `/address/${a}`, `/token/${t}` |
+| `GET config` | `{ network, chainId, rpcUrl, launchpad, explorer, quoteTokens: QuoteToken[], faucet: boolean, venues: { id, name, quotes }[] }` — `explorer` is the base URL; links are `${explorer}/tx/${hash}`, `/address/${a}`, `/token/${t}` |
 
 ## Coins
 

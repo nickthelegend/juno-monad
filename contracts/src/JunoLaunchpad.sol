@@ -96,6 +96,9 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         uint32 feeDecaySeconds;
         /// @dev Per-period decay in WAD: fee(n) = start * (1 - decay)^n, floored at end.
         uint64 feeDecayWad;
+        /// @dev Where the curve graduates: an allowlisted graduator, or address(0)
+        /// for the launchpad's default. Chosen by the creator, fixed at launch.
+        address graduator;
     }
 
     struct Pool {
@@ -140,7 +143,10 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
     mapping(address creator => uint256) public launchCount;
     address[] public tokens;
 
+    /// @notice The graduator a launch gets when it does not choose one.
     IJunoGraduator public graduator;
+    /// @notice Graduators a creator may choose between — one per venue.
+    mapping(address graduator => bool) public graduatorAllowed;
     uint16 public protocolShareBps;
 
     /* ------------------------------------------------------------------ */
@@ -178,12 +184,18 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
 
     event CurveCompleted(address indexed token, uint256 quoteReserve);
     event Graduated(
-        address indexed token, address indexed venue, uint256 baseAmount, uint256 quoteAmount, uint256 liquidity, uint256 burned
+        address indexed token,
+        address indexed venue,
+        uint256 baseAmount,
+        uint256 quoteAmount,
+        uint256 liquidity,
+        uint256 burned
     );
     event CreatorFeesClaimed(address indexed token, address indexed creator, address to, uint256 amount);
     event ProtocolFeesClaimed(address indexed quote, address to, uint256 amount);
     event QuoteAllowed(address indexed quote, bool allowed);
     event GraduatorSet(address indexed graduator);
+    event GraduatorAllowed(address indexed graduator, bool allowed);
     event ProtocolShareSet(uint16 bps);
 
     /* ------------------------------------------------------------------ */
@@ -200,6 +212,7 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
     error CurveNotComplete();
     error AlreadyGraduated();
     error NoGraduator();
+    error GraduatorNotAllowed();
     error Expired();
     error ZeroAmount();
     error BadValue();
@@ -239,15 +252,21 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         if (required > TOTAL_SUPPLY) revert SupplyExceeded(required);
 
         token = address(
-            new JunoToken{salt: _salt(msg.sender)}(params.name, params.symbol, params.uri, msg.sender, TOTAL_SUPPLY)
+            new JunoToken{salt: _salt(msg.sender)}(
+                params.name, params.symbol, params.uri, msg.sender, TOTAL_SUPPLY
+            )
         );
         launchCount[msg.sender] += 1;
         tokens.push(token);
 
         IJunoGraduator g = graduator;
+        if (params.graduator != address(0)) {
+            if (!graduatorAllowed[params.graduator]) revert GraduatorNotAllowed();
+            g = IJunoGraduator(params.graduator);
+        }
         address venue;
         if (address(g) != address(0)) {
-            venue = g.prepare(token, params.quote);
+            venue = g.prepare(token, params.quote, migrationBase, threshold);
             JunoToken(token).setPair(venue);
         }
 
@@ -306,7 +325,9 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         returns (address)
     {
         bytes32 codeHash = keccak256(
-            abi.encodePacked(type(JunoToken).creationCode, abi.encode(name, symbol, uri, creator, TOTAL_SUPPLY))
+            abi.encodePacked(
+                type(JunoToken).creationCode, abi.encode(name, symbol, uri, creator, TOTAL_SUPPLY)
+            )
         );
         return Create2.computeAddress(_salt(creator), codeHash);
     }
@@ -387,8 +408,9 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         JunoToken(token).markGraduated();
         IERC20(token).safeTransfer(p.graduator, baseAmount);
         if (p.quote == NATIVE) {
-            (venue, liquidity) =
-                IJunoGraduator(p.graduator).graduate{value: quoteAmount}(token, NATIVE, baseAmount, quoteAmount);
+            (venue, liquidity) = IJunoGraduator(p.graduator).graduate{value: quoteAmount}(
+                token, NATIVE, baseAmount, quoteAmount
+            );
         } else {
             IERC20(p.quote).safeTransfer(p.graduator, quoteAmount);
             (venue, liquidity) = IJunoGraduator(p.graduator).graduate(token, p.quote, baseAmount, quoteAmount);
@@ -415,7 +437,12 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         emit CreatorFeesClaimed(token, msg.sender, to, amount);
     }
 
-    function claimProtocolFees(address quote, address to) external onlyOwner nonReentrant returns (uint256 amount) {
+    function claimProtocolFees(address quote, address to)
+        external
+        onlyOwner
+        nonReentrant
+        returns (uint256 amount)
+    {
         amount = protocolFees[quote];
         if (amount == 0) revert ZeroAmount();
         protocolFees[quote] = 0;
@@ -432,10 +459,23 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         emit QuoteAllowed(quote, allowed);
     }
 
-    /// @notice Applies to launches from now on. Existing pools keep theirs.
+    /// @notice The default venue, for launches from now on. Existing pools keep
+    /// theirs. The default is always allowed as an explicit choice too.
     function setGraduator(IJunoGraduator graduator_) external onlyOwner {
         graduator = graduator_;
         emit GraduatorSet(address(graduator_));
+        if (address(graduator_) != address(0) && !graduatorAllowed[address(graduator_)]) {
+            graduatorAllowed[address(graduator_)] = true;
+            emit GraduatorAllowed(address(graduator_), true);
+        }
+    }
+
+    /// @notice Offer (or withdraw) a venue creators may choose at launch.
+    /// Withdrawing it stops new launches from choosing it; pools already
+    /// launched with it keep it.
+    function setGraduatorAllowed(IJunoGraduator graduator_, bool allowed) external onlyOwner {
+        graduatorAllowed[address(graduator_)] = allowed;
+        emit GraduatorAllowed(address(graduator_), allowed);
     }
 
     /// @notice Applies to launches from now on. Existing pools keep theirs.
@@ -451,7 +491,11 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         return _pools[token];
     }
 
-    function getCurve(address token) external view returns (uint160 sqrtStartPriceX96, Segment[16] memory curve) {
+    function getCurve(address token)
+        external
+        view
+        returns (uint160 sqrtStartPriceX96, Segment[16] memory curve)
+    {
         return (_pools[token].sqrtStartPriceX96, _curves[token]);
     }
 
@@ -679,7 +723,11 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
     }
 
     /// @dev Validates the ranges and returns the supply they sell and the quote they raise.
-    function _checkCurve(LaunchParams calldata params) internal pure returns (uint256 curveBase, uint256 threshold) {
+    function _checkCurve(LaunchParams calldata params)
+        internal
+        pure
+        returns (uint256 curveBase, uint256 threshold)
+    {
         uint160 lower = params.sqrtStartPriceX96;
         if (lower < MIN_SQRT_PRICE) revert BadCurve();
         for (uint256 i; i < SEGMENTS; ++i) {

@@ -4,6 +4,7 @@ import {
   BASE_DECIMALS,
   ZERO,
   ZERO_ADDRESS,
+  kuruFill,
   sellAgainstBasis,
   splitFee,
   spotPrice,
@@ -145,6 +146,8 @@ indexer.onEvent({ contract: "JunoLaunchpad", event: "Launched" }, async ({ event
     symbol: event.params.symbol,
     uri: event.params.uri,
     venue: event.params.venue,
+    kuruMarket_id: undefined,
+    lock: event.params.venue,
     protocolShareBps: lp.protocolShareBps,
     sqrtStartPriceX96: event.params.sqrtStartPriceX96,
     sqrtEndPriceX96: event.params.sqrtEndPriceX96,
@@ -376,6 +379,79 @@ indexer.onEvent({ contract: "JunoLaunchpad", event: "Graduated" }, async ({ even
 });
 
 /* ------------------------------------------------------------------ */
+/* The Kuru venue                                                     */
+/* ------------------------------------------------------------------ */
+
+// Index each Kuru market a Juno coin graduates into. Emitted by the graduator
+// inside `graduate`, just before the launchpad's own `Graduated`.
+indexer.contractRegister({ contract: "KuruGraduator", event: "KuruMarketOpened" }, async ({ event, context }) => {
+  context.chain.KuruMarket.add(event.params.market);
+});
+
+indexer.onEvent({ contract: "KuruGraduator", event: "KuruMarketOpened" }, async ({ event, context }) => {
+  const { token, market, vault, pricePrecision } = event.params;
+  const pool = await context.Pool.get(token);
+  if (!pool) return;
+  context.KuruMarket.set({
+    id: market,
+    token,
+    pool_id: token,
+    vault,
+    pricePrecision: BigInt(pricePrecision),
+    openedAt: BigInt(event.block.timestamp),
+    openedBlock: BigInt(event.block.number),
+    openedTx: event.transaction.hash,
+    tradeCount: 0,
+    buyCount: 0,
+    sellCount: 0,
+    volumeQuote: ZERO,
+    lastPrice: undefined,
+    lastTradeAt: undefined,
+  });
+  context.Pool.set({ ...pool, kuruMarket_id: market });
+});
+
+// One fill. The taker is whoever sent the order — the trader's wallet for an
+// order placed on the market directly, which is how Juno places them.
+indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, async ({ event, context }) => {
+  const { orderId, makerAddress, isBuy, price, takerAddress, filledSize } = event.params;
+  if (filledSize === 0n) return;
+  const market = await context.KuruMarket.get(event.srcAddress);
+  if (!market) return;
+  const at = BigInt(event.block.timestamp);
+  const fill = kuruFill(filledSize, price, market.pricePrecision);
+
+  context.KuruTrade.set({
+    id: `${event.transaction.hash}:${event.logIndex}`,
+    txHash: event.transaction.hash,
+    logIndex: event.logIndex,
+    blockNumber: BigInt(event.block.number),
+    timestamp: at,
+    market_id: market.id,
+    token: market.token,
+    pool_id: market.token,
+    trader: takerAddress,
+    maker: makerAddress,
+    orderId: BigInt(orderId),
+    isBuy,
+    price: fill.price,
+    baseAmount: fill.base,
+    quoteAmount: fill.quote,
+    filledSizeRaw: filledSize,
+    priceRaw: price,
+  });
+  context.KuruMarket.set({
+    ...market,
+    tradeCount: market.tradeCount + 1,
+    buyCount: market.buyCount + (isBuy ? 1 : 0),
+    sellCount: market.sellCount + (isBuy ? 0 : 1),
+    volumeQuote: market.volumeQuote.plus(fill.quote),
+    lastPrice: fill.price,
+    lastTradeAt: at,
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /* Fees                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -455,8 +531,10 @@ indexer.onEvent(
     // own supply is not anybody's position.
     if (!pool) return;
 
-    // The launchpad's inventory and the zero address (mints, burns) are not holders.
-    const isHolder = (address: string) => !sameAddress(address, ZERO_ADDRESS) && !sameAddress(address, pool.launchpad);
+    // The launchpad's inventory, the zero address (mints, burns) and the venue's
+    // liquidity (the pair, or Kuru's MarginAccount) are not holders.
+    const isHolder = (address: string) =>
+      !sameAddress(address, ZERO_ADDRESS) && !sameAddress(address, pool.launchpad) && !sameAddress(address, pool.lock);
     const amount = toUnits(value, BASE_DECIMALS);
     let holderDelta = 0;
 

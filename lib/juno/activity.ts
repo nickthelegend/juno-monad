@@ -7,6 +7,7 @@ import { envioConfigured, envioHolders } from "./envio";
 import { publicClient } from "./client";
 import { identicon } from "./identicon";
 import { shortAddress } from "./format";
+import { fetchPoolSnapshot } from "./launchpad";
 import { launchpadAddress } from "./network";
 import { tryRead } from "./rpc";
 import { listSwapHistory, type PoolSwap } from "./swaps";
@@ -90,12 +91,15 @@ export type HolderBook = {
  * read it" are different claims.
  */
 export async function listPoolHolders(token: string, swaps?: PoolSwap[] | null): Promise<HolderBook | null> {
+  // The venue the pool graduates into holds the liquidity, not a person: the
+  // Uniswap pair, or for Kuru the MarginAccount that custodies its vault.
+  const venue = (await fetchPoolSnapshot(token).catch(() => null))?.pool.venue ?? zeroAddress;
   if (envioConfigured()) {
     const indexed = await envioHolders(token).catch(() => null);
     // An empty answer while the fills say someone bought means the indexer has
     // not caught up yet — fall through rather than report nobody.
     if (indexed && (indexed.length > 0 || !swaps || swaps.length === 0)) {
-      const exclude = new Set<string>([zeroAddress, launchpadAddress() ?? zeroAddress]);
+      const exclude = new Set<string>([zeroAddress, launchpadAddress() ?? zeroAddress, getAddress(venue)]);
       const held = indexed.filter((entry) => !exclude.has(entry.wallet));
       const total = held.reduce((sum, entry) => sum + entry.balance, 0);
       return {
@@ -112,7 +116,7 @@ export async function listPoolHolders(token: string, swaps?: PoolSwap[] | null):
   }
   if (!swaps || swaps.length === 0) return null;
   const address = getAddress(token);
-  const exclude = new Set<string>([zeroAddress, launchpadAddress() ?? zeroAddress]);
+  const exclude = new Set<string>([zeroAddress, launchpadAddress() ?? zeroAddress, getAddress(venue)]);
   const candidates = [...new Set(swaps.map((swap) => swap.trader))].filter((wallet) => !exclude.has(wallet));
 
   const balances = await tryRead(() =>

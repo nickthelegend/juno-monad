@@ -67,8 +67,20 @@ type Pool {
   symbol: String!
   "Pinned metadata, usually ipfs://…"
   uri: String!
-  "The AMM pair this token graduates into. Zero when no graduator was set at launch."
+  """
+  Before graduation, the address the token refuses transfers to: the Uniswap v2
+  pair's address, or Kuru's MarginAccount for the Kuru venue. After graduation,
+  where it trades: the pair, or its Kuru market. Zero when no graduator was set.
+  """
   venue: String!
+  "The Kuru order-book market this coin graduated into, for the Kuru venue."
+  kuruMarket: KuruMarket
+  """
+  The address the token refused transfers to until graduation: the Uniswap v2
+  pair, or Kuru's MarginAccount. It holds the venue's liquidity afterwards, so
+  it is never counted as a holder.
+  """
+  lock: String!
   "Protocol share of this pool's fees, fixed at launch."
   protocolShareBps: Int!
 
@@ -106,7 +118,7 @@ type Pool {
   "The creator's share of fees, earned to date."
   creatorFeesEarned: BigDecimal!
   creatorFeesClaimed: BigDecimal!
-  "Addresses holding a non-zero balance, excluding the launchpad itself."
+  "Addresses holding a non-zero balance, excluding the launchpad and the venue's `lock`."
   holderCount: Int! @index
   lastTradeAt: BigInt
 
@@ -121,6 +133,7 @@ type Pool {
   burned: BigDecimal
 
   trades: [Trade!]! @derivedFrom(field: "pool")
+  kuruTrades: [KuruTrade!]! @derivedFrom(field: "pool")
   positions: [Position!]! @derivedFrom(field: "pool")
   creatorClaims: [CreatorClaim!]! @derivedFrom(field: "pool")
 }
@@ -262,4 +275,64 @@ type CreatorClaim {
   txHash: String!
   blockNumber: BigInt!
   timestamp: BigInt!
+}
+
+"""
+The Kuru order-book market a coin graduated into (the Kuru venue): a spot
+market against MON whose AMM vault holds the curve's reserves for good.
+"""
+type KuruMarket {
+  "The market's OrderBook address."
+  id: ID!
+  token: String! @index
+  pool: Pool!
+  "Its AMM vault, seeded with the curve's reserves."
+  vault: String!
+  "Kuru's price precision; Juno's markets use the same for sizes."
+  pricePrecision: BigInt!
+  openedAt: BigInt!
+  openedBlock: BigInt!
+  openedTx: String!
+  tradeCount: Int!
+  buyCount: Int!
+  sellCount: Int!
+  "MON value of every fill, at its price."
+  volumeQuote: BigDecimal!
+  "Price of the latest fill, MON per token."
+  lastPrice: BigDecimal
+  lastTradeAt: BigInt
+  trades: [KuruTrade!]! @derivedFrom(field: "market")
+}
+
+"""
+One fill on a graduated coin's Kuru market, from Kuru's `Trade` event. A market
+order that crosses several levels emits one per level.
+"""
+type KuruTrade @index(fields: ["token", "blockNumber", "logIndex"]) @index(fields: ["trader", "blockNumber", "logIndex"]) {
+  "`${txHash}:${logIndex}`"
+  id: ID!
+  txHash: String!
+  logIndex: Int!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+
+  market: KuruMarket!
+  token: String! @index
+  pool: Pool!
+  "The taker: whoever sent the order that filled."
+  trader: String! @index
+  "The maker: the market's AMM vault, or a limit order's owner."
+  maker: String!
+  "The maker order's id; 0 when the vault filled it."
+  orderId: BigInt!
+  "The taker's side."
+  isBuy: Boolean!
+  "Fill price, MON per token."
+  price: BigDecimal!
+  "Tokens filled, before Kuru's taker fee."
+  baseAmount: BigDecimal!
+  "The fill's value in MON at its price."
+  quoteAmount: BigDecimal!
+  filledSizeRaw: BigInt!
+  priceRaw: BigInt!
 }

@@ -15,6 +15,8 @@
  *   --initial N --migration N   opening / graduation valuations in quote units.
  *                               Default: $1,000 → $25,000 at the live Pyth price.
  *   --first-buy N               buy N quote units in the same transaction
+ *   --venue uniswap-v2|kuru     where the curve graduates (default uniswap-v2;
+ *                               kuru needs JUNO_KURU_GRADUATOR and a MON quote)
  *   --description, --image <gateway url>, --nav <feed id>,
  *   --format post|reel, --media, --poster, --mime, --width, --height
  *   --yes                       send it (otherwise a dry run: plan + gas estimate)
@@ -74,6 +76,9 @@ async function main() {
   const name = arg("name", "Juno Test Launch")!;
   const symbol = arg("symbol", "JUNOTEST")!;
   const quote = arg("quote", "mon")!.toLowerCase() === "usdc" ? USDC : MON;
+  const venueArg = arg("venue", "uniswap-v2")!.toLowerCase();
+  if (venueArg !== "uniswap-v2" && venueArg !== "kuru") throw new Error("--venue must be uniswap-v2 or kuru");
+  const venue = venueArg as "uniswap-v2" | "kuru";
   const firstBuy = numberArg("first-buy", 0)!;
 
   const account = scriptAccount();
@@ -136,6 +141,7 @@ async function main() {
       initialMarketCap,
       migrationMarketCap,
       firstBuy,
+      venue,
     });
     line(
       "token",
@@ -189,6 +195,7 @@ async function main() {
     initialMarketCap,
     migrationMarketCap,
     firstBuy,
+    venue,
   });
   line("token", plan.token);
 

@@ -80,6 +80,69 @@ export async function envioTrades(params: { token?: string; trader?: string; lim
 }
 
 /* ------------------------------------------------------------------ */
+/* Kuru: fills on a graduated coin's market                            */
+/* ------------------------------------------------------------------ */
+
+type KuruTradeRow = {
+  id: string;
+  txHash: string;
+  logIndex: number;
+  token: string;
+  trader: string;
+  isBuy: boolean;
+  baseAmount: string;
+  quoteAmount: string;
+  price: string;
+  blockNumber: string;
+  timestamp: string;
+};
+
+/**
+ * Kuru's taker fee on the markets Juno opens (`KuruGraduator.TAKER_FEE_BPS`).
+ * Kuru takes it from what the order receives; its events report the gross fill.
+ */
+const KURU_TAKER_FEE = 0.003;
+
+/**
+ * Fills on the Kuru markets coins graduated into, newest first, as trades.
+ * The indexer reports each fill gross; a sell's proceeds here are net of
+ * Kuru's taker fee, matching what a curve sell reports.
+ */
+export async function envioKuruTrades(params: { token?: string; trader?: string; limit?: number }): Promise<PoolSwap[]> {
+  const where: Record<string, unknown> = {};
+  if (params.token) where.token = { _eq: getAddress(params.token) };
+  if (params.trader) where.trader = { _eq: getAddress(params.trader) };
+  const data = await query<{ KuruTrade: KuruTradeRow[] }>(
+    `query KuruTrades($where: KuruTrade_bool_exp!, $limit: Int!) {
+      KuruTrade(where: $where, order_by: [{ blockNumber: desc }, { logIndex: desc }], limit: $limit) {
+        id txHash logIndex token trader isBuy baseAmount quoteAmount price blockNumber timestamp
+      }
+    }`,
+    { where, limit: params.limit ?? 200 },
+  );
+  return data.KuruTrade.map((row) => {
+    const gross = Number(row.quoteAmount);
+    const fee = gross * KURU_TAKER_FEE;
+    return {
+      id: row.id,
+      txHash: row.txHash,
+      logIndex: Number(row.logIndex),
+      token: getAddress(row.token),
+      side: row.isBuy ? "buy" : "sell",
+      // A buy's fee comes out of the tokens; it is stated here in MON.
+      baseAmount: Number(row.baseAmount) * (row.isBuy ? 1 - KURU_TAKER_FEE : 1),
+      quoteAmount: row.isBuy ? gross : gross - fee,
+      fee,
+      price: Number(row.price),
+      trader: getAddress(row.trader),
+      timestamp: new Date(Number(row.timestamp) * 1000).toISOString(),
+      blockNumber: Number(row.blockNumber),
+      venue: "kuru" as const,
+    };
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /* Positions, holders and pool stats                                   */
 /* ------------------------------------------------------------------ */
 

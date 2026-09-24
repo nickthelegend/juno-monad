@@ -5,6 +5,7 @@ import { getAddress, zeroAddress } from "viem";
 import { envioConfigured, envioPoolStats } from "./envio";
 
 import { fetchPoolSnapshot, weiToUi } from "./launchpad";
+import { kuruMarketOf, readKuruBook } from "./kuru";
 import {
   fetchPythPrice,
   marketState as marketStateOf,
@@ -37,6 +38,7 @@ import type {
   CurvePresetId,
   Creator,
   NavReference,
+  KuruMarketView,
 } from "./types";
 import { shortAddress } from "./format";
 
@@ -215,7 +217,29 @@ export async function hydratePool(
   const snapshot = await fetchPoolSnapshot(row.token, rate, row.launchpad);
   if (!snapshot) return null;
 
-  const priceUsd = snapshot.price * rate;
+  /*
+   * After a graduation into Kuru the curve is frozen at its top and the coin
+   * trades on its Kuru market, so the price is the book's: the midpoint of
+   * the best bid and ask, which include the market's own AMM vault.
+   */
+  let kuru: KuruMarketView | null = null;
+  let price = snapshot.price;
+  if (snapshot.venue === "kuru" && snapshot.curve.graduated) {
+    const market = await kuruMarketOf(snapshot.token).catch(() => null);
+    const book = market ? await readKuruBook(market).catch(() => null) : null;
+    if (market && book) {
+      kuru = {
+        market,
+        bestBid: book.bestBid,
+        bestAsk: book.bestAsk,
+        spread: book.spread,
+        takerFeeBps: book.params.takerFeeBps,
+      };
+      if (book.mid) price = book.mid;
+    }
+  }
+
+  const priceUsd = price * rate;
   const preset = row.curvePreset as CurvePresetId;
   const wantHistory = options.history ?? options.detailed ?? false;
 
@@ -263,7 +287,7 @@ export async function hydratePool(
   // quiet. `volumeWithin` answers null for an empty list, so say 0 here.
   const volume24h = complete ? (volumeWithin(swaps, DAY_MS) ?? 0) : null;
   const allVolume = complete ? (sumVolume(swaps) ?? 0) : null;
-  const priceChange = complete ? changeWithin(swaps, DAY_MS, snapshot.price) : null;
+  const priceChange = complete ? changeWithin(swaps, DAY_MS, price) : null;
 
   /*
    * Holders, from the fills. Wallets whose decoded trades still net positive —
@@ -281,7 +305,12 @@ export async function hydratePool(
     if (indexed) holders = indexed.holderCount;
   }
 
-  const venue = row.pair ?? (snapshot.pool.venue !== zeroAddress ? snapshot.pool.venue : null);
+  // For Kuru the locked address is Kuru's MarginAccount, not a pair anyone
+  // should be sent to; the coin's own market is linked once it exists.
+  const venue =
+    snapshot.venue === "kuru"
+      ? (kuru?.market ?? null)
+      : (row.pair ?? (snapshot.pool.venue !== zeroAddress ? snapshot.pool.venue : null));
 
   return {
     address: row.token,
@@ -341,6 +370,8 @@ export async function hydratePool(
     curve: snapshot.curve,
     curvePreset: preset,
     pair: venue,
+    venue: snapshot.venue,
+    kuru,
     fee: options.detailed
       ? feeSchedule({
           startFeeBps: snapshot.pool.startFeeBps,

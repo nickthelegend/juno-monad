@@ -15,12 +15,13 @@ import {
   type TransactionReceipt,
 } from "viem";
 
-import { junoLaunchpadAbi, junoTokenAbi } from "./abi";
+import { junoLaunchpadAbi, junoTokenAbi, kuruOrderBookAbi } from "./abi";
 import { CallerError } from "./api";
 import { publicClient } from "./client";
 import { CURVE_PRESETS } from "./curves";
 import {
   InsufficientLiquidityError,
+  VenueUnavailableError,
   buildApproveCall,
   buildClaimCreatorFeesCall,
   buildGraduateCall,
@@ -31,16 +32,19 @@ import {
   quoteAllowance,
   quoteTokenFor,
   quoteTrade,
+  readPool,
   tradeDeadline,
+  venueOf,
   uiToWei,
   type ContractCall,
   type TradeQuote,
 } from "./launchpad";
+import { KuruOrderTooSmall, buildKuruOrder, kuruMarketOf, kuruTokenOf, quoteKuruTrade } from "./kuru";
 import { chainId, launchpadAddress, requireLaunchpad } from "./network";
 import { quoteTokenUsdPrice } from "./pyth";
 import { withRetry } from "./rpc";
 import { invalidateSwapHistory, recordReceiptTrades } from "./swaps";
-import type { CurvePresetId, TradeSide } from "./types";
+import type { CurvePresetId, TradeSide, Venue } from "./types";
 
 /**
  * Transactions built on the server, signed on the device.
@@ -205,6 +209,10 @@ export type SwapBuildResult = {
   quoteSymbol: string;
   /** Null when no USD feed is available for the quote token. */
   quoteUsdRate: number | null;
+  /** Where the order goes: the curve, or the coin's Kuru market after graduation. */
+  venue: "curve" | "kuru";
+  /** The Kuru market, when `venue` is "kuru". */
+  market?: Address;
 };
 
 export async function buildSwap(request: SwapBuildRequest): Promise<SwapBuildResult> {
@@ -216,6 +224,10 @@ export async function buildSwap(request: SwapBuildRequest): Promise<SwapBuildRes
   const snapshot = await fetchPoolSnapshot(request.token);
   if (!snapshot) throw new CallerError("This coin has no pool on this network");
 
+  // A coin that graduated into Kuru keeps trading here, on its Kuru market.
+  if (snapshot.curve.graduated && snapshot.venue === "kuru") {
+    return buildKuruSwap(request, owner, snapshot.token, snapshot.quote.symbol, snapshot.quote.address);
+  }
   // The contract rejects a trade against a finished curve. Saying so here is a
   // far better error than the one the chain would return after signing.
   if (snapshot.curve.graduated) {
@@ -260,6 +272,47 @@ export async function buildSwap(request: SwapBuildRequest): Promise<SwapBuildRes
     quote: publicQuote,
     quoteSymbol: snapshot.quote.symbol,
     quoteUsdRate,
+    venue: "curve",
+  };
+}
+
+/** How long a Kuru order is worth signing. Kuru's market orders carry no deadline of their own. */
+const KURU_QUOTE_WINDOW_SECONDS = 60;
+
+async function buildKuruSwap(
+  request: SwapBuildRequest,
+  owner: Address,
+  token: Address,
+  quoteSymbol: string,
+  quoteAddress: string,
+): Promise<SwapBuildResult> {
+  const market = await kuruMarketOf(token);
+  if (!market) throw new CallerError("This coin's Kuru market could not be found");
+
+  const quote = await quoteKuruTrade({
+    market,
+    side: request.side,
+    amountIn: request.amountIn,
+    slippageBps: request.slippageBps ?? 100,
+  }).catch((error: unknown) => {
+    if (error instanceof KuruOrderTooSmall) throw new CallerError("That amount is too small to trade");
+    if (error instanceof InsufficientLiquidityError) {
+      throw new CallerError("Kuru's book cannot fill that size right now. Try a smaller amount.");
+    }
+    throw error;
+  });
+
+  const steps = await prepare(owner, await buildKuruOrder({ market, token, owner, side: request.side, quote }));
+  const quoteUsdRate = await quoteTokenUsdPrice(quoteAddress).catch(() => null);
+  const { raw: _raw, book: _book, ...publicQuote } = quote;
+  return {
+    steps,
+    window: { deadline: Math.floor(Date.now() / 1000) + KURU_QUOTE_WINDOW_SECONDS },
+    quote: publicQuote,
+    quoteSymbol,
+    quoteUsdRate,
+    venue: "kuru",
+    market,
   };
 }
 
@@ -279,6 +332,8 @@ export type LaunchBuildRequest = {
   migrationMarketCap?: number;
   /** Optional creator's first buy, in quote units, made in the same transaction. */
   firstBuy?: number;
+  /** Where the curve graduates. Uniswap v2 unless the creator chooses Kuru. */
+  venue?: Venue;
 };
 
 export type LaunchBuildResult = {
@@ -321,9 +376,11 @@ export async function buildLaunch(request: LaunchBuildRequest): Promise<LaunchBu
       initialMarketCap: request.initialMarketCap ?? caps!.initial,
       migrationMarketCap: request.migrationMarketCap ?? caps!.migration,
       firstBuy: request.firstBuy,
+      venue: request.venue,
     });
   } catch (error) {
     if (error instanceof CallerError) throw error;
+    if (error instanceof VenueUnavailableError) throw new CallerError(error.message);
     // The curve builder refuses an impossible valuation pair with a sentence.
     if (error instanceof Error && !(error instanceof BaseError)) throw new CallerError(error.message);
     throw error;
@@ -365,7 +422,9 @@ export async function buildGraduate(request: { from: string; token: string }): P
   if (!snapshot) throw new CallerError("This coin has no pool on this network");
   if (snapshot.curve.graduated) throw new CallerError("This coin has already graduated");
   if (!snapshot.curve.complete) throw new CallerError("The curve has not filled yet");
-  return prepare(from, [buildGraduateCall({ token: snapshot.token, launchpad: snapshot.launchpad })]);
+  return prepare(from, [
+    buildGraduateCall({ token: snapshot.token, launchpad: snapshot.launchpad, venue: snapshot.venue }),
+  ]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -378,7 +437,11 @@ export type SubmitResult = {
   from: Address;
   /** Trades the transaction made, as recorded. */
   trades: number;
-  /** Set when the transaction launched a token. */
+  /**
+   * Set when the transaction launched a token. `pair` is the Uniswap v2 pair
+   * it will graduate into; null for a Kuru launch, whose market only exists
+   * after graduation.
+   */
   launched?: { token: Address; pair: Address | null; creator: Address };
   /** Set when the transaction graduated a curve. */
   graduated?: { token: Address; venue: Address };
@@ -516,9 +579,11 @@ async function describeReceipt(receipt: TransactionReceipt, from: Address): Prom
   const completed: Address[] = [];
   for (const event of events) {
     if (event.eventName === "Launched") {
+      const pool = await readPool(getAddress(event.args.token), launchpad).catch(() => null);
       result.launched = {
         token: getAddress(event.args.token),
-        pair: /^0x0+$/.test(event.args.venue) ? null : getAddress(event.args.venue),
+        pair:
+          /^0x0+$/.test(event.args.venue) || (pool && venueOf(pool) === "kuru") ? null : getAddress(event.args.venue),
         creator: getAddress(event.args.creator),
       };
       touched.add(event.args.token);
@@ -535,6 +600,18 @@ async function describeReceipt(receipt: TransactionReceipt, from: Address): Prom
 
   const trades = await recordReceiptTrades(receipt).catch(() => []);
   result.trades = trades.length;
+
+  // Fills on a graduated coin's Kuru market. Envio indexes them for history;
+  // here they only count, and mark the coin as moved.
+  for (const log of receipt.logs) {
+    const token = kuruTokenOf(getAddress(log.address));
+    if (!token) continue;
+    const [fill] = parseEventLogs({ abi: kuruOrderBookAbi, eventName: "Trade", logs: [log] });
+    if (fill && getAddress(fill.args.takerAddress) === from) {
+      result.trades += 1;
+      touched.add(token);
+    }
+  }
 
   // The price, curve and history all just moved. Drop them so the next read
   // is live rather than a few seconds stale.

@@ -47,7 +47,12 @@ contract UniswapV2Graduator is IJunoGraduator {
     /// factory. Graduating anyway would seed an unlocked pair.
     error PairMismatch(address expected, address actual);
 
-    constructor(address launchpad_, IUniswapV2Factory factory_, address wrappedNative_, bytes32 pairInitCodeHash_) {
+    constructor(
+        address launchpad_,
+        IUniswapV2Factory factory_,
+        address wrappedNative_,
+        bytes32 pairInitCodeHash_
+    ) {
         launchpad = launchpad_;
         factory = factory_;
         wrappedNative = wrappedNative_;
@@ -69,7 +74,12 @@ contract UniswapV2Graduator is IJunoGraduator {
         );
     }
 
-    function prepare(address token, address quote) external view onlyLaunchpad returns (address) {
+    function prepare(address token, address quote, uint256, uint256)
+        external
+        view
+        onlyLaunchpad
+        returns (address)
+    {
         return pairFor(token, quote);
     }
 
