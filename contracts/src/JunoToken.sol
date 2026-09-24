@@ -45,10 +45,13 @@ contract JunoToken is ERC20, ERC20Permit {
         _;
     }
 
-    constructor(string memory name_, string memory symbol_, string memory uri_, address creator_, uint256 supply)
-        ERC20(name_, symbol_)
-        ERC20Permit(name_)
-    {
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        string memory uri_,
+        address creator_,
+        uint256 supply
+    ) ERC20(name_, symbol_) ERC20Permit(name_) {
         launchpad = msg.sender;
         creator = creator_;
         tokenURI = uri_;

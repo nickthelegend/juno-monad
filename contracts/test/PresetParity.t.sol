@@ -55,7 +55,10 @@ contract PresetParityTest is Test {
         vm.startPrank(owner);
         launchpad = new JunoLaunchpad(owner, 2_000);
         graduator = new UniswapV2Graduator(
-            address(launchpad), factory, address(wmon), keccak256(vm.getCode("UniswapV2Pair.sol:UniswapV2Pair"))
+            address(launchpad),
+            factory,
+            address(wmon),
+            keccak256(vm.getCode("UniswapV2Pair.sol:UniswapV2Pair"))
         );
         launchpad.setGraduator(graduator);
         launchpad.setQuoteAllowed(address(usdc), true);

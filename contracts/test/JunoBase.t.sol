@@ -145,7 +145,10 @@ abstract contract JunoBase is Test {
         token = launchpad.launch(params(address(usdc), USDC_START, contentWeights()), 0, 0);
     }
 
-    function buyNative(address who, address token, uint256 amount) internal returns (uint256 out, uint256 paid) {
+    function buyNative(address who, address token, uint256 amount)
+        internal
+        returns (uint256 out, uint256 paid)
+    {
         vm.prank(who);
         return launchpad.buy{value: amount}(token, amount, 0, who, block.timestamp);
     }
