@@ -102,3 +102,30 @@ export function kuruFill(
     price: toUnits(priceWad, 18),
   };
 }
+
+/**
+ * Kuru's taker fee on the markets Juno opens, in basis points
+ * (`KuruGraduator.TAKER_FEE_BPS`). Kuru's events report fills gross.
+ */
+export const KURU_TAKER_FEE_BPS = 30n;
+
+/**
+ * A Kuru fill from the taker's side, in raw units: what their balance gained
+ * or gave up, and the MON paid or received — the launchpad's convention, so
+ * one cost basis covers both venues. Kuru takes the fee from the output:
+ * tokens on a buy, MON on a sell. The fee is stated in MON either way.
+ */
+export function kuruTakerLeg(
+  filledSize: bigint,
+  priceWad: bigint,
+  sizePrecision: bigint,
+  isBuy: boolean,
+): { baseRaw: bigint; quoteRaw: bigint; feeRaw: bigint } {
+  const grossBase = (filledSize * pow10(18)) / sizePrecision;
+  const grossQuote = (filledSize * priceWad) / sizePrecision;
+  const feeQuote = (grossQuote * KURU_TAKER_FEE_BPS) / 10_000n;
+  if (isBuy) {
+    return { baseRaw: grossBase - (grossBase * KURU_TAKER_FEE_BPS) / 10_000n, quoteRaw: grossQuote, feeRaw: feeQuote };
+  }
+  return { baseRaw: grossBase, quoteRaw: grossQuote - feeQuote, feeRaw: feeQuote };
+}

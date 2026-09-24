@@ -1,5 +1,6 @@
 import { hydratePool, poolActivityRead } from "@/lib/juno/chain";
 import { listPoolHolders } from "@/lib/juno/activity";
+import { envioStatus } from "@/lib/juno/envio";
 import { crowdFromSwaps } from "@/lib/juno/crowd";
 import { fetchPoolSnapshot } from "@/lib/juno/launchpad";
 import { listSwapHistory } from "@/lib/juno/swaps";
@@ -102,6 +103,17 @@ export async function GET(
 
     const activity = await poolActivityRead(row, 20).catch(() => ({ items: [], partial: true }));
 
+    // When the holders came from the indexer, say how current it is: "every
+    // holder" is only true up to the block it has processed.
+    const indexer =
+      holders.source === "indexer"
+        ? await envioStatus()
+            .then((status) =>
+              status ? { progressBlock: status.progressBlock, behind: Math.max(0, status.sourceBlock - status.progressBlock) } : null,
+            )
+            .catch(() => null)
+        : null;
+
     return junoJson({
       /* Which network this is. The client renders it in the details, and
          guessing it there would be the one fact on that list that was not
@@ -118,6 +130,8 @@ export async function GET(
       holders: holders.items,
       /** True when the holder read failed outright — not "nobody holds it". */
       holdersUnreadable: holders.unreadable,
+      /** How current the indexer is, when the holders came from it. */
+      indexer,
       /** The transaction that launched this coin — the receipt a judge clicks. */
       launchTx: row.createTx,
     });

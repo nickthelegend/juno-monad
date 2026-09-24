@@ -5,6 +5,7 @@ import {
   ZERO,
   ZERO_ADDRESS,
   kuruFill,
+  kuruTakerLeg,
   sellAgainstBasis,
   splitFee,
   spotPrice,
@@ -109,6 +110,89 @@ function newPosition(trader: string, token: string, at: bigint): Position {
 async function quoteTokenFor(context: Context, chainId: number, quote: string): Promise<QuoteToken> {
   const existing = await context.QuoteToken.get(quote);
   return existing ?? newQuoteToken(quote, await quoteDecimals(context, chainId, quote));
+}
+
+/* ------------------------------------------------------------------ */
+/* Positions                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Apply one fill to a trader's position and account: counts, fees, and the
+ * average-cost basis. Shared by curve trades and Kuru fills, so a position
+ * keeps one cost basis across a graduation.
+ *
+ * `baseRaw` is what the trader's balance gained (buy) or gave up (sell);
+ * `quoteRaw` is what they paid (buy, fee included) or received (sell, fee
+ * deducted) — the launchpad's `Trade` convention.
+ */
+function applyFill(
+  context: Context,
+  fill: {
+    position: Position | undefined;
+    account: Account | undefined;
+    trader: string;
+    token: string;
+    isBuy: boolean;
+    baseRaw: bigint;
+    quoteRaw: bigint;
+    feeRaw: bigint;
+    quoteDecimals: number;
+    at: bigint;
+    block: bigint;
+  },
+) {
+  const { trader, token, isBuy, at, quoteDecimals: decimals } = fill;
+  const base = toUnits(fill.baseRaw, BASE_DECIMALS);
+  const quote = toUnits(fill.quoteRaw, decimals);
+  const position = fill.position ?? newPosition(trader, token, at);
+  const firstTradeInPool = position.tradeCount === 0;
+  const acct = fill.account ?? newAccount(trader, at, fill.block);
+  context.Account.set({
+    ...acct,
+    tradeCount: acct.tradeCount + 1,
+    buyCount: acct.buyCount + (isBuy ? 1 : 0),
+    sellCount: acct.sellCount + (isBuy ? 0 : 1),
+    poolsTraded: acct.poolsTraded + (firstTradeInPool ? 1 : 0),
+    lastTradeAt: at,
+  });
+
+  const traded = {
+    ...position,
+    tradeCount: position.tradeCount + 1,
+    buyCount: position.buyCount + (isBuy ? 1 : 0),
+    sellCount: position.sellCount + (isBuy ? 0 : 1),
+    feesPaid: position.feesPaid.plus(toUnits(fill.feeRaw, decimals)),
+    firstTradeAt: position.firstTradeAt ?? at,
+    lastTradeAt: at,
+    updatedAt: at,
+  };
+
+  if (isBuy) {
+    context.Position.set({
+      ...traded,
+      netBase: position.netBase.plus(base),
+      boughtBase: position.boughtBase.plus(base),
+      spentQuote: position.spentQuote.plus(quote),
+      basisBase: position.basisBase.plus(base),
+      costBasis: position.costBasis.plus(quote),
+    });
+    return;
+  }
+
+  const { basis, realizedRaw } = sellAgainstBasis(
+    { base: toRaw(position.basisBase, BASE_DECIMALS), cost: toRaw(position.costBasis, decimals) },
+    fill.baseRaw,
+    fill.quoteRaw,
+  );
+  context.Position.set({
+    ...traded,
+    netBase: position.netBase.minus(base),
+    soldBase: position.soldBase.plus(base),
+    receivedQuote: position.receivedQuote.plus(quote),
+    basisBase: toUnits(basis.base, BASE_DECIMALS),
+    costBasis: toUnits(basis.cost, decimals),
+    realizedPnl: position.realizedPnl.plus(toUnits(realizedRaw, decimals)),
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -271,54 +355,18 @@ indexer.onEvent({ contract: "JunoLaunchpad", event: "Trade" }, async ({ event, c
   const lp = launchpad ?? newLaunchpad(event.srcAddress);
   context.Launchpad.set({ ...lp, tradeCount: lp.tradeCount + 1 });
 
-  const position = existingPosition ?? newPosition(trader, token, at);
-  const firstTradeInPool = position.tradeCount === 0;
-  const acct = account ?? newAccount(trader, at, block);
-  context.Account.set({
-    ...acct,
-    tradeCount: acct.tradeCount + 1,
-    buyCount: acct.buyCount + (isBuy ? 1 : 0),
-    sellCount: acct.sellCount + (isBuy ? 0 : 1),
-    poolsTraded: acct.poolsTraded + (firstTradeInPool ? 1 : 0),
-    lastTradeAt: at,
-  });
-
-  const traded = {
-    ...position,
-    tradeCount: position.tradeCount + 1,
-    buyCount: position.buyCount + (isBuy ? 1 : 0),
-    sellCount: position.sellCount + (isBuy ? 0 : 1),
-    feesPaid: position.feesPaid.plus(feeUnits),
-    firstTradeAt: position.firstTradeAt ?? at,
-    lastTradeAt: at,
-    updatedAt: at,
-  };
-
-  if (isBuy) {
-    context.Position.set({
-      ...traded,
-      netBase: position.netBase.plus(base),
-      boughtBase: position.boughtBase.plus(base),
-      spentQuote: position.spentQuote.plus(quote),
-      basisBase: position.basisBase.plus(base),
-      costBasis: position.costBasis.plus(quote),
-    });
-    return;
-  }
-
-  const { basis, realizedRaw } = sellAgainstBasis(
-    { base: toRaw(position.basisBase, BASE_DECIMALS), cost: toRaw(position.costBasis, decimals) },
-    baseAmount,
-    quoteAmount,
-  );
-  context.Position.set({
-    ...traded,
-    netBase: position.netBase.minus(base),
-    soldBase: position.soldBase.plus(base),
-    receivedQuote: position.receivedQuote.plus(quote),
-    basisBase: toUnits(basis.base, BASE_DECIMALS),
-    costBasis: toUnits(basis.cost, decimals),
-    realizedPnl: position.realizedPnl.plus(toUnits(realizedRaw, decimals)),
+  applyFill(context, {
+    position: existingPosition,
+    account,
+    trader,
+    token,
+    isBuy,
+    baseRaw: baseAmount,
+    quoteRaw: quoteAmount,
+    feeRaw: fee,
+    quoteDecimals: decimals,
+    at,
+    block,
   });
 });
 
@@ -418,6 +466,10 @@ indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, async ({ event, cont
   if (filledSize === 0n) return;
   const market = await context.KuruMarket.get(event.srcAddress);
   if (!market) return;
+  const [position, account] = await Promise.all([
+    context.Position.get(positionId(takerAddress, market.token)),
+    context.Account.get(takerAddress),
+  ]);
   const at = BigInt(event.block.timestamp);
   const fill = kuruFill(filledSize, price, market.pricePrecision);
 
@@ -448,6 +500,24 @@ indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, async ({ event, cont
     volumeQuote: market.volumeQuote.plus(fill.quote),
     lastPrice: fill.price,
     lastTradeAt: at,
+  });
+
+  // The same position the curve built, carried across the graduation. Kuru
+  // takes its taker fee from what the order receives: tokens on a buy, MON on
+  // a sell.
+  const leg = kuruTakerLeg(filledSize, price, market.pricePrecision, isBuy);
+  applyFill(context, {
+    position,
+    account,
+    trader: takerAddress,
+    token: market.token,
+    isBuy,
+    baseRaw: leg.baseRaw,
+    quoteRaw: leg.quoteRaw,
+    feeRaw: leg.feeRaw,
+    quoteDecimals: 18,
+    at,
+    block: BigInt(event.block.number),
   });
 });
 

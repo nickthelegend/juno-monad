@@ -79,6 +79,27 @@ export async function envioTrades(params: { token?: string; trader?: string; lim
   return data.Trade.map(toSwap);
 }
 
+/**
+ * Every indexed curve trade, oldest first, a page at a time — the whole
+ * history in a handful of queries, where the RPC would need a walk per pool.
+ * `complete` is false when `max` cut it short.
+ */
+export async function envioAllTrades(max = 10_000): Promise<{ swaps: PoolSwap[]; complete: boolean }> {
+  const page = 1_000;
+  const swaps: PoolSwap[] = [];
+  for (let offset = 0; offset < max; offset += page) {
+    const data = await query<{ Trade: TradeRow[] }>(
+      `query AllTrades($limit: Int!, $offset: Int!) {
+        Trade(order_by: [{ blockNumber: asc }, { logIndex: asc }], limit: $limit, offset: $offset) { ${FIELDS} }
+      }`,
+      { limit: page, offset },
+    );
+    swaps.push(...data.Trade.map(toSwap));
+    if (data.Trade.length < page) return { swaps, complete: true };
+  }
+  return { swaps, complete: false };
+}
+
 /* ------------------------------------------------------------------ */
 /* Kuru: fills on a graduated coin's market                            */
 /* ------------------------------------------------------------------ */
@@ -108,17 +129,23 @@ const KURU_TAKER_FEE = 0.003;
  * The indexer reports each fill gross; a sell's proceeds here are net of
  * Kuru's taker fee, matching what a curve sell reports.
  */
-export async function envioKuruTrades(params: { token?: string; trader?: string; limit?: number }): Promise<PoolSwap[]> {
+export async function envioKuruTrades(params: {
+  token?: string;
+  trader?: string;
+  limit?: number;
+  offset?: number;
+  oldestFirst?: boolean;
+}): Promise<PoolSwap[]> {
   const where: Record<string, unknown> = {};
   if (params.token) where.token = { _eq: getAddress(params.token) };
   if (params.trader) where.trader = { _eq: getAddress(params.trader) };
   const data = await query<{ KuruTrade: KuruTradeRow[] }>(
-    `query KuruTrades($where: KuruTrade_bool_exp!, $limit: Int!) {
-      KuruTrade(where: $where, order_by: [{ blockNumber: desc }, { logIndex: desc }], limit: $limit) {
+    `query KuruTrades($where: KuruTrade_bool_exp!, $limit: Int!, $offset: Int!) {
+      KuruTrade(where: $where, order_by: [{ blockNumber: ${params.oldestFirst ? "asc" : "desc"} }, { logIndex: ${params.oldestFirst ? "asc" : "desc"} }], limit: $limit, offset: $offset) {
         id txHash logIndex token trader isBuy baseAmount quoteAmount price blockNumber timestamp
       }
     }`,
-    { where, limit: params.limit ?? 200 },
+    { where, limit: params.limit ?? 200, offset: params.offset ?? 0 },
   );
   return data.KuruTrade.map((row) => {
     const gross = Number(row.quoteAmount);

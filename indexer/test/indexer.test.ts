@@ -356,6 +356,16 @@ describe("The Kuru venue", () => {
       quoteAmount: "0.999999999877495578536848",
     });
 
+    // Bob's position carries across the graduation: Kuru fills update the same
+    // average-cost basis, with Kuru's 0.3% taker fee taken from what he received.
+    const position = await indexer.Position.getOrThrow(`${bob}-${tokenA}`);
+    t.expect({
+      tradeCount: position.tradeCount,
+      boughtBase: position.boughtBase.toString(),
+      soldBase: position.soldBase.toString(),
+      loss: position.realizedPnl.lt(0),
+    }).toEqual({ tradeCount: 2, boughtBase: "1001.990439632", soldBase: "500.995219", loss: true });
+
     const market = await indexer.KuruMarket.getOrThrow(MARKET);
     t.expect({
       token: market.token,

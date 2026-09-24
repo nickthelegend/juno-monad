@@ -860,6 +860,8 @@ export const juno = {
       holdersUnreadable: boolean;
       /** How the holder list was derived. Null when it could not be. */
       holdersSource: string | null;
+      /** How current the indexer is, when the holders came from it. */
+      indexer?: { progressBlock: number; behind: number } | null;
       /** Null when the history could not be read at all — not "nobody traded". */
       crowd: Crowd | null;
       /** The transaction that launched this coin. */

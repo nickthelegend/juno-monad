@@ -1,9 +1,11 @@
 import "server-only";
 
+import { envioAllTrades, envioConfigured, envioKuruTrades } from "./envio";
 import { basisFromSwaps } from "./portfolio";
 import { fetchPoolSnapshot } from "./launchpad";
+import { markPrice } from "./mark";
 import { quoteTokenUsdPrice } from "./pyth";
-import { listSwapHistory } from "./swaps";
+import { listSwapHistory, type PoolSwap, type SwapHistory } from "./swaps";
 import { listPools } from "./registry";
 import { ttlCache } from "./rpc";
 import type { JunoPoolRow } from "./registry";
@@ -25,6 +27,13 @@ import type { JunoPoolRow } from "./registry";
  * leaderboard that counts paper gains ranks whoever bought earliest rather
  * than whoever traded well. Unrealised is reported beside the rank so the
  * picture is complete, but it does not decide the order.
+ *
+ * ## Where the fills come from
+ *
+ * With the Envio indexer, every fill on every pool — curve trades and, after a
+ * graduation into Kuru, the coin's Kuru fills — arrives in a few paginated
+ * queries, complete from the launchpad's first block. Without it, each pool's
+ * history is walked from the receipt record and the log tail.
  *
  * ## What this cannot see
  *
@@ -101,11 +110,44 @@ export async function leaderboard(poolLimit = 60, width = 2): Promise<Leaderboar
   );
 }
 
+/**
+ * Every fill the indexer has, grouped by coin: one source for the whole board.
+ * Null when the indexer is not configured or will not answer, so the caller
+ * walks pool by pool instead.
+ */
+async function indexedHistories(): Promise<Map<string, SwapHistory> | null> {
+  if (!envioConfigured()) return null;
+  try {
+    const [curve, kuru] = await Promise.all([
+      envioAllTrades(),
+      (async () => {
+        const out: PoolSwap[] = [];
+        for (let offset = 0; offset < 10_000; offset += 1_000) {
+          const page = await envioKuruTrades({ limit: 1_000, offset, oldestFirst: true });
+          out.push(...page);
+          if (page.length < 1_000) break;
+        }
+        return out;
+      })(),
+    ]);
+    const byToken = new Map<string, SwapHistory>();
+    for (const swap of [...curve.swaps, ...kuru]) {
+      const entry = byToken.get(swap.token) ?? { swaps: [], partial: !curve.complete };
+      entry.swaps.push(swap);
+      byToken.set(swap.token, entry);
+    }
+    return byToken;
+  } catch {
+    return null;
+  }
+}
+
 async function build(
   rows: JunoPoolRow[],
   width: number,
   poolsTotal: number,
 ): Promise<Leaderboard> {
+  const indexed = await indexedHistories();
   type Acc = {
     realised: number;
     unrealised: number;
@@ -154,13 +196,16 @@ async function build(
         continue;
       }
 
-      const history = await listSwapHistory(row.token).catch(() => null);
+      const history = indexed
+        ? (indexed.get(row.token) ?? { swaps: [], partial: false })
+        : await listSwapHistory(row.token).catch(() => null);
       if (history === null) {
         partial = true;
         continue;
       }
       if (history.partial) partial = true;
       poolsRead += 1;
+      const mark = (await markPrice(snapshot)).price;
 
       // One basis per wallet per pool — average cost is a per-asset idea, and
       // pooling two different coins into one basis would produce a number that
@@ -180,9 +225,10 @@ async function build(
         const basis = basisFromSwaps(swaps);
         entry.realised += basis.realised * rate;
 
-        // Open position, marked at the curve's current price.
+        // Open position, marked where the coin trades now: the curve, or its
+        // venue after graduation.
         if (basis.quantity > 0) {
-          const value = basis.quantity * snapshot.price * rate;
+          const value = basis.quantity * mark * rate;
           entry.holding += value;
           if (basis.seen) entry.unrealised += value - basis.cost * rate;
           // A position whose buys are outside the window has no cost to mark

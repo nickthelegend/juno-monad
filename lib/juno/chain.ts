@@ -5,7 +5,7 @@ import { getAddress, zeroAddress } from "viem";
 import { envioConfigured, envioPoolStats } from "./envio";
 
 import { fetchPoolSnapshot, weiToUi } from "./launchpad";
-import { kuruMarketOf, readKuruBook } from "./kuru";
+import { markPrice } from "./mark";
 import {
   fetchPythPrice,
   marketState as marketStateOf,
@@ -218,26 +218,22 @@ export async function hydratePool(
   if (!snapshot) return null;
 
   /*
-   * After a graduation into Kuru the curve is frozen at its top and the coin
-   * trades on its Kuru market, so the price is the book's: the midpoint of
-   * the best bid and ask, which include the market's own AMM vault.
+   * After graduation the curve is frozen at its top and the coin trades on its
+   * venue, so the price is the venue's: the Uniswap v2 pair's reserves, or the
+   * midpoint of its Kuru book (`lib/juno/mark.ts`).
    */
-  let kuru: KuruMarketView | null = null;
-  let price = snapshot.price;
-  if (snapshot.venue === "kuru" && snapshot.curve.graduated) {
-    const market = await kuruMarketOf(snapshot.token).catch(() => null);
-    const book = market ? await readKuruBook(market).catch(() => null) : null;
-    if (market && book) {
-      kuru = {
-        market,
-        bestBid: book.bestBid,
-        bestAsk: book.bestAsk,
-        spread: book.spread,
-        takerFeeBps: book.params.takerFeeBps,
-      };
-      if (book.mid) price = book.mid;
-    }
-  }
+  const mark = await markPrice(snapshot);
+  const price = mark.price;
+  const kuru: KuruMarketView | null =
+    mark.source === "kuru" && mark.book && mark.venue
+      ? {
+          market: mark.venue,
+          bestBid: mark.book.bestBid,
+          bestAsk: mark.book.bestAsk,
+          spread: mark.book.spread,
+          takerFeeBps: mark.book.params.takerFeeBps,
+        }
+      : null;
 
   const priceUsd = price * rate;
   const preset = row.curvePreset as CurvePresetId;

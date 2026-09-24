@@ -512,6 +512,7 @@ export default function CoinScreen() {
                   rows={detail.data!.holders}
                   unreadable={detail.data!.holdersUnreadable}
                   source={detail.data!.holdersSource}
+                  indexer={detail.data!.indexer}
                   onOpenTrader={(target) => router.push(`/trader/${target}` as never)}
                 />
               ) : (
@@ -740,12 +741,15 @@ function HoldersTab({
   rows,
   unreadable,
   source,
+  indexer,
   onOpenTrader,
 }: {
   rows: import("../../lib/api").Holder[];
   unreadable: boolean;
   /** How the server built the list — the caption says so, because each misses different wallets. */
   source: string | null;
+  /** How current the indexer is, when the list came from it. */
+  indexer?: { progressBlock: number; behind: number } | null;
   onOpenTrader: (wallet: string) => void;
 }) {
   if (rows.length === 0) {
@@ -781,7 +785,13 @@ function HoldersTab({
       ))}
       <Caption style={{ marginTop: 12 }}>
         {source === "indexer"
-          ? "Every holder, from the Envio indexer's record of every transfer of this token."
+          ? `Every holder, from the Envio indexer's record of every transfer of this token${
+              indexer
+                ? indexer.behind <= 2
+                  ? `, current to block ${indexer.progressBlock.toLocaleString()}.`
+                  : `, ${indexer.behind.toLocaleString()} blocks behind the chain.`
+                : "."
+            }`
           : source === "fills"
             ? "Rebuilt from trades — the live balance read was refused, and transfers are not visible this way."
             : "Live balances of every wallet that has traded this coin. A wallet that only received it by transfer is not listed."}

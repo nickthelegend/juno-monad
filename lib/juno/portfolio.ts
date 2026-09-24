@@ -4,12 +4,13 @@ import { getAddress, isAddress, type Address } from "viem";
 
 import { junoTokenAbi } from "./abi";
 import { publicClient } from "./client";
+import { markPrice } from "./mark";
 import { fetchPoolSnapshot } from "./launchpad";
 import { quoteTokenUsdPrice } from "./pyth";
 import { listPools } from "./registry";
 import { tryRead } from "./rpc";
 import { CallerError } from "./api";
-import { envioConfigured, envioPositions, envioTrades } from "./envio";
+import { envioConfigured, envioKuruTrades, envioPositions, envioTrades } from "./envio";
 import { listSwapHistory } from "./swaps";
 import type { JunoPoolRow } from "./registry";
 
@@ -237,7 +238,7 @@ async function positionFor(
 
   if (balance <= 0 && basis.realised === 0) return { position: null, partial: false };
 
-  const price = snapshot.price * rate;
+  const price = (await markPrice(snapshot)).price * rate;
   const value = balance * price;
 
   // Only claim a cost when this wallet's buys are actually in the history.
@@ -374,10 +375,13 @@ export async function loadPortfolio(
  * position in some other token the launchpad sold has no name or media here.
  */
 async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promise<Position[] | null> {
-  const [indexed, trades] = await Promise.all([
+  const [indexed, curveTrades, kuruTrades] = await Promise.all([
     envioPositions(owner),
     envioTrades({ trader: owner, limit: 1_000 }),
+    // After a graduation into Kuru the same position keeps trading there.
+    envioKuruTrades({ trader: owner, limit: 1_000 }).catch(() => []),
   ]);
+  const trades = [...curveTrades, ...kuruTrades];
   const byToken = new Map(rows.map((row) => [row.token, row]));
   const positions: Position[] = [];
   for (const entry of indexed) {
@@ -389,7 +393,7 @@ async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promis
     const snapshot = await fetchPoolSnapshot(row.token, rate, row.launchpad).catch(() => null);
     if (!snapshot) continue;
 
-    const price = snapshot.price * rate;
+    const price = (await markPrice(snapshot)).price * rate;
     const value = entry.balance * price;
     // A cost is only claimed for tokens the indexer saw bought; tokens that
     // arrived by transfer have none, and the average is not stretched over them.
