@@ -76,6 +76,24 @@ const signed = await account.signTransaction({
 | `POST kuru/cancel` | `{ token, owner, orderIds }` | `{ steps }` — what the orders locked returns to the MarginAccount |
 | `POST kuru/withdraw` | `{ token, owner }` | `{ steps }` — moves the wallet's MON and coin out of the MarginAccount |
 
+### Perps (Perpl)
+
+Perpetual futures on Perpl, Monad's on-chain perps exchange: isolated margin,
+AUSD collateral. Orders are immediate-or-cancel with a worst price.
+
+| Route | Body / query | Answer |
+|---|---|---|
+| `GET perps` | — | `{ exchange, collateral, markets: [{ id, symbol, open, mark, oracle, last, change24h, volume24hUsd, openInterestUsd, fundingRate, fundingIntervalSec, maxLeverage, takerFee, priceDecimals, lotDecimals, at }] }` — live, from Perpl's public API |
+| `GET perps/account` | `?owner=` | `{ owner, accountId \| null, balance, locked, walletAusd, minimumOpen, positions: [{ perpId, symbol, side, size, entryPrice, markPrice, collateral, pnl, funding, liquidationPrice, markValid }] }` — read from Perpl's contract |
+| `POST perps/deposit` | `{ owner, amount }` | `{ steps }` — approval if needed, then `createAccount` (at least 100 AUSD) or `depositCollateral` |
+| `POST perps/withdraw` | `{ owner, amount }` | `{ steps }` — free collateral only |
+| `POST perps/open` | `{ owner, perpId, side, collateral, leverage, slippageBps? }` | `{ steps, size, mark, limitPrice }` — sized so margin and fee fit the collateral; refuses a mark older than Perpl's 60 s limit |
+| `POST perps/close` | `{ owner, perpId, slippageBps? }` | `{ steps }` — reduce-only, the whole position |
+
+`tx/submit` answers `perp: { opened?, closed?, unfilledLots?, totalLots? }` for
+a Perpl order: an immediate-or-cancel order that found nothing inside its
+limit confirms without a position, and this says so.
+
 `window.deadline` is unix seconds. A swap signed after it reverts on-chain with
 `Expired`, so the app re-quotes rather than submitting a stale build.
 

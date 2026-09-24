@@ -24,7 +24,8 @@
     "juno:claim": "dotenv -e .env.local -- tsx scripts/juno-claim.ts",
     "juno:graduate": "dotenv -e .env.local -- tsx scripts/juno-graduate.ts",
     "juno:seed-posts": "dotenv -e .env.local -- tsx scripts/juno-seed-posts.ts",
-    "juno:pyth-push": "dotenv -e .env.local -- tsx scripts/pyth-push.ts"
+    "juno:pyth-push": "dotenv -e .env.local -- tsx scripts/pyth-push.ts",
+    "juno:perps-simulate": "dotenv -e .env.local -- tsx scripts/perps-simulate.ts"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

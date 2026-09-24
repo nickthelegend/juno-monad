@@ -52,6 +52,17 @@ import {
   quoteKuruTrade,
 } from "./kuru";
 import { chainId, launchpadAddress, requireLaunchpad } from "./network";
+import {
+  PerpRejected,
+  perpAccount,
+  perpCloseCall,
+  perpDepositCalls,
+  perpExchange,
+  perpMarkets,
+  perpOpenCall,
+  perpWithdrawCall,
+} from "./perpl";
+import { perplExchangeAbi } from "./perpl-abi";
 import { quoteTokenUsdPrice } from "./pyth";
 import { withRetry } from "./rpc";
 import { invalidateSwapHistory, recordReceiptTrades } from "./swaps";
@@ -460,6 +471,12 @@ export type SubmitResult = {
   completed?: Address[];
   /** Milliseconds from broadcast to a receipt in hand. */
   confirmedInMs?: number;
+  /**
+   * What a Perpl order did. An immediate-or-cancel order that found nothing
+   * inside its price limit succeeds without a position, so "confirmed" alone
+   * would mislead; this says whether it filled.
+   */
+  perp?: { opened?: { perpId: number; lots: string }; closed?: { perpId: number }; unfilledLots?: string; totalLots?: string };
 };
 
 /** How long to wait for a receipt. Monad finalises in about a second. */
@@ -612,6 +629,26 @@ async function describeReceipt(receipt: TransactionReceipt, from: Address): Prom
   const trades = await recordReceiptTrades(receipt).catch(() => []);
   result.trades = trades.length;
 
+  // Perpl: whether an order filled, opened or closed a position.
+  const exchange = perpExchange();
+  const perpLogs = receipt.logs.filter((log) => getAddress(log.address) === exchange);
+  if (perpLogs.length > 0) {
+    const perp: NonNullable<SubmitResult["perp"]> = {};
+    for (const event of parseEventLogs({ abi: perplExchangeAbi, logs: perpLogs })) {
+      if (event.eventName === "PositionOpenedV2" || event.eventName === "PositionOpened") {
+        const args = event.args as { perpId: bigint; lotLNS: bigint };
+        perp.opened = { perpId: Number(args.perpId), lots: args.lotLNS.toString() };
+      } else if (event.eventName === "PositionClosed") {
+        perp.closed = { perpId: Number((event.args as { perpId: bigint }).perpId) };
+      } else if (event.eventName === "ImmediateOrCancelExecuted") {
+        const args = event.args as { unmatchedLotLNS: bigint; totalLotLNS: bigint };
+        perp.unfilledLots = args.unmatchedLotLNS.toString();
+        perp.totalLots = args.totalLotLNS.toString();
+      }
+    }
+    result.perp = perp;
+  }
+
   // Fills on a graduated coin's Kuru market. Envio indexes them for history;
   // here they only count, and mark the coin as moved.
   for (const log of receipt.logs) {
@@ -715,6 +752,25 @@ export function explainFailure(error: unknown): string {
       return "The MON sent did not match the order. Try again for a fresh quote.";
     case "ProtocolPaused":
       return "Kuru has paused trading on this market.";
+    // Perpl.
+    case "MarkPriceAgeExceedsMax":
+      return "Perpl's price for this market is more than a minute old, so it is not opening positions right now. Closing still works.";
+    case "TakerOrderSettlementFailed":
+      return "Perpl could not settle that order — usually not enough collateral for the size and fee, or a stale price.";
+    case "AccountDoesNotExist":
+      return "This wallet has no Perpl account yet. Deposit AUSD to open one.";
+    case "InsufficentAmountToOpenAccount":
+      return "A new Perpl account needs at least 100 AUSD.";
+    case "AmountExceedsAvailableBalance":
+      return "That is more than the free balance on Perpl; collateral in open positions stays until they close.";
+    case "CloseOrderExceedsPosition":
+    case "CloseOrderPositionMismatch":
+    case "PositionDoesNotExist":
+      return "That position has already changed. Refresh and try again.";
+    case "PriceOutOfRange":
+      return "That price is outside what Perpl accepts for this market.";
+    case "ERC20InsufficientAllowance":
+      return "Perpl was not allowed to take the AUSD. Try again; the approval comes first.";
     default:
       break;
   }
@@ -766,7 +822,7 @@ const KURU_ERRORS = parseAbi([
 ]);
 
 /** Every custom error a Juno transaction can revert with. */
-const JUNO_ERRORS = [...junoLaunchpadAbi, ...junoTokenAbi, ...kuruGraduatorAbi, ...KURU_ERRORS].filter(
+const JUNO_ERRORS = [...junoLaunchpadAbi, ...junoTokenAbi, ...kuruGraduatorAbi, ...KURU_ERRORS, ...perplExchangeAbi].filter(
   (item) => item.type === "error",
 );
 
@@ -851,4 +907,81 @@ export async function buildKuruWithdrawAll(request: { token: string; owner: stri
   const owner = requireWallet(request.owner, "owner");
   const { token } = await requireKuruMarket(request.token);
   return prepare(owner, [await buildKuruWithdraw(token)]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Perps (Perpl)                                                       */
+/* ------------------------------------------------------------------ */
+
+function perpRejected(error: unknown): never {
+  if (error instanceof PerpRejected) throw new CallerError(error.message);
+  throw error;
+}
+
+/** Collateral into Perpl: opens the account on first use (at least the minimum). */
+export async function buildPerpDeposit(request: { owner: string; amount: number }): Promise<UnsignedTransaction[]> {
+  const owner = requireWallet(request.owner, "owner");
+  if (!(request.amount > 0)) throw new CallerError("Amount must be greater than zero");
+  const account = await perpAccount(owner);
+  if (account.walletAusd < request.amount) {
+    throw new CallerError(
+      `This wallet holds ${account.walletAusd} AUSD. Perpl takes AUSD as collateral; on testnet it comes from Agora's faucet.`,
+    );
+  }
+  if (account.accountId === null && request.amount < account.minimumOpen) {
+    throw new CallerError(`A new Perpl account opens with at least ${account.minimumOpen} AUSD`);
+  }
+  const calls = await perpDepositCalls(owner, request.amount, account.accountId !== null).catch(perpRejected);
+  return prepare(owner, calls);
+}
+
+export async function buildPerpWithdraw(request: { owner: string; amount: number }): Promise<UnsignedTransaction[]> {
+  const owner = requireWallet(request.owner, "owner");
+  const account = await perpAccount(owner);
+  if (account.accountId === null) throw new CallerError("This wallet has no Perpl account");
+  if (!(request.amount > 0) || request.amount > account.balance) {
+    throw new CallerError(`You can withdraw up to ${account.balance} AUSD — collateral in open positions stays until they close`);
+  }
+  return prepare(owner, [perpWithdrawCall(request.amount)]);
+}
+
+export async function buildPerpOpen(request: {
+  owner: string;
+  perpId: number;
+  side: "long" | "short";
+  collateral: number;
+  leverage: number;
+  slippageBps?: number;
+}): Promise<{ steps: UnsignedTransaction[]; size: number; mark: number; limitPrice: number }> {
+  const owner = requireWallet(request.owner, "owner");
+  const market = (await perpMarkets()).find((m) => m.id === request.perpId);
+  if (!market) throw new CallerError("Perpl has no such market");
+  if (!market.open) throw new CallerError(`Perpl's ${market.symbol} market is not taking new positions`);
+  if (!(request.leverage >= 1) || request.leverage > market.maxLeverage) {
+    throw new CallerError(`${market.symbol} takes 1x to ${market.maxLeverage}x`);
+  }
+  const account = await perpAccount(owner);
+  if (account.accountId === null) throw new CallerError("Deposit AUSD to open your Perpl account first");
+  if (!(request.collateral > 0) || request.collateral > account.balance) {
+    throw new CallerError(`Your Perpl balance is ${account.balance} AUSD`);
+  }
+  const open = await perpOpenCall({
+    perpId: request.perpId,
+    side: request.side,
+    collateral: request.collateral,
+    leverage: request.leverage,
+    slippageBps: request.slippageBps ?? 100,
+    takerFee: market.takerFee,
+  }).catch(perpRejected);
+  return { steps: await prepare(owner, [open.call]), size: open.size, mark: open.mark, limitPrice: open.limitPrice };
+}
+
+export async function buildPerpClose(request: { owner: string; perpId: number; slippageBps?: number }): Promise<UnsignedTransaction[]> {
+  const owner = requireWallet(request.owner, "owner");
+  const account = await perpAccount(owner);
+  const position = account.positions.find((p) => p.perpId === request.perpId);
+  if (!position) throw new CallerError("No open position in that market");
+  return prepare(owner, [
+    await perpCloseCall({ perpId: request.perpId, position, slippageBps: request.slippageBps ?? 150 }),
+  ]);
 }

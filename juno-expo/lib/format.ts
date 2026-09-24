@@ -49,7 +49,10 @@ export function money(
             ? subscripted(abs)
             : abs < 1
               ? abs.toFixed(4)
-              : abs.toFixed(2);
+              : abs >= 1_000
+                ? // Uncompacted thousands keep their separators: $84,333.30, not $84333.30.
+                  abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : abs.toFixed(2);
 
   return currency === "USD" ? `${sign}$${figure}` : `${sign}${figure} ${currency}`;
 }

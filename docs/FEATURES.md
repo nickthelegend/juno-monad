@@ -97,7 +97,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 62 | Gasless first launch through Privy gas sponsorship | S | 5 | 2 | 5 | 50 | BLOCKED | dashboard: TEE mode, Monad testnet sponsorship, credits |
 | 63 | Indexer freshness banner app-wide | S | 2 | 5 | 5 | 50 | PARTIAL | on the holders tab only |
 | 64 | Venue badge on feed cards ("On Kuru") | D | 2 | 5 | 5 | 50 | BUILT | `FeedCard.tsx` |
-| 65 | Perps on majors (BTC, ETH, SOL, MON) through Perpl | S | 4 | 3 | 4 | 48 | IN PROGRESS | spec in `docs/research/research-perpl.md`; testnet collateral (AUSD) has no public faucet |
+| 65 | Perps on majors (BTC, ETH, SOL, MON) through Perpl | S | 4 | 3 | 4 | 48 | BUILT, blocked on testnet AUSD | `lib/juno/perpl.ts`, `components/Perps.tsx`; orders simulated against live testnet (`npm run juno:perps-simulate`: BTC 2x/5x long, ETH short, MON 3x short, each opened and closed); the app flow run on a fork with AUSD dealt and Perpl's oracle-age check off. A real account needs AUSD, whose testnet faucet is dry |
 | 66 | Search coins and creators | F | 3 | 4 | 4 | 48 | NOT BUILT |  |
 | 67 | "Back this creator": deposit into the coin's Kuru vault | S | 3 | 3 | 5 | 45 | NOT BUILT | `KuruAMMVault.deposit` |
 | 68 | HyperSync as the indexer source | S | 3 | 3 | 5 | 45 | BLOCKED | needs an Envio API token; RPC sync works meanwhile |

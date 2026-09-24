@@ -66,6 +66,14 @@ read fails the app says so — it does not print a zero it never measured.
   market (quoted free through Kuru's own `eth_call` path), and the indexer
   follows it there. Testnet only: Kuru's mainnet Router lets only Kuru create
   markets.
+- **Perps beside the posts.** The Trade tab carries Perpl's perpetual markets —
+  BTC, ETH, SOL, MON and more, isolated margin in AUSD — with live marks,
+  funding and open interest, and opens and closes positions through the same
+  wallet and server-built transactions as everything else
+  ([`lib/juno/perpl.ts`](lib/juno/perpl.ts)). Kuru has no perps; Perpl is
+  Monad's perps exchange. Testnet AUSD is not publicly mintable, so the order
+  path is proven by simulation against live testnet
+  ([`scripts/perps-simulate.ts`](scripts/perps-simulate.ts)).
 - **Fees that decay, paid to the poster.** A launch fee that blunts snipers
   decays exponentially to a resting fee over sixty periods. The creator takes
   the trading fees, claimable any time.

@@ -23,6 +23,7 @@ import {
 } from "../../components/kit";
 import { CoinArt, Identicon } from "../../components/art";
 import { Handle } from "../../components/Handle";
+import { PerpsPanel } from "../../components/Perps";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
 import { juno, type Coin, type TesseraCompany, type Trader } from "../../lib/api";
@@ -32,12 +33,13 @@ import { money, useApi } from "../../lib/useApi";
 import { useViewerOnce } from "../../lib/social";
 import { theme } from "../../theme";
 
-type Sort = "preipo" | "stocks" | "memes" | "traders";
+type Sort = "preipo" | "stocks" | "memes" | "perps" | "traders";
 
 const SORTS = [
   { id: "preipo" as const, label: "Pre-IPO" },
   { id: "stocks" as const, label: "Stocks" },
   { id: "memes" as const, label: "Memes" },
+  { id: "perps" as const, label: "Perps" },
   { id: "traders" as const, label: "Traders" },
 ];
 
@@ -66,12 +68,13 @@ export default function TradeScreen() {
     "preipo",
   );
   const onTraders = sort === "traders";
+  const onPerps = sort === "perps";
 
   // Read with the same viewer as the feed and the reels, so all three share one walk.
   const once = useViewerOnce();
   const markets = useApi(
-    () => (onTraders || !once.ready ? Promise.resolve(null) : loadMarkets(once.viewer())),
-    [onTraders, once.ready],
+    () => (onTraders || onPerps || !once.ready ? Promise.resolve(null) : loadMarkets(once.viewer())),
+    [onTraders, onPerps, once.ready],
   );
   const tessera = useApi(() => (sort === "preipo" ? juno.tessera() : Promise.resolve(null)), [sort]);
   const board = useApi(() => (onTraders ? juno.leaderboard(25) : Promise.resolve(null)), [onTraders]);
@@ -116,6 +119,8 @@ export default function TradeScreen() {
 
       {onTraders ? (
         <TraderBoard board={board} onOpen={(wallet) => router.push(`/trader/${wallet}` as never)} />
+      ) : onPerps ? (
+        <PerpsPanel />
       ) : sort === "preipo" ? (
         tessera.loading ? (
           <Loading>

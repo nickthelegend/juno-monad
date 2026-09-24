@@ -32,6 +32,11 @@ describe("money", () => {
     expect(money(144.54, "USD", { compact: false })).toBe("$144.54");
   });
 
+  it("groups thousands when not compacting", () => {
+    expect(money(84_333.3, "USD", { compact: false })).toBe("$84,333.30");
+    expect(money(-1_234.5, "USD", { compact: false })).toBe("-$1,234.50");
+  });
+
   it("compacts large figures and labels a non-USD quote", () => {
     expect(money(225_118, "USD")).toBe("$225.12k");
     expect(money(1_240_000, "USD")).toBe("$1.24M");

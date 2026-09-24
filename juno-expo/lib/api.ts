@@ -204,6 +204,50 @@ export type ChainConfig = {
   venues?: Array<{ id: Venue; name: string; quotes: string[] }>;
 };
 
+/** A Perpl perpetual market, live. Prices USD; `fundingRate` per interval as a ratio. */
+export type PerpMarket = {
+  id: number;
+  symbol: string;
+  open: boolean;
+  mark: number;
+  oracle: number;
+  last: number;
+  change24h: number | null;
+  volume24hUsd: number;
+  openInterestUsd: number;
+  fundingRate: number;
+  fundingIntervalSec: number;
+  maxLeverage: number;
+  takerFee: number;
+  priceDecimals: number;
+  lotDecimals: number;
+  at: number;
+};
+
+export type PerpPosition = {
+  perpId: number;
+  symbol: string;
+  side: "long" | "short";
+  size: number;
+  entryPrice: number;
+  markPrice: number;
+  collateral: number;
+  pnl: number;
+  funding: number;
+  liquidationPrice: number | null;
+  markValid: boolean;
+};
+
+export type PerpAccount = {
+  owner: string;
+  accountId: string | null;
+  balance: number;
+  locked: number;
+  walletAusd: number;
+  positions: PerpPosition[];
+  minimumOpen: number;
+};
+
 /** A limit order resting on a Kuru book, as the book holds it now. */
 export type KuruOrder = { orderId: string; isBuy: boolean; price: number; size: number; remaining: number };
 
@@ -545,6 +589,8 @@ export type SubmitResult = {
   trades: number;
   /** Set when the transaction launched a token. */
   launched?: { token: Address; pair: Address | null; creator: Address };
+  /** What a Perpl order did: whether it opened or closed a position, and any size left unfilled. */
+  perp?: { opened?: { perpId: number; lots: string }; closed?: { perpId: number }; unfilledLots?: string; totalLots?: string };
   /** Set when the transaction graduated a curve. */
   graduated?: { token: Address; venue: Address };
   /** Set when a buy filled a curve to its top. */
@@ -1085,6 +1131,22 @@ export const juno = {
   /** Move fills and unused change from Kuru's MarginAccount back to the wallet. */
   kuruWithdraw: (input: { token: string; owner: string }) =>
     api.post<{ steps: UnsignedTransaction[] }>("/api/juno/kuru/withdraw", input),
+
+  /** Perpl's perpetual markets, live. */
+  perps: () =>
+    api.get<{ exchange: string; collateral: { symbol: string; address: string; decimals: number }; markets: PerpMarket[] }>(
+      "/api/juno/perps",
+    ),
+  /** A wallet on Perpl: account, collateral, positions. `accountId` null until it deposits. */
+  perpAccount: (owner: string) => api.get<PerpAccount>(`/api/juno/perps/account?owner=${owner}`),
+  perpDeposit: (input: { owner: string; amount: number }) =>
+    api.post<{ steps: UnsignedTransaction[] }>("/api/juno/perps/deposit", input),
+  perpWithdraw: (input: { owner: string; amount: number }) =>
+    api.post<{ steps: UnsignedTransaction[] }>("/api/juno/perps/withdraw", input),
+  perpOpen: (input: { owner: string; perpId: number; side: "long" | "short"; collateral: number; leverage: number }) =>
+    api.post<{ steps: UnsignedTransaction[]; size: number; mark: number; limitPrice: number }>("/api/juno/perps/open", input),
+  perpClose: (input: { owner: string; perpId: number }) =>
+    api.post<{ steps: UnsignedTransaction[] }>("/api/juno/perps/close", input),
 
   /** Move a filled curve into its venue — a Uniswap v2 pair or a Kuru market. Anyone may send it. */
   graduate: (input: { from: string; token: string }) =>
