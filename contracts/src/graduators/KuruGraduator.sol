@@ -140,6 +140,8 @@ contract KuruGraduator is IJunoGraduator {
 
         marketOf[token] = market;
 
+        // Only the vault's address is needed; the rest describes its state.
+        // slither-disable-next-line unused-return
         (address vault,,,,,,,) = IKuruOrderBook(market).getVaultParams();
         IERC20(token).forceApprove(vault, baseAmount);
         liquidity = IKuruVault(vault).deposit{value: quoteAmount}(baseAmount, quoteAmount, quoteAmount, LOCK);
@@ -179,7 +181,10 @@ contract KuruGraduator is IJunoGraduator {
         returns (MarketParams memory m)
     {
         if (baseAmount == 0) revert PriceOutOfRange(0);
-        // Quote per base, 1e18-scaled. Both are 18-decimal tokens.
+        // Quote per base, 1e18-scaled. Both are 18-decimal tokens. Every use
+        // below scales it by at most 1e9 before dividing by 1e18, so its
+        // truncation moves a result by under one part in a billion.
+        // slither-disable-next-line divide-before-multiply
         uint256 priceWad = (quoteAmount * 1e18) / baseAmount;
 
         uint256 precision = 1;

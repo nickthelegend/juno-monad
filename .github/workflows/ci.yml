@@ -34,6 +34,18 @@ jobs:
         working-directory: contracts
         run: forge test
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Static analysis (Slither)
+        # Fails on any medium or high finding. The ones reviewed and judged
+        # safe carry a `slither-disable-next-line` with the reason beside them.
+        working-directory: contracts
+        run: |
+          pip install slither-analyzer==0.11.6
+          slither . --filter-paths "lib/|test/|script/|src/vendor/" --exclude-dependencies --fail-medium
+
   app:
     name: App (types, unit tests, build)
     runs-on: ubuntu-latest
@@ -78,6 +90,41 @@ jobs:
 
       - name: Production build
         run: npx next build --webpack
+
+  indexer:
+    name: Indexer (Envio handlers)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: indexer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: indexer/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Codegen
+        # Writes .envio/types.d.ts from config.yaml and schema.graphql; the
+        # handlers and tests are typed against it.
+        run: pnpm codegen
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Handler tests
+        # Simulated events through Envio's test indexer, in memory: no
+        # Postgres, no RPC, no Docker.
+        run: pnpm test
 
   expo:
     name: Expo app (types)

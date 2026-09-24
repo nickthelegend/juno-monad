@@ -124,6 +124,8 @@ pass.
 | J2 | App and API | `npx vitest run`, both `tsc --noEmit` pass |
 | J3 | Indexer | `pnpm test` in `indexer/` passes |
 | J4 | Perpl against live testnet | `npm run juno:perps-simulate` opens and closes a position in simulation |
+| J5 | Static analysis | `slither . --fail-medium` in `contracts/` reports no medium or high finding; each one judged safe says why beside the line |
+| J6 | Indexer types | `pnpm codegen && pnpm typecheck` in `indexer/` passes |
 
 ## Results
 
@@ -218,7 +220,12 @@ came first.
 | H4 | FAIL → fixed | Another wallet's page showed its rank, stats ("3 Fills") and holdings, but not the trades behind them. It now lists them with the `TradeList` the Activity tab uses. Re-checked in Chrome: three rows for `0x391b…C211` |
 | H4b | FAIL → fixed | Those rows then said the 711.97M-token curve fill went "at $0.0₅120", while the holding's average cost was $0.0₆516. The row printed the mark *after* the trade. Trades now carry what was paid, and rows read "Paid $367.62 · $0.0₆516 each" |
 | E8 | PASS (new behaviour) | A Kuru-venue coin on its curve shows "Kuru market 0x36bC…b594 · opens at graduation", and the Network row says "Monad testnet (local fork)" on the fork. On a coin launched, filled and graduated by script, the address shown before graduation was the market Kuru opened (`0xf749…9a2a`, "PREDICTION MATCHES") |
-| D3 | NOT RUN | Needs a video launch |
+| D3 | PASS | A 6-second 720×1280 H.264 reel, launched through the Post screen's API calls (upload to IPFS with a server-made poster frame, metadata, launch, list). In the built-in browser at phone size the Reels screen plays it (`readyState` 4, muted, looping) with Like, Say, Share, Follow and the market dock (market cap, progress, Sell, Buy). Chrome could not show it: its window was minimised, so the page was 0×0 and Chrome would not load video. Launching the reel through the screen itself stalled for the same reason, at the picker's metadata read |
+| — | FAIL → fixed | The launch step for a reel said "Launching your post". It says "Opening its market" for posts, reels and trackers alike |
+| J1 | PASS | 56 tests (one new: a launch with no graduator is refused) and the 7 Kuru fork tests against live testnet state |
+| J3 | PASS | 8 indexer tests |
+| J5 | FAIL → fixed | Slither found 29 results. One pointed at a real trap: `launch` accepted a pool with no graduator, whose curve could fill and then neither trade nor graduate. `launch` now reverts `NoGraduator`. Five medium or high results were false positives and are annotated with the reason (curves written through a storage pointer, a bit test, payees who chose themselves, one unused return, a truncation under one part in a billion). The 21 left are low or informational: deadlines and fee decay read the timestamp, the vendored Uniswap v2 core is solc 0.5.16 by design, native MON is sent with `call`. CI now runs Slither with `--fail-medium` |
+| J6 | FAIL → fixed | The indexer's handlers typechecked, but its test file did not: two simulated `OrdersCanceled` events passed a transaction hash the config does not select. Fixed, and CI now runs the indexer's codegen, typecheck and tests |
 
 The internal disk filled a second time during this pass: free space fell from
 about 600 MB to nothing at roughly 34 MB a minute, and the shell could no longer

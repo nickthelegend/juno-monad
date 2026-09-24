@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {JunoBase} from "./JunoBase.t.sol";
 import {JunoLaunchpad} from "../src/JunoLaunchpad.sol";
 import {JunoToken} from "../src/JunoToken.sol";
+import {IJunoGraduator} from "../src/interfaces/IJunoGraduator.sol";
 import {CurveMath} from "../src/libraries/CurveMath.sol";
 import {MockPair} from "./mocks/MockUniswapV2.sol";
 
@@ -61,6 +62,17 @@ contract JunoLaunchpadTest is JunoBase {
         vm.prank(creator);
         vm.expectRevert(JunoLaunchpad.BadValue.selector);
         launchpad.launch{value: 1 ether}(lp, 0, 0);
+    }
+
+    /// A curve with no venue could fill and then neither trade nor graduate,
+    /// holding everyone's quote for good. Refused at launch, before any buy.
+    function test_launch_rejectsNoGraduator() public {
+        vm.prank(owner);
+        launchpad.setGraduator(IJunoGraduator(address(0)));
+        JunoLaunchpad.LaunchParams memory lp = params(address(0), MON_START, contentWeights());
+        vm.prank(creator);
+        vm.expectRevert(JunoLaunchpad.NoGraduator.selector);
+        launchpad.launch(lp, 0, 0);
     }
 
     function test_launch_rejectsUnknownQuote() public {

@@ -579,7 +579,7 @@ export type DepthPoint = {
  * consecutive, which is what lets every step be signed up front.
  */
 export type UnsignedTransaction = {
-  /** "Buying", "Approving USDC", "Launching your post" — said while it runs. */
+  /** "Buying", "Approving USDC", "Opening its market" — said while it runs. */
   label: string;
   request: {
     type: "eip1559";

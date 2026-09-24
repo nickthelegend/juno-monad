@@ -453,7 +453,6 @@ describe("Kuru limit orders", () => {
               srcAddress: MARKET,
               logIndex: 0,
               block: at(406),
-              transaction: { hash: tx(406) },
               params: { orderId: [8n], owner: bob as `0x${string}` },
             },
           ],

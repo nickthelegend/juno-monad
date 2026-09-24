@@ -518,7 +518,8 @@ export async function planLaunch(params: LaunchRequest): Promise<LaunchPlan> {
       to: launchpad,
       data,
       value: params.quote.native ? firstBuy : 0n,
-      label: "Launching your post",
+      // Posts, reels and trackers all launch here; say what the step does.
+      label: "Opening its market",
     },
     token,
     params: curve,

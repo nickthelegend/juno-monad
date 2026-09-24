@@ -61,3 +61,11 @@ deploy is one command (`contracts/deploy.sh testnet`).
 3. **Kuru idea #3 / feature #75:** a Kuru coin's market address is shown from
    launch. On a coin taken from launch to graduation, the address shown before
    was the market Kuru opened.
+4. **D3, reels** (A): a real video reel plays full-screen with its market
+   dock. A: 47 of 49. The two left need a person (B5, Privy) or real testnet
+   (D4, the live tape).
+5. **Engineering** (E): the indexer's typecheck was failing in its tests;
+   fixed. CI now runs the indexer (codegen, typecheck, tests) and Slither.
+   Slither found one real trap, fixed in the contract with a test. Every CI
+   command was run locally; CI itself has never run, because the repo has no
+   GitHub remote yet. E: 95%.

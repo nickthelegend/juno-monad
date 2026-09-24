@@ -137,6 +137,8 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
     /* ------------------------------------------------------------------ */
 
     mapping(address token => Pool) internal _pools;
+    // Written in `launch` through a storage pointer, which Slither misses.
+    // slither-disable-next-line uninitialized-state
     mapping(address token => Segment[16]) internal _curves;
     mapping(address quote => bool) public allowedQuote;
     mapping(address quote => uint256) public protocolFees;
@@ -264,11 +266,11 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
             if (!graduatorAllowed[params.graduator]) revert GraduatorNotAllowed();
             g = IJunoGraduator(params.graduator);
         }
-        address venue;
-        if (address(g) != address(0)) {
-            venue = g.prepare(token, params.quote, migrationBase, threshold);
-            JunoToken(token).setPair(venue);
-        }
+        // A curve with nowhere to graduate would fill, stop trading and hold
+        // its reserves for good. Refuse it here, before anyone can buy in.
+        if (address(g) == address(0)) revert NoGraduator();
+        address venue = g.prepare(token, params.quote, migrationBase, threshold);
+        JunoToken(token).setPair(venue);
 
         Pool storage p = _pools[token];
         p.creator = msg.sender;
@@ -665,6 +667,8 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
     function _rpow(uint256 x, uint256 n) internal pure returns (uint256 z) {
         z = WAD;
         while (n > 0) {
+            // A bit test, not a comparison of amounts.
+            // slither-disable-next-line incorrect-equality
             if (n & 1 == 1) z = Math.mulDiv(z, x, WAD);
             x = Math.mulDiv(x, x, WAD);
             n >>= 1;
@@ -690,6 +694,9 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
     function _pay(address quote, address to, uint256 amount) internal {
         if (amount == 0) return;
         if (quote == NATIVE) {
+            // `to` is always the payee's own choice: a seller's recipient, the
+            // creator's claim address, or the owner's for protocol fees.
+            // slither-disable-next-line arbitrary-send-eth
             (bool ok,) = to.call{value: amount}("");
             if (!ok) revert TransferFailed();
         } else {
