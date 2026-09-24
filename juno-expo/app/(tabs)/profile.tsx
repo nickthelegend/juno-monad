@@ -34,6 +34,7 @@ import {
   Stat,
   Tabs,
 } from "../../components/kit";
+import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, networkLabel, type Plan, type WatchItem } from "../../lib/api";
 import { useLinkedState } from "../../lib/linked";
 import { money, tokens, useApi } from "../../lib/useApi";
@@ -103,6 +104,12 @@ export default function ProfileScreen() {
     async () => (wallet.address ? juno.portfolio(wallet.address) : null),
     [wallet.address],
   );
+  // A trade made on a coin page, or a plan set there, shows here on return.
+  useRefreshOnFocus(() => {
+    portfolio.refresh();
+    watching.refresh();
+    savings.refresh();
+  });
 
   const data = portfolio.data;
   const currency = data?.currency === "mixed" ? "USD" : (data?.currency ?? "USD");

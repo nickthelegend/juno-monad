@@ -35,6 +35,7 @@ import {
 } from "../../components/icons";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
+import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, type Coin } from "../../lib/api";
 import { count, invalidateMarkets, loadMarkets, progressLabel } from "../../lib/markets";
 import { useReducedMotion, nativeDriver } from "../../lib/motion";
@@ -91,6 +92,11 @@ export default function ReelsScreen() {
     const { posts } = await loadMarkets(once.viewer());
     return posts.filter((coin) => coin.format === "reel" && coin.media.kind === "video");
   }, [once.ready]);
+
+  useRefreshOnFocus(() => {
+    invalidateMarkets();
+    reels.refresh();
+  });
 
   const list = useMemo(() => reels.data ?? [], [reels.data]);
   const startIndex = Math.max(0, start ? list.findIndex((coin) => coin.address === start) : 0);

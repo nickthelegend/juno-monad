@@ -26,6 +26,7 @@ import { Handle } from "../../components/Handle";
 import { PerpsPanel } from "../../components/Perps";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
+import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, type Coin, type TesseraCompany, type Trader } from "../../lib/api";
 import { useLinkedState } from "../../lib/linked";
 import { bigMoney, count, invalidateMarkets, loadMarkets, progressLabel } from "../../lib/markets";
@@ -101,6 +102,10 @@ export default function TradeScreen() {
     markets.refresh();
     tessera.refresh();
   };
+  useRefreshOnFocus(() => {
+    refresh();
+    board.refresh();
+  });
 
   const refreshControl = (
     <RefreshControl

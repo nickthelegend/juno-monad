@@ -11,6 +11,7 @@ import { Button, Placeholder, Skeleton } from "../../components/kit";
 import { JunoMark } from "../../components/logo";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
+import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, type Coin } from "../../lib/api";
 import { invalidateMarkets, loadMarkets } from "../../lib/markets";
 import { useFeedRevision } from "../../lib/refresh";
@@ -127,6 +128,7 @@ export default function SocialScreen() {
     markets.refresh();
     record.refresh();
   };
+  useRefreshOnFocus(refresh);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.page}>
