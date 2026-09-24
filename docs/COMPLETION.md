@@ -69,3 +69,37 @@ deploy is one command (`contracts/deploy.sh testnet`).
    Slither found one real trap, fixed in the contract with a test. Every CI
    command was run locally; CI itself has never run, because the repo has no
    GitHub remote yet. E: 95%.
+6. **Regression sweep** through the whole app at phone size after these
+   changes. It found and fixed five more issues: price impact counting the
+   fee twice, a sell hint larger than the seller's holding, finality polling
+   without end, React errors from the chart's SVG hit bands, and a
+   deprecation warning from `pointerEvents` props. A fresh session through
+   every screen now logs no error and no warning. The only 5xx seen was the
+   faucet's deliberate 503 when it is empty, shown to the person in words.
+
+## Final measurement: 56%
+
+Re-measured over the whole project after the gaps above were closed.
+
+| Part | Score | Evidence |
+|---|---|---|
+| A. Product | **96%** (47 of 49) | Every case passes, or failed and was fixed and re-checked, except **B5** (a Privy login needs a person with an account) and **D4** (the live tape follows real Monad testnet, where Juno is not deployed) |
+| B. On Monad | **15%** | Unchanged. The commit-state stream, Pyth and Perpl reads are real testnet. The deployer still holds 0 MON, so no Juno contract or transaction is on testnet |
+| C. Sponsors | **48%** | Unchanged in kind: Kuru is deeper (the market's address from launch) but still on a fork; Envio still unhosted; Privy still without a completed login; Nansen still without a key |
+| D. Submission | **10%** | Unchanged: only item 10 |
+| E. Engineering | **95%** | 56 contract tests and the 7 Kuru fork tests; 304 unit tests; 8 indexer tests; three typechecks clean; Slither clean at medium and above; CI configured for all of it. Not 100% because CI has never run: there is no GitHub remote |
+
+Weighted: 0.35 × 96 + 0.25 × 15 + 0.15 × 48 + 0.15 × 10 + 0.10 × 95 = **56%**
+(54% at the first measurement).
+
+**Why it moved only two points.** Everything that could be closed from inside
+the repo was closed. What remains needs one of four things:
+
+1. **Testnet MON for `0x019E55cb3ce46Ed3f439320Fb589833909C5CaaC`** (about 27
+   points: deploy, verify, run the lifecycle, point the indexer at it, and the
+   Monad parts of C and D). After funding, this is a command, not a project.
+2. **The team's own deliverables** (9 points): both videos, the cover, the
+   project profile, the track entry, a public repo.
+3. **A person's Privy login** (about 2 points).
+4. **A Nansen API key** (3 points); paying through x402 would spend real USDC.
+

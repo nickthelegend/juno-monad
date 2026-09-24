@@ -103,7 +103,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 68 | HyperSync as the indexer source | S | 3 | 3 | 5 | 45 | BLOCKED | needs an Envio API token; RPC sync works meanwhile |
 | 69 | Launch in USDC for stock-shaped curves | F | 3 | 5 | 3 | 45 | BUILT | `quoteToken` on `tx/launch` |
 | 70 | Heart burst on double-tap | D | 2 | 5 | 4 | 40 | BUILT | `HeartBurst.tsx` |
-| 71 | Indexer tests in CI | P | 2 | 5 | 4 | 40 | NOT BUILT | the indexer's vitest suite runs locally |
+| 71 | Indexer tests in CI | P | 2 | 5 | 4 | 40 | BUILT | `.github/workflows/ci.yml` job `indexer`: codegen, typecheck, handler tests (each verified locally; CI has not run without a remote) |
 | 72 | Kuru fork test in CI (opt-in, pinned block) | P | 2 | 4 | 5 | 40 | NOT BUILT | runs locally with `KURU_FORK_TEST=1` |
 | 73 | Privy on iOS/Android (`@privy-io/expo`) | S | 4 | 2 | 5 | 40 | BLOCKED | needs an Expo development build and the app's bundle id on the Privy app |
 | 74 | Push notification when someone buys your post | F | 4 | 2 | 5 | 40 | NOT BUILT | needs Expo push credentials |
@@ -112,7 +112,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 77 | Custom curve designer (drag sixteen weights) | F | 3 | 3 | 4 | 36 | NOT BUILT | four presets today |
 | 78 | Moderation of reels (report + hide) | F | 3 | 4 | 3 | 36 | NOT BUILT |  |
 | 79 | Rate limits on write routes | P | 3 | 4 | 3 | 36 | PARTIAL | the faucet is rate-limited; other routes are not |
-| 80 | Static analysis (Slither) on the contracts | P | 3 | 4 | 3 | 36 | NOT BUILT |  |
+| 80 | Static analysis (Slither) on the contracts | P | 3 | 4 | 3 | 36 | BUILT | clean at `--fail-medium`; one real finding fixed (`NoGraduator`), five false positives annotated; in CI |
 | 81 | Nansen "proven trader" score from a linked mainnet wallet | S | 4 | 2 | 4 | 32 | BLOCKED | needs a Nansen API key; x402 would spend real USDC |
 | 82 | Gas snapshots in CI | P | 2 | 5 | 3 | 30 | NOT BUILT |  |
 | 83 | Skeletons while loading | D | 2 | 5 | 3 | 30 | BUILT | `Skeleton` in `kit.tsx` |
@@ -146,6 +146,18 @@ In order, each committed on its own:
 3. **Venue marks and the indexed leaderboard** (`5cd1c66`): graduated coins
    priced at their venue; Kuru fills in positions; leaderboard from Envio;
    indexer freshness on the holders tab.
+
+4. **Honesty on a fork, and the Kuru market from launch** (`38a7d51`,
+   `9868d97`): the app says "local fork of Monad testnet" wherever it would
+   otherwise credit Monad with the fork's work; a Kuru coin shows its market's
+   CREATE2 address from launch (#75), checked against the market graduation
+   opened. Profile and trader pages count and show trades correctly.
+5. **Contract safety and CI** (`be5e08e`): `launch` refuses a pool with no
+   graduator (found by Slither); CI runs Slither and the indexer's codegen,
+   typecheck and tests (#71, #80).
+6. **A regression sweep** (`9bc70d0`, `0a948a7`): price impact without the
+   fee, a sell hint that respects the holding, bounded finality polling, and
+   a console with no errors or warnings on any screen.
 
 ## Blockers
 
