@@ -26,15 +26,39 @@ Every `file:line` below was checked with `grep -n` against that tree.
 
 ## 1. Honest status
 
+### Re-verified live, 2026-09-24 (second run, after a restart)
+
+The stack was rebuilt from nothing: a fresh anvil fork of Monad testnet at block 65,197,097, Juno redeployed to it (launchpad `0x43cA…0A075`, Kuru graduator `0x9d13…CFa70`), the Envio indexer, the API and the Expo web build. Each sponsor was then exercised again and the network traffic read, not assumed.
+
+| Sponsor | Verdict | What was run | What came back |
+|---|---|---|---|
+| **Monad** | **GENUINELY USED.** Reads and the commit-state stream are on **real testnet**; writes are on the fork | `GET /api/juno/live`; a 2 MON Kuru buy through the trade sheet in Chrome | `connected: true` to `wss://testnet-rpc.monad.xyz`, with a `lastMessageAt` seconds old. The buy landed (`0xef8d…56c6`) and the sheet said *"confirmed on a local fork of Monad testnet in 0.8s"* |
+| **Kuru** | **GENUINELY USED**, against Kuru's **real testnet contracts** on the fork | Launch KURU410 with venue Kuru → fill → graduate → buy (script), then `Router.verifiedMarket(market)`; then the buy in Chrome | Market `0xE484…3b14` is registered in Kuru's own Router (base = the token, precision 1e7). The scripted buy `0xee30…e77e` has status 1 and logs from the market and the token. A USDC launch asking for Kuru is refused with 400. The Chrome buy got 39,880 tokens at the book's 0.00005 MON ask |
+| **Envio** | **GENUINELY USED** on the fork | GraphQL on `:8080` | `KuruMarket 0xE484…3b14` with `tradeCount 3` (2 buys, 1 sell), and three `KuruTrade` rows whose hashes match the three transactions above, including the Chrome buy from `0xE0fC…A981` |
+| **Privy** | **GENUINELY USED on web; a login has still not been completed** | The web build in Chrome, reading the page's resource timing; the verify route with a bad token | `GET https://auth.privy.io/api/v1/apps/cmrmdbnfo00lw0djscwztkeuh` → 200 and Privy's embedded-wallets iframe loaded. `POST /api/juno/profiles/privy` → 401. No one has logged in: that needs a person's email or social account |
+| **Nansen** | **MISSING** | `grep -ril nansen lib app juno-expo indexer/src contracts/src` → no matches. An unauthenticated `POST https://api.nansen.ai/api/v1/profiler/address/pnl-summary` | HTTP **402** with `x402Version: 2` and 8 ways to pay (Base, X Layer, BSC…). It needs an API key or real USDC, so nothing was built on guesswork |
+
+**Fixed in this pass.** The one misleading line this audit found is gone. `GET config` now reports `localFork` when the server's own RPC is on its machine (`lib/juno/network.ts` `localFork`, `app/api/juno/config/route.ts`), and the trade sheet credits the fork instead of Monad with the time it measured (`juno-expo/components/TradeSheet.tsx`). On real testnet the sentence reads "confirmed on Monad" again.
+
+**Built since the first run of this audit, and marked "Built" in the lists below.**
+- Kuru: #1, 2, 4, 5, 6, 7, 8, 10, 11, 18, 19, 20 and 27 are built. #23 is partly built (bid and ask on the coin page, not yet on feed cards). Limit orders shipped as "Your orders on Kuru" on the coin page: place, cancel, and withdraw what filled.
+- Perpl, the perps the team asked for: #46–48 are partly built. Perps on Perpl's seven testnet markets (BTC, ETH, SOL, MON, ZEC, LIT, PUMP) run from the Trade tab against its testnet exchange; trading was exercised on the fork, with funded AUSD. There is no builder code yet.
+- Envio: #2, 4 and 38 are built; #3 is built for Kuru only (Uniswap pairs are not indexed); #6 is built on the holders tab only.
+- Privy: #9 and #12 are built, and #1 is built on web only.
+- Nansen and Monad: nothing new.
+
+The original findings follow. Where a later update changed a finding, the update is dated in the text.
+
+
 | Sponsor | Verdict | How deep | Where it is (file:line or flow) | What is absent |
 |---|---|---|---|---|
 | **Monad** | **GENUINELY USED** on the fork. The commit-state stream was verified against **real testnet** block heads | Deep in the transaction pipeline and the UX. Shallow in the contracts: no Monad-only opcode, precompile or storage layout | chain `lib/juno/network.ts:2,33`; Multicall3 batching `lib/juno/client.ts:25`; gas estimate + 7.5% `lib/juno/tx.ts:74,153-155`; `eth_sendRawTransactionSync` + `confirmedInMs` `lib/juno/tx.ts:402,436,467`, shown at `juno-expo/components/TradeSheet.tsx:504-507`; 100-block `getLogs` handling `lib/juno/swaps.ts:152,191,221`; reserve balance `app/api/juno/faucet/route.ts:39,206`, `TradeSheet.tsx:64-74`, `tx.ts:616`; 3-block settle `faucet/route.ts:55`; Pyth `lib/juno/pyth.ts:58,150`; commit states `lib/juno/live.ts:25,194,196` + `app/api/juno/live/route.ts:23` → `LiveTape.tsx:21` (used at `app/(tabs)/social.tsx:222`) and `Finality.tsx:13` (used at `TradeSheet.tsx:511`); counterfactual CREATE2 pair `contracts/src/graduators/UniswapV2Graduator.sol:63` | Real deployment. P256VERIFY/passkeys (Mera). EIP-7702. Staking precompile. `dippedIntoReserve`. MIP-8 page layout. Foundry ≥1.8 `--network monad` is wired in `contracts/deploy.sh:121-127` but has **never run**, because local forge is 1.7.1 |
 | **Envio** | **GENUINELY USED** on the fork | Medium. HyperIndex 3.12.1 runs, and the app reads it for 4 features | `indexer/config.yaml:25-53,67-69`; dynamic token registration `indexer/src/EventHandlers.ts:119-120`; Effect API `indexer/src/quotes.ts:39-45`; app reads `lib/juno/envio.ts:69,106,130,158` → `swaps.ts:312-313`, `activity.ts:93-102` (labelled at `juno-expo/app/coin/[token].tsx:770`), `chain.ts:278-281`, `portfolio.ts:308-309,376` | Real testnet, Envio Cloud, HyperSync/HyperRPC, post-graduation Uniswap pair indexing, candles, subscriptions. **Updated 2026-09-24:** the leaderboard now reads every indexed fill (`lib/juno/leaderboard.ts` `indexedHistories`), `envioStatus` drives the holders tab's freshness line, and the indexer follows each Kuru market and order (`KuruMarket`, `KuruTrade`, `KuruOrder`) with one cost basis across graduation |
-| **Kuru** | **GENUINELY USED** on the fork against Kuru's **real testnet contracts** (updated 2026-09-24, after this audit was first written) | Deep for one feature: graduation into Kuru and trading there afterwards. No limit orders, forwarder or Flow yet | Venue choice `contracts/src/JunoLaunchpad.sol:257,461`; `contracts/src/graduators/KuruGraduator.sol:86` (`prepare` locks `MarginAccount`), `:97-143` (`computeAddress` → reuse or `deployProxy` → `vault.deposit` to `0xdEaD`), `:168` (market params per Kuru's SDK); deploy `contracts/script/Deploy.s.sol:189`; free quotes and market orders `lib/juno/kuru.ts:125,165,235` → `lib/juno/tx.ts:228,282`, fills read from receipts `tx.ts:607`; indexer follows each market `indexer/config.yaml:58-67`, `indexer/src/EventHandlers.ts:387,416`; app `juno-expo/app/(tabs)/post.tsx:362` (venue picker), `juno-expo/app/coin/[token].tsx:119` (book, market link, Buy after graduation), `juno-expo/components/TradeSheet.tsx:189`. Tests: `contracts/test/KuruGraduator.t.sol` (3 unit + 6 fork tests against live Kuru testnet state). Verified in the app on the fork: launch → fill → graduate → buy 2 MON → sell 19,940 tokens | Real testnet deployment (deployer unfunded). Limit orders, `KuruForwarder`, depth chart. Mainnet (owner-only market creation). **No perps: Kuru has none** |
+| **Kuru** | **GENUINELY USED** on the fork against Kuru's **real testnet contracts** (updated 2026-09-24, after this audit was first written) | Deep for one feature: graduation into Kuru and trading there afterwards, with market **and limit** orders (`lib/juno/kuru.ts` `buildKuruLimitOrder`, `buildKuruCancel`, `buildKuruWithdraw`; `juno-expo/components/KuruOrders.tsx`). No forwarder or Flow | Venue choice `contracts/src/JunoLaunchpad.sol:257,461`; `contracts/src/graduators/KuruGraduator.sol:86` (`prepare` locks `MarginAccount`), `:97-143` (`computeAddress` → reuse or `deployProxy` → `vault.deposit` to `0xdEaD`), `:168` (market params per Kuru's SDK); deploy `contracts/script/Deploy.s.sol:189`; free quotes and market orders `lib/juno/kuru.ts:125,165,235` → `lib/juno/tx.ts:228,282`, fills read from receipts `tx.ts:607`; indexer follows each market `indexer/config.yaml:58-67`, `indexer/src/EventHandlers.ts:387,416`; app `juno-expo/app/(tabs)/post.tsx:362` (venue picker), `juno-expo/app/coin/[token].tsx:119` (book, market link, Buy after graduation), `juno-expo/components/TradeSheet.tsx:189`. Tests: `contracts/test/KuruGraduator.t.sol` (3 unit + 6 fork tests against live Kuru testnet state). Verified in the app on the fork: launch → fill → graduate → buy 2 MON → sell 19,940 tokens | Real testnet deployment (deployer unfunded). `KuruForwarder` (conditional orders), depth chart. Mainnet (owner-only market creation). **No perps: Kuru has none** |
 | **Privy** | **GENUINELY USED on the web build; login not yet exercised by us** (updated 2026-09-24) | Medium: a signer, not just a login | `juno-expo/lib/privy.web.tsx` (PrivyProvider; a `SignerSource` that hands Juno's server-built transactions to `useSignTransaction`), `juno-expo/lib/wallet-choice.tsx` (device key or Privy, chosen on the profile), `lib/juno/privy.ts` + `app/api/juno/profiles/privy/route.ts` (`@privy-io/node` verifies the session and records the X handle only for a wallet the Privy user owns). Verified: provider loads on `http://localhost:3000`, the login modal opens with email/Google/X, the route answers 401 to a bad token | A completed login and a Privy-signed transaction (needs a person). Native (`@privy-io/expo`, dev build). Gas sponsorship, server signers and policies (dashboard) |
 | **Nansen** | **MISSING** | None | None. No key or code; only the idea at `docs/METROPOLIS.md:42` | Everything. The idea on record, "smart money is buying this reel", is **impossible** (no testnet data) and **prohibited** (public smart-money labels) |
 
-No **FAKED** feature was found. One piece of copy becomes misleading on the fork, though. `TradeSheet.tsx:504-507` prints "confirmed on Monad in 0.8s", but on the fork `confirmedInMs` measures anvil, not Monad. The sentence becomes true once the API points at real testnet. **Do not record the demo on the fork.**
+No **FAKED** feature was found. One piece of copy was misleading on the fork: the trade sheet printed "confirmed on Monad in 0.8s" when `confirmedInMs` measured anvil. **Fixed 2026-09-24:** on a fork it now says "confirmed on a local fork of Monad testnet". **Still, do not record the demo on the fork.**
 
 ### Monad: the one sponsor with runtime evidence
 **What Juno does well:**
@@ -66,10 +90,10 @@ No **FAKED** feature was found. One piece of copy becomes misleading on the fork
 
 **Gaps a judge would notice:**
 - No public GraphQL endpoint. Envio Cloud is not deployed, and nothing runs on real testnet.
-- The freshness function `envioStatus` is written but unwired.
-- The leaderboard still rebuilds itself pool by pool.
-- Price and P&L freeze at graduation, because the pair is not indexed.
-- The indexer does not know about the new `GraduatorAllowed` event in the working tree.
+- ~~The freshness function `envioStatus` is written but unwired.~~ Wired 2026-09-24: the holders tab says how current the indexer is.
+- ~~The leaderboard still rebuilds itself pool by pool.~~ Fixed 2026-09-24: it reads every indexed fill.
+- Price and P&L freeze at graduation into **Uniswap**, because the pair is not indexed. Kuru markets are indexed, so a Kuru coin's P&L carries on.
+- The indexer does not know about the `GraduatorAllowed` event.
 
 **Docs drift:** `JUNO.md:40` still lists "Holders beyond traders" as not built, but it is built (`activity.ts:93-102`).
 
@@ -211,33 +235,33 @@ Rows 1–27 cannot be done without Kuru. Rows 28–40 use Kuru but are mainnet-o
 
 | # | What it does | Kuru capability / call | Depth | Why a Kuru judge notices |
 |---|---|---|---|---|
-| 1 | Graduate a filled curve into a Kuru CLOB + AMM-vault market | `KuruGraduator.graduate`: `Router.deployProxy(2, token, 0x0, …)` then `KuruAMMVault.deposit{value:q}(base, q, q, 0xdEaD)`. `prepare()` returns `MarginAccount` as the locked venue | Core | The literal "Bring New Assets and Markets to Kuru": each graduated post is a new market that opens at the curve's top price |
-| 2 | Creator picks the venue at launch: Uniswap v2 or Kuru | Finish `LaunchParams.graduator` / `graduatorAllowed` (`JunoLaunchpad.sol:101,257`). Add a toggle in the launch sheet | Core | Kuru becomes a first-class choice rather than a hard-coded swap |
+| 1 | **Built.** Graduate a filled curve into a Kuru CLOB + AMM-vault market | `KuruGraduator.graduate`: `Router.deployProxy(2, token, 0x0, …)` then `KuruAMMVault.deposit{value:q}(base, q, q, 0xdEaD)`. `prepare()` returns `MarginAccount` as the locked venue | Core | The literal "Bring New Assets and Markets to Kuru": each graduated post is a new market that opens at the curve's top price |
+| 2 | **Built.** Creator picks the venue at launch: Uniswap v2 or Kuru | Finish `LaunchParams.graduator` / `graduatorAllowed` (`JunoLaunchpad.sol:101,257`). Add a toggle in the launch sheet | Core | Kuru becomes a first-class choice rather than a hard-coded swap |
 | 3 | Show the Kuru market's address on the coin page before graduation | `Router.computeAddress(token, 0x0, …, address(0), false)`, `computeVaultAddress` | Core | Mirrors the pre-locked CREATE2 v2 pair, and shows nobody can pre-seed it |
-| 4 | Grief-proof graduation | `verifiedMarket(m).pricePrecision == 0` → deploy, else reuse. The vault is still empty, because the token cannot enter `MarginAccount` before graduation | Core | Shows command of Kuru's CREATE2 markets and fund flows [K §3.4] |
-| 5 | Graduation parameter solver | Port `ParamCreator.calculatePrecisions`: power-of-10 precisions, uint32 price with about 1000x headroom, `kuruAmmSpread % 10 == 0` | Core | Without it, micro-priced post tokens get broken markets |
-| 6 | Exact quotes for graduated coins | `eth_call` from `address(0)` to `placeAndExecuteMarketBuy/Sell` | Core | A Kuru-specific quoter, vault-inclusive and free |
-| 7 | Buy and sell graduated posts from the trade sheet and reels dock | `placeAndExecuteMarketBuy{value}(quoteSize, minOut, false, true)`, `placeAndExecuteMarketSell(size, minOut, false, false)` | Core | "Routing through Kuru's onchain order book" is the consumer bounty's reported core requirement |
-| 8 | Sell with approval handled | Kuru pulls tokens (approve the OrderBook, or deposit to `MarginAccount`). The server builds approve+sell as two steps | Core (necessary) | Honest about the one UX cost the launchpad's approval-free sell did not have |
+| 4 | **Built.** Grief-proof graduation | `verifiedMarket(m).pricePrecision == 0` → deploy, else reuse. The vault is still empty, because the token cannot enter `MarginAccount` before graduation | Core | Shows command of Kuru's CREATE2 markets and fund flows [K §3.4] |
+| 5 | **Built.** Graduation parameter solver | Port `ParamCreator.calculatePrecisions`: power-of-10 precisions, uint32 price with about 1000x headroom, `kuruAmmSpread % 10 == 0` | Core | Without it, micro-priced post tokens get broken markets |
+| 6 | **Built.** Exact quotes for graduated coins | `eth_call` from `address(0)` to `placeAndExecuteMarketBuy/Sell` | Core | A Kuru-specific quoter, vault-inclusive and free |
+| 7 | **Built.** Buy and sell graduated posts from the trade sheet and reels dock | `placeAndExecuteMarketBuy{value}(quoteSize, minOut, false, true)`, `placeAndExecuteMarketSell(size, minOut, false, false)` | Core | "Routing through Kuru's onchain order book" is the consumer bounty's reported core requirement |
+| 8 | **Built.** Sell with approval handled | Kuru pulls tokens (approve the OrderBook, or deposit to `MarginAccount`). The server builds approve+sell as two steps | Core (necessary) | Honest about the one UX cost the launchpad's approval-free sell did not have |
 | 9 | Turn a watchlist price alert into a resting limit order | `MarginAccount.deposit` + `addBuyOrder(price, size, postOnly)`, from `alertPrice` | Core | Only a CLOB can do this. It reuses a feature Juno already has |
-| 10 | Claim filled limit orders from the portfolio | `MarginAccount.getBalance` shown as "Unclaimed", then `batchWithdrawMaxTokens([token, 0x0])` | Core | Fills credit MarginAccount, not the wallet; handling that shows depth |
-| 11 | Cancel resting orders | `batchCancelOrders(uint40[])`. Track `OrderCreated`/`OrderCanceled`/`Trade` | Core | The full order lifecycle |
+| 10 | **Built.** Claim filled limit orders from the portfolio | `MarginAccount.getBalance` shown as "Unclaimed", then `batchWithdrawMaxTokens([token, 0x0])` | Core | Fills credit MarginAccount, not the wallet; handling that shows depth |
+| 11 | **Built.** Cancel resting orders | `batchCancelOrders(uint40[])`. Track `OrderCreated`/`OrderCanceled`/`Trade` | Core | The full order lifecycle |
 | 12 | Stop-loss / take-profit on graduated posts | EIP-712 `PriceDependentRequest` → Juno relays `KuruForwarder.executePriceDependent`. Funded from the margin balance, because a relayer cannot front native `msg.value` | Core | Kuru's own conditional-order primitive; impossible on Uniswap v2 |
 | 13 | Gasless graduated-coin trades | `KuruForwarder.execute(ForwardRequest, sig)`. Allowed: market and limit orders, margin deposit/withdraw. Not allowed: cancels | Core | Gasless through Kuru rather than a paymaster |
 | 14 | Depth chart after graduation | Decode `getL2Book()` bytes, synthesize vault levels from `getVaultParams()` (as the SDK's `orderBook.ts` does), replace the curve depth in `app/api/juno/depth` | Core | Book and vault together, as Kuru's own UI shows them |
 | 15 | "Back this creator": community LP | `KuruAMMVault.deposit(base, quote, minQuote, receiver)`. LPs earn the spread | Core | Ties the social layer to Kuru market-making |
 | 16 | Creator liquidity ladder | Flip orders via `batchProvisionLiquidity(prices, flipPrices, sizes, isBuy, true)` | Core | Flip orders exist only on Kuru |
 | 17 | LP position in the portfolio | Vault share balance, `previewWithdraw`, `totalAssets`, `withdraw(shares, receiver, owner)` | Core | Closes the LP loop |
-| 18 | One chart from first buy to book trading | Decode Kuru `Trade(uint40,address,bool,uint256,uint96,address,address,uint96)` (all fields in data) and append it to the curve history | Core | Graduation stops being a cliff in the data |
-| 19 | Index Kuru markets in Envio | `contractRegister` on `Graduated` (Kuru venue) → the market's `Trade`. Filter by address, since topics are empty | Core (with Envio) | Kuru trades as first-class indexed data |
-| 20 | Leaderboard and P&L continue past graduation | Kuru `Trade.taker`/`txOrigin` into `basisFromSwaps` | Core | Kuru volume counts in Juno's core ranking |
+| 18 | **Built.** One chart from first buy to book trading | Decode Kuru `Trade(uint40,address,bool,uint256,uint96,address,address,uint96)` (all fields in data) and append it to the curve history | Core | Graduation stops being a cliff in the data |
+| 19 | **Built.** Index Kuru markets in Envio | `contractRegister` on `Graduated` (Kuru venue) → the market's `Trade`. Filter by address, since topics are empty | Core (with Envio) | Kuru trades as first-class indexed data |
+| 20 | **Built.** Leaderboard and P&L continue past graduation | Kuru `Trade.taker`/`txOrigin` into `basisFromSwaps` | Core | Kuru volume counts in Juno's core ranking |
 | 21 | Spend the graduation refund on Kuru | The buy that completes a curve refunds the rest (verified "Buy only what's left"). Offer "continue on Kuru" with a fresh `address(0)` quote | Core UX | The handoff moment becomes the demo's climax |
 | 22 | "Bought by" after graduation | `Trade.taker` into `lib/juno/crowd.ts` | Surface | Social proof from book fills |
-| 23 | Best bid/ask on feed cards and the reels dock for graduated posts | `bestBidAsk()` (1e18-scaled) via Multicall3 | Surface | The book price shows up mid-scroll |
+| 23 | **Partly built.** Best bid/ask on feed cards and the reels dock for graduated posts | `bestBidAsk()` (1e18-scaled) via Multicall3 | Surface | The book price shows up mid-scroll |
 | 24 | Price impact from the book | Walk `getL2Book` plus the vault levels before signing | Surface | Real impact instead of a curve formula |
 | 25 | Show the locked vault liquidity | Vault LP shares held at `0xdEaD`, with a vault address link | Surface | A trust signal: liquidity cannot be pulled |
 | 26 | Graduation in the live tape | `MarketRegistered` + `Graduated` rows with commit-state dots | Surface (with Monad) | A Kuru market's birth, seen live |
-| 27 | Foundry proof that the market opens at the curve top | Port the research `sim/` into `contracts/test/` against a testnet fork | Core evidence | "Integration strength" backed by a test |
+| 27 | **Built.** Foundry proof that the market opens at the curve top | Port the research `sim/` into `contracts/test/` against a testnet fork | Core evidence | "Integration strength" backed by a test |
 | 28 | Swap any Monad token into a post-coin (mainnet) | Flow `POST https://ws.kuru.io/api/quote`, send `transaction.{to,calldata,value}` to `0xb3e6778480b2E488385E8205eA05E20060B813cb` | Core on mainnet; **impossible on testnet** | Flow is Kuru's flagship integration |
 | 29 | Creators earn Flow referrer fees (mainnet) | `referrerAddress = creator`, `referrerFeeBps` | Mainnet only | A creator-economy twist on Flow |
 | 30 | Multi-hop sell: token → MON → USDC | `Router.anyToAnySwap(markets, isBuy, nativeSend, debit, credit, amount, minOut)` | Weak on testnet: MON/USDC there is dead and uses Kuru's own USDC | Uses the Router, but the demo would be thin |
@@ -256,9 +280,9 @@ Rows 1–27 cannot be done without Kuru. Rows 28–40 use Kuru but are mainnet-o
 | 43 | Market-making bot for graduated markets | `kuru-sdk-py` | Weak: off-app, invisible to a consumer judge | — |
 | 44 | Kuru "Discover"/verified listing for graduated posts | Needs Kuru's team; no code | Weak (outreach) | — |
 | 45 | Mainnet graduation into Kuru | The owner Safe must call `deployProxy` or allowlist the graduator | Not code; the only path to mainnet | Ask the CEO-mentor [K §5] |
-| 46 | **Perpl, not Kuru:** "hedge your MON" from the trade sheet | Perpl testnet `0x1964C32f0bE608E7D29302AFF5E61268E72080cc`: `createAccount` (≥100 aUSD; the testnet aUSD source is undocumented) + `execOrders(OrderDesc[])` | A separate Track 01 sponsor; composes with Kuru only through MON's price | — |
-| 47 | **Perpl, not Kuru:** MON basis panel, Kuru spot vs Perpl perp | Kuru `bestBidAsk` + Perpl `GET /v1/pub/context` (mark, funding) | Fits Perpl's analytics bounty more than Kuru's | — |
-| 48 | **Perpl, not Kuru:** perps on majors with a builder code | Perpl API, an Ed25519 key, a builder id via their form, a whitelisted origin. `geo_block` includes US and GB | A separate sponsor; post-tokens cannot get perps | — |
+| 46 | **Partly built.** **Perpl, not Kuru:** "hedge your MON" from the trade sheet | Perpl testnet `0x1964C32f0bE608E7D29302AFF5E61268E72080cc`: `createAccount` (≥100 aUSD; the testnet aUSD source is undocumented) + `execOrders(OrderDesc[])` | A separate Track 01 sponsor; composes with Kuru only through MON's price | — |
+| 47 | **Partly built.** **Perpl, not Kuru:** MON basis panel, Kuru spot vs Perpl perp | Kuru `bestBidAsk` + Perpl `GET /v1/pub/context` (mark, funding) | Fits Perpl's analytics bounty more than Kuru's | — |
+| 48 | **Partly built.** **Perpl, not Kuru:** perps on majors with a builder code | Perpl API, an Ed25519 key, a builder id via their form, a whitelisted origin. `geo_block` includes US and GB | A separate sponsor; post-tokens cannot get perps | — |
 | 49 | AUSD-quoted markets for Agora | Kuru MON_AUSD exists on mainnet. Agora needs Mera + AUSD + a Perpl trade | Weak for Juno; conflicts with Privy | — |
 | 50 | A "Kuru perps" button | None exists. Kuru's SDK: "Perps are intentionally not exposed in v1" | **Do not build** | It would tell a Kuru judge the team did not read Kuru's docs |
 
@@ -336,11 +360,11 @@ Rows 1–24 put Envio on the critical path of a user-visible feature. Rows 25–
 | # | What it does | Envio capability | Depth | Why an Envio judge notices |
 |---|---|---|---|---|
 | 1 | Index the real testnet launchpad via HyperSync, host it on Envio Cloud, publish the GraphQL URL in README/JUNO.md | `ENVIO_API_TOKEN`, HyperSync primary (`config.yaml:67-69`), Cloud GitHub deploy | Core prerequisite | "Real on-chain data" that a judge can query |
-| 2 | Leaderboard straight from positions | `Position(order_by:{realizedPnl: desc})` / `Account` aggregate, replacing the per-pool walk in `leaderboard.ts` | Core | A core screen driven by one indexed query; ends "partial" rankings |
-| 3 | Price and P&L continue after graduation | `contractRegister` on `Launched` adds `venue` as `JunoPair` (`Swap`, `Sync`, `Mint`, `Burn`) | Core | Dynamic contracts used twice; closes the freeze at graduation [ME §3.4] |
-| 4 | Kuru market indexing (if Kuru ships) | Register the OrderBook from `Graduated`, decode topic0-only `Trade` data | Core | Indexes a third-party protocol's markets created by Juno |
+| 2 | **Built.** Leaderboard straight from positions | `Position(order_by:{realizedPnl: desc})` / `Account` aggregate, replacing the per-pool walk in `leaderboard.ts` | Core | A core screen driven by one indexed query; ends "partial" rankings |
+| 3 | **Partly built (Kuru only).** Price and P&L continue after graduation | `contractRegister` on `Launched` adds `venue` as `JunoPair` (`Swap`, `Sync`, `Mint`, `Burn`) | Core | Dynamic contracts used twice; closes the freeze at graduation [ME §3.4] |
+| 4 | **Built.** Kuru market indexing (if Kuru ships) | Register the OrderBook from `Graduated`, decode topic0-only `Trade` data | Core | Indexes a third-party protocol's markets created by Juno |
 | 5 | Candles as entities (1s/1m/5m/1h) | `Candle` keyed `${token}-${interval}-${bucket}`, upserted in the `Trade`/`Swap` handlers from `event.block.timestamp` | Core | Replaces app-side candle building (`juno-expo/lib/candles.ts`) and matches adexto's "sub-second candles" |
-| 6 | Freshness chip: indexer block vs chain head | Wire `envioStatus()` (`envio.ts:188`) into `GET config`, show it on the coin page | Surface, judge-visible | Proves live indexing on screen |
+| 6 | **Partly built (holders tab).** Freshness chip: indexer block vs chain head | Wire `envioStatus()` (`envio.ts:188`) into `GET config`, show it on the coin page | Surface, judge-visible | Proves live indexing on screen |
 | 7 | Trending and "marketCap" sorts from indexed volume | `Pool(order_by: …)` plus a `PoolHourData` entity | Core | The feed's order becomes an Envio output |
 | 8 | Creator earnings page | `CreatorClaim` + `Pool.creatorFeesEarned/Claimed` (never read today) | Core | The Track 03 creator story, on indexed data |
 | 9 | Trader page from one query | `Account` + `Position` + `Trade` for `app/trader/[wallet].tsx` | Core | Replaces multi-RPC assembly |
@@ -372,7 +396,7 @@ Rows 1–24 put Envio on the critical path of a user-visible feature. Rows 25–
 | 35 | "People you follow bought" | Postgres follows × Envio trades, joined in the API | Mid | — |
 | 36 | Juno-side inputs for the Nansen composite | Positions and early-buy stamps | Cross-sponsor | — |
 | 37 | "Verify this number" links | Every stat links to its GraphQL query | Surface | — |
-| 38 | Handler tests for the new contracts | Vitest simulated events (`indexer/test/indexer.test.ts`) | Technical | — |
+| 38 | **Built.** Handler tests for the new contracts | Vitest simulated events (`indexer/test/indexer.test.ts`) | Technical | — |
 | 39 | Faucet abuse hints | Wallets funded but never traded | Weak | — |
 | 40 | `bytes_type: uint8array`, per-handler `fields`, `@internal` | v3.7/v3.10 features | Weak (polish) | — |
 | 41 | ClickHouse storage for `Trade` | Experimental | Weak | — |
@@ -457,7 +481,7 @@ Rows 1–15 are Privy doing the work: sign, sponsor, or delegate. Rows 16–30 a
 
 | # | What it does | Privy capability / call | Depth | Why a Privy judge notices |
 |---|---|---|---|---|
-| 1 | Privy signs every launch, trade and claim | `PrivySignerSource`: `useEmbeddedEthereumWallet` → `getProvider().request({method:'eth_signTransaction', params:[{…request, type: 2}]})` → existing `/tx/submit` | Core | Plainly "beyond login": every on-chain action in the demo is Privy-signed |
+| 1 | **Built (web).** Privy signs every launch, trade and claim | `PrivySignerSource`: `useEmbeddedEthereumWallet` → `getProvider().request({method:'eth_signTransaction', params:[{…request, type: 2}]})` → existing `/tx/submit` | Core | Plainly "beyond login": every on-chain action in the demo is Privy-signed |
 | 2 | A brand-new user launches a post with 0 MON | Server `@privy-io/node` `sendTransaction(walletId, {caip2:'eip155:10143', sponsor:true, …, authorization_context:{user_jwts:[jwt]}})` after `verifyAccessToken`; `firstBuy = 0` | Core | Native sponsorship on Monad Testnet, shown on camera |
 | 3 | Plans that actually execute | `useSigners().addSigners({address, signers:[{signerId, policyIds}]})`. Policy: `chain_id == 10143`, `to == JunoLaunchpad`, calldata `buy.recipient == user`, `value <= cap`, expiry | Core | Fixes the stated gap in `plans/route.ts:38-39`. Signers are Privy's headline "offline actions" |
 | 4 | A rolling 24h spend cap on that signer | Stateful policy (aggregation) on `eth_signTransaction` | Core | A second policy feature layered on the first ("bonus for multiple features") |
@@ -465,10 +489,10 @@ Rows 1–15 are Privy doing the work: sign, sponsor, or delegate. Rows 16–30 a
 | 6 | Watchlist alerts that trade | The signer signs a buy/sell when the tape crosses `alertPrice`. Policy limits it to `buy`/`sell` with recipient = self | Core | Offline execution with a tight policy |
 | 7 | Auto-claim creator fees weekly | Signer policy: `to == launchpad`, function `claimCreatorFees(token, to)` (`JunoLaunchpad.sol:418`) with `to == creator` | Core | The narrowest, most legible policy in the app |
 | 8 | Gas-free creator fee claim | `sponsor: true` on `tx/claim` | Core | Sponsorship beyond onboarding |
-| 9 | Verified X handle on a creator's posts | `useLoginWithOAuth` (twitter) → `linked_accounts` on the profile and post header | Core (Track 03) | Identity that powers the social layer |
+| 9 | **Built.** Verified X handle on a creator's posts | `useLoginWithOAuth` (twitter) → `linked_accounts` on the profile and post header | Core (Track 03) | Identity that powers the social layer |
 | 10 | Link a mainnet wallet | `useLinkWithSiwe` (the app produces the signature; the domain is allowlisted) | Core (feeds Nansen) | A second auth primitive used for a product feature |
 | 11 | Faucet key in a Privy server wallet | Server wallet + policy: value transfers only, `value <= 1 MON`, empty calldata; replaces the raw key used by `faucet/route.ts` | Core (ops) | The policy engine on the server side |
-| 12 | Web build on Privy | `@privy-io/react-auth` (already in `juno-expo/package.json:7`) in `*.web.tsx`; hook-level `sponsor: true` works on web [unverified in Metro web] | Core for web judges | Uses the installed dependency for its real purpose |
+| 12 | **Built.** Web build on Privy | `@privy-io/react-auth` (already in `juno-expo/package.json:7`) in `*.web.tsx`; hook-level `sponsor: true` works on web [unverified in Metro web] | Core for web judges | Uses the installed dependency for its real purpose |
 | 13 | Gift a post-coin to an email before they join | Server creates a user with a pregenerated embedded wallet by email [unverified API name], sends tokens, and they are there at login | Core (social) | Privy's user API used for onboarding |
 | 14 | Pay Nansen per call from a server wallet | `createX402Client` (`@privy-io/node/x402`) on `eip155:143` USDC | Core (cross-sponsor; real money) | Privy's x402 client in production use |
 | 15 | Sponsored "Graduate it" button | Anyone may call `graduate`; the app sponsors it | Mid | — |
@@ -754,13 +778,13 @@ Ordered by what unblocks the most score per day. Effort: **S** is at most 1 day,
 | # | Build | Sponsor(s) | Effort | Credential / dependency |
 |---|---|---|---|---|
 | 1 | Deploy to real Monad testnet and run the full lifecycle; fill JUNO.md's on-chain proof with MonadVision links | Monad (unblocks all) | S, once funded | Testnet MON for operator `0x019E55cb3ce46Ed3f439320Fb589833909C5CaaC`. Foundry ≥1.8 recommended |
-| 2 | Point the indexer at real testnet (HyperSync), host it on Envio Cloud, publish the GraphQL URL, and wire the `envioStatus` freshness chip | Envio | S–M | Envio Cloud account (GitHub app). `ENVIO_API_TOKEN` for HyperSync, or keep RPC mode. **Redeploy between 1 and 10 Oct** (the 30-day free-plan limit) |
+| 2 | *(Freshness chip done 2026-09-24; hosting still open.)* Point the indexer at real testnet (HyperSync), host it on Envio Cloud, publish the GraphQL URL, and wire the `envioStatus` freshness chip | Envio | S–M | Envio Cloud account (GitHub app). `ENVIO_API_TOKEN` for HyperSync, or keep RPC mode. **Redeploy between 1 and 10 Oct** (the 30-day free-plan limit) |
 | 3 | Re-measure `confirmedInMs` on real testnet; show Juno's own trades in the live tape; add `blockId` abandonment handling | Monad | S | #1 |
-| 4 | `PrivySignerSource`: the native embedded wallet signs every launch and trade | Privy | M | Swap to `@privy-io/expo` (keep `react-auth` for `*.web.tsx`) + an Expo dev build. A Privy app client with `fun.juno.app` and scheme `juno` (the "norr" app has neither). App ID and client ID |
+| 4 | *(Done on web 2026-09-24; native still open.)* `PrivySignerSource`: the native embedded wallet signs every launch and trade | Privy | M | Swap to `@privy-io/expo` (keep `react-auth` for `*.web.tsx`) + an Expo dev build. A Privy app client with `fun.juno.app` and scheme `juno` (the "norr" app has neither). App ID and client ID |
 | 5 | Zero-MON first launch via native sponsorship (server relay) | Privy | M | TEE confirmed in the dashboard. Fee sponsorship enabled for Monad Testnet, with credits. App secret for `@privy-io/node` |
 | 6 | Plans executed by a Privy signer with a policy and a 24h stateful cap; show and revoke in the app | Privy | M | Authorization key quorum (P-256), policies. Depends on #4 |
-| 7 | Leaderboard from `Position`, pair indexing after graduation, candle entities | Envio | M | #2 |
-| 8 | `KuruGraduator` + finished venue choice + post-graduation trading (`address(0)` quotes, market orders) | Kuru | M–L | Testnet only. **Wins a Kuru prize only on Track 01.** Mainnet needs Kuru's Safe to deploy or allowlist. Ask the Kuru mentor |
+| 7 | *(Leaderboard from indexed fills done 2026-09-24; Uniswap pair indexing and candles still open.)* Leaderboard from `Position`, pair indexing after graduation, candle entities | Envio | M | #2 |
+| 8 | *(Done 2026-09-24 on the fork, plus limit orders.)* `KuruGraduator` + finished venue choice + post-graduation trading (`address(0)` quotes, market orders) | Kuru | M–L | Testnet only. **Wins a Kuru prize only on Track 01.** Mainnet needs Kuru's Safe to deploy or allowlist. Ask the Kuru mentor |
 | 9 | MIP-8 layout (curve inside `Pool`) + per-pool protocol fees, with Monad-model gas numbers in the README | Monad | S–M | `foundryup` to ≥1.8. Redeploy (do it before #1 if it lands in time) |
 | 10 | Nansen "proven trader" composite from a Privy-SIWE-linked mainnet wallet, surfaced as "proven traders are buying this reel" | Nansen + Privy + Envio | M | Nansen API key (free plan: 100 credits once + 10/day, enough without labels), **or** x402 with Monad-mainnet USDC (real money; the team's call). File the redistribution approval if smart-money inputs are used. Depends on #4 |
 

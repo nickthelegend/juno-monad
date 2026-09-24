@@ -51,6 +51,20 @@ export function rpcEndpoint(): string {
   );
 }
 
+/**
+ * Whether the server's RPC is a node on this machine: an anvil fork of Monad
+ * testnet in development. Timings measured there are the fork's, not Monad's,
+ * so the app must not present them as Monad's.
+ */
+export function localFork(): boolean {
+  try {
+    const host = new URL(rpcEndpoint()).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
 export function usingPublicRpc(): boolean {
   return !process.env.MONAD_RPC_URL?.trim() && !process.env.NEXT_PUBLIC_MONAD_RPC_URL?.trim();
 }

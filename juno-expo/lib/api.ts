@@ -190,6 +190,11 @@ export type ChainConfig = {
   network: Network;
   chainId: number;
   rpcUrl: string;
+  /**
+   * The server's RPC is a local fork of Monad testnet, so a measured
+   * confirmation time is the fork's. Absent on an older server.
+   */
+  localFork?: boolean;
   launchpad: string | null;
   /** MonadVision base URL. Links are `${explorer}/tx/${hash}` and so on. */
   explorer: string;

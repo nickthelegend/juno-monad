@@ -509,7 +509,8 @@ export function TradeSheet({
               {side === "buy"
                 ? `Bought ${receiving ?? ""}`
                 : `Sold ${tokens(value)} ${coin.symbol} for ${receiving ?? ""}`}{" "}
-              {onKuru ? "on Kuru " : ""}— confirmed on Monad
+              {onKuru ? "on Kuru " : ""}— confirmed on{" "}
+              {juno.loadedConfig()?.localFork ? "a local fork of Monad testnet" : "Monad"}
               {/* Measured on the server from broadcast to receipt — the one
                   number that says why this runs on Monad. */}
               {confirmedInMs !== null ? ` in ${(confirmedInMs / 1000).toFixed(confirmedInMs < 10_000 ? 1 : 0)}s` : ""}.
