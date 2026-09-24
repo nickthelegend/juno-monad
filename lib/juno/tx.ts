@@ -476,7 +476,13 @@ export type SubmitResult = {
    * inside its price limit succeeds without a position, so "confirmed" alone
    * would mislead; this says whether it filled.
    */
-  perp?: { opened?: { perpId: number; lots: string }; closed?: { perpId: number }; unfilledLots?: string; totalLots?: string };
+  perp?: {
+    /** `pricePNS` is the price the position opened at, in the market's price units. */
+    opened?: { perpId: number; lots: string; pricePNS: string };
+    closed?: { perpId: number };
+    unfilledLots?: string;
+    totalLots?: string;
+  };
 };
 
 /** How long to wait for a receipt. Monad finalises in about a second. */
@@ -636,8 +642,8 @@ async function describeReceipt(receipt: TransactionReceipt, from: Address): Prom
     const perp: NonNullable<SubmitResult["perp"]> = {};
     for (const event of parseEventLogs({ abi: perplExchangeAbi, logs: perpLogs })) {
       if (event.eventName === "PositionOpenedV2" || event.eventName === "PositionOpened") {
-        const args = event.args as { perpId: bigint; lotLNS: bigint };
-        perp.opened = { perpId: Number(args.perpId), lots: args.lotLNS.toString() };
+        const args = event.args as { perpId: bigint; lotLNS: bigint; pricePNS: bigint };
+        perp.opened = { perpId: Number(args.perpId), lots: args.lotLNS.toString(), pricePNS: args.pricePNS.toString() };
       } else if (event.eventName === "PositionClosed") {
         perp.closed = { perpId: Number((event.args as { perpId: bigint }).perpId) };
       } else if (event.eventName === "ImmediateOrCancelExecuted") {

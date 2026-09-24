@@ -275,7 +275,17 @@ function OpenSheet({
       const last = results[results.length - 1];
       if (last.perp?.opened) {
         setDone(last.hash);
-        setStatus(`${leverage}x ${side} on ${market.symbol} open: ${built.size} at about ${money(built.mark, "USD", { compact: false })}.`);
+        // The price it filled at, from the exchange's own event. The mark it
+        // was sized against can be a percent away, and the position card
+        // below shows the fill as its entry — the two must agree.
+        const filled = last.perp.opened.pricePNS
+          ? Number(last.perp.opened.pricePNS) / 10 ** market.priceDecimals
+          : null;
+        setStatus(
+          filled !== null && Number.isFinite(filled)
+            ? `${leverage}x ${side} on ${market.symbol} open: ${built.size} at ${money(filled, "USD", { compact: false })}.`
+            : `${leverage}x ${side} on ${market.symbol} open: ${built.size} at about ${money(built.mark, "USD", { compact: false })}.`,
+        );
       } else {
         setStatus(null);
         setError("Nothing filled inside 1% of the mark, so no position was opened. Try again.");

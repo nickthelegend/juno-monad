@@ -605,7 +605,13 @@ export type SubmitResult = {
   /** Set when the transaction launched a token. */
   launched?: { token: Address; pair: Address | null; creator: Address };
   /** What a Perpl order did: whether it opened or closed a position, and any size left unfilled. */
-  perp?: { opened?: { perpId: number; lots: string }; closed?: { perpId: number }; unfilledLots?: string; totalLots?: string };
+  perp?: {
+    /** `pricePNS` is the fill price in the market's price units (`priceDecimals`). Absent on an older server. */
+    opened?: { perpId: number; lots: string; pricePNS?: string };
+    closed?: { perpId: number };
+    unfilledLots?: string;
+    totalLots?: string;
+  };
   /** Set when the transaction graduated a curve. */
   graduated?: { token: Address; venue: Address };
   /** Set when a buy filled a curve to its top. */
