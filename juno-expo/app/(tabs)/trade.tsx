@@ -213,7 +213,7 @@ export default function TradeScreen() {
                   <Intro
                     pill="Priced by Pyth"
                     title="Listed names, on a curve."
-                    body="Each tracker is a bonding curve on Monad, marked against the stock's live Pyth price."
+                    body="Each tracker is a bonding curve on Monad, marked against the stock's Pyth price, with the price's age shown when it is not live."
                   />
                 ) : (
                   <Intro
@@ -494,8 +494,18 @@ function MarketCard({
             <>
               {/* Absent, not zero, when the feed did not answer — or when the
                   server predates the reference read. */}
+              {/* Said with its age when it is not live. Pyth does not push
+                  equities to Monad, and without a Hermes key the last mark
+                  posted on-chain can be months old — "Pyth price" alone
+                  passed that off as current. */}
               <Stat
-                label={nav?.state === "closed" ? "Last close" : "Pyth price"}
+                label={
+                  nav?.state === "closed"
+                    ? "Last close"
+                    : nav?.state === "stale"
+                      ? `Pyth, ${nav.ageSeconds === null ? "stale" : `${markAge(nav.ageSeconds)} old`}`
+                      : "Pyth price"
+                }
                 value={nav ? money(nav.priceUsd, "USD", { compact: false }) : "—"}
               />
               <View style={styles.statRule} />
@@ -504,7 +514,9 @@ function MarketCard({
               <Stat
                 label="Curve vs price"
                 value={deviation === null ? "—" : `${deviation >= 0 ? "+" : ""}${(deviation * 100).toFixed(2)}%`}
-                tone={deviation === null ? undefined : nav?.withinBand ? "pos" : "neg"}
+                // Against a stale mark the gap is a fact about the past, not a
+                // signal; it is shown uncoloured.
+                tone={deviation === null || nav?.state === "stale" ? undefined : nav?.withinBand ? "pos" : "neg"}
               />
             </>
           ) : (
@@ -839,5 +851,9 @@ const Loading = styled.View`
   gap: ${(p) => p.theme.space(3)}px;
 `;
 
-
-
+/** How old a mark is, in the largest unit that fits: "40m", "6h", "125d". */
+function markAge(seconds: number): string {
+  if (seconds >= 86_400) return `${Math.round(seconds / 86_400)}d`;
+  if (seconds >= 3_600) return `${Math.round(seconds / 3_600)}h`;
+  return `${Math.max(1, Math.round(seconds / 60))}m`;
+}
