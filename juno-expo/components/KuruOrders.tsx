@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BottomSheet } from "./BottomSheet";
@@ -28,6 +28,8 @@ export function KuruOrdersCard({ coin, onChanged }: { coin: Coin; onChanged: () 
   const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const followUps = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => followUps.current.forEach(clearTimeout), []);
 
   if (!owner) return null;
 
@@ -103,6 +105,16 @@ export function KuruOrdersCard({ coin, onChanged }: { coin: Coin; onChanged: () 
           state.refresh();
           onChanged();
         }}
+        // The list above the receipt has to agree with it: "No resting
+        // orders" over "Bid placed" read as a failure until Done was pressed.
+        // The list comes from the indexer, a block or two behind the receipt,
+        // so it is read again over the next few seconds.
+        onSubmitted={() => {
+          for (const ms of [0, 2_000, 5_000, 10_000]) {
+            followUps.current.push(setTimeout(() => state.refresh(), ms));
+          }
+          onChanged();
+        }}
       />
     </View>
   );
@@ -146,11 +158,14 @@ function LimitSheet({
   coin,
   onClose,
   onPlaced,
+  onSubmitted,
 }: {
   visible: boolean;
   coin: Coin;
   onClose: () => void;
   onPlaced: () => void;
+  /** The order landed; the sheet stays open on its receipt. */
+  onSubmitted: () => void;
 }) {
   const wallet = useWallet();
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -195,6 +210,7 @@ function LimitSheet({
       );
       const last = results[results.length - 1];
       setPlaced(last.hash);
+      onSubmitted();
       setStatus(
         `${side === "buy" ? "Bid" : "Offer"} placed: ${tokens(built.amount)} ${coin.symbol} at ${bookPrice(built.price)}.`,
       );
@@ -220,7 +236,9 @@ function LimitSheet({
         <TextInput
           value={price}
           onChangeText={setPrice}
-          placeholder={best ? String(best) : "0.0"}
+          // The book's price to four figures: the full float ("0.001025902600290073")
+          // is noise, and the server snaps whatever is sent to Kuru's tick anyway.
+          placeholder={best ? String(Number(best.toPrecision(4))) : "0.0"}
           placeholderTextColor={theme.colors.faint}
           inputMode="decimal"
           style={styles.input}
