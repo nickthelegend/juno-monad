@@ -136,7 +136,7 @@ export function FeedCard({
                 <ReelBadgeGlyph size={13} />
                 <Text style={styles.reelBadgeText}>Reel</Text>
               </View>
-              <View pointerEvents="none" style={styles.playWrap}>
+              <View style={[styles.playWrap, { pointerEvents: "none" }]}>
                 <View style={styles.play}>
                   <PlayGlyph size={26} />
                 </View>

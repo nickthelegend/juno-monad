@@ -266,7 +266,7 @@ export function BottomSheet({
   });
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: "box-none" }]}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: scrim }]}>
         <Pressable
           style={StyleSheet.absoluteFill}

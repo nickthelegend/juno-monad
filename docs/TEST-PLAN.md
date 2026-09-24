@@ -232,6 +232,7 @@ came first.
 | E2b | FAIL → fixed | After each trade the finality timeline polled `live?tx=` every 350 ms for as long as the sheet stayed open, about 40 requests a trade on the fork, where the transaction can never appear in Monad's stream. It no longer polls on a local fork and gives up after 15 s elsewhere |
 | H1 | PASS | "1 Positions · 2 Trades"; Activity reads "Paid $0.0048 · $0.0₅101 each" and "Received $0.0024 · $0.0₆990 each" |
 | — | FAIL → fixed | Opening the profile logged seven React errors ("Unknown event handler property onStartShouldSetResponder…"): the chart's SVG hit bands passed touch-responder props to DOM `<rect>`s. On the web they now take pointer events; pressing a band and hovering another move the readout to that point, with nothing in the console |
+| — | FAIL → fixed | React Native Web warned "props.pointerEvents is deprecated" (fourteen views passed it as a prop). Moved into `style`. A fresh session through Reels, the feed, three coin pages, profile, trade, a trader page and Post then logged no error and no warning, and Like on a reel still toggles through the overlays |
 | A1 | PASS (changed) | The landing badge reads the network from the server: "Monad testnet (local fork) · no real money" on the fork |
 | G3, G5 | PASS | Live Perpl markets; the leaderboard ranks three wallets |
 | I1, I2 | PASS | `config`, `coins`, `live`, `index`, `perps` 200; amount 0, a bad address and an unknown preset each 400 with a sentence |

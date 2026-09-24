@@ -46,7 +46,7 @@ export function HeartBurst({ x, y, onDone }: { x: number; y: number; onDone: () 
   const lift = t.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0, 0, reduced ? 0 : -70] });
 
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill]}>
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
       {reduced
         ? null
         : SPARKS.map((spark, i) => {

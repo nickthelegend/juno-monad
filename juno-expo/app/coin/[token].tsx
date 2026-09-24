@@ -296,7 +296,7 @@ export default function CoinScreen() {
                     }}
                   />
                   {coin.media.kind === "video" ? (
-                    <PlayOver pointerEvents="none">
+                    <PlayOver style={{ pointerEvents: "none" }}>
                       <PlayDisc>
                         <Svg width={26} height={26} viewBox="0 0 24 24">
                           <Path d="M7 4.5v15l12.5-7.5z" fill="#FFFFFF" />

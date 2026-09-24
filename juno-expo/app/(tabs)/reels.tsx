@@ -179,7 +179,7 @@ export default function ReelsScreen() {
 
       {/* The header floats over the video rather than pushing it down: the
           reel is the screen, and chrome is laid over it like glass. */}
-      <View pointerEvents="box-none" style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }, { pointerEvents: "box-none" }]}>
         <Text style={styles.headerTitle}>Reels</Text>
         <View style={styles.livePill}>
           <View style={styles.liveDot} />
@@ -198,7 +198,7 @@ export default function ReelsScreen() {
       </View>
 
       {toast ? (
-        <View pointerEvents="none" style={[styles.toast, { top: insets.top + 56 }]}>
+        <View style={[styles.toast, { top: insets.top + 56 }, { pointerEvents: "none" }]}>
           <Text style={styles.toastText}>{toast}</Text>
         </View>
       ) : null}
@@ -339,7 +339,7 @@ function Reel({
       />
 
       {held ? (
-        <View pointerEvents="none" style={styles.center}>
+        <View style={[styles.center, { pointerEvents: "none" }]}>
           <View style={styles.centerBadge}>
             <PauseGlyph size={30} />
           </View>
@@ -357,7 +357,7 @@ function Reel({
       ))}
 
       {/* Right rail */}
-      <View pointerEvents="box-none" style={[styles.rail, { bottom: bottom + 92 }]}>
+      <View style={[styles.rail, { bottom: bottom + 92 }, { pointerEvents: "box-none" }]}>
         <CreatorBadge wallet={coin.creator.wallet} onOpen={onOpenCreator} />
 
         <RailButton
@@ -384,7 +384,7 @@ function Reel({
       </View>
 
       {/* Who, and what they said */}
-      <View pointerEvents="box-none" style={[styles.info, { bottom: bottom + 92 }]}>
+      <View style={[styles.info, { bottom: bottom + 92 }, { pointerEvents: "box-none" }]}>
         <View style={styles.byline}>
           <Pressable onPress={onOpenCreator} hitSlop={6} style={styles.bylineWho}>
             <View style={styles.bylineAvatar}>
@@ -552,7 +552,7 @@ function ReelVideo({
         allowsPictureInPicture={false}
       />
       {poster ? (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <View style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]}>
           <Animated.Image
             source={{ uri: poster }}
             style={[StyleSheet.absoluteFill, { opacity: cover }]}
@@ -560,7 +560,7 @@ function ReelVideo({
           />
         </View>
       ) : null}
-      <View pointerEvents="none" style={[styles.playTrack, { bottom: progressBottom }]}>
+      <View style={[styles.playTrack, { bottom: progressBottom }, { pointerEvents: "none" }]}>
         {/* Scaled from its left edge, so the transform stays on the native driver. */}
         <Animated.View
           style={[styles.playFill, styles.playInk, { transformOrigin: "left", transform: [{ scaleX: progress }] }]}
@@ -573,7 +573,7 @@ function ReelVideo({
 /** Top and bottom scrims, so white type reads on any frame. */
 function Shade({ height }: { height: number }) {
   return (
-    <Svg pointerEvents="none" style={StyleSheet.absoluteFill} width="100%" height={height}>
+    <Svg style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]} width="100%" height={height}>
       <Defs>
         <LinearGradient id="top" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#000" stopOpacity={0.55} />
@@ -721,7 +721,7 @@ function SoundFlash({ muted }: { muted: boolean }) {
     ]).start();
   }, [t]);
   return (
-    <View pointerEvents="none" style={styles.center}>
+    <View style={[styles.center, { pointerEvents: "none" }]}>
       <Animated.View
         style={[
           styles.centerBadge,
