@@ -6,10 +6,11 @@ import type { SignerSource } from "./wallet";
  * Privy, as the app sees it: a way to log in, and a `SignerSource` whose
  * signer is the person's Privy embedded wallet.
  *
- * This file is the native build's: Privy's React Native SDK needs an Expo
- * development build (native modules Expo Go does not carry), so iOS and
- * Android keep the device key for now and report Privy as unavailable. The
- * web build resolves `privy.web.tsx` instead, where it is real.
+ * The shared types, and a stub that reports Privy unavailable. At runtime
+ * neither platform uses the stub: iOS and Android resolve `privy.native.tsx`
+ * (email sign-in, `@privy-io/expo`, which needs a development build rather
+ * than Expo Go) and the web resolves `privy.web.tsx` (`@privy-io/react-auth`).
+ * TypeScript and the unit tests see this file.
  */
 export type PrivyIdentity = {
   /** The login's own labels — shown to the person, never published. */

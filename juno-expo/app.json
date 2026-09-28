@@ -2,13 +2,13 @@
   "expo": {
     "name": "Juno",
     "slug": "juno",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "fun.juno.app"
+      "bundleIdentifier": "app.launch.junomonad"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "fun.juno.app"
+      "package": "app.launch.junomonad",
+      "versionCode": 110
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -37,7 +38,7 @@
       ],
       "./plugins/withQuotedBundleScript"
     ],
-    "scheme": "juno",
+    "scheme": "junomonad",
     "backgroundColor": "#D3E3CB",
     "description": "Every post is a market: photos and reels launch their own bonding curves on Monad."
   }

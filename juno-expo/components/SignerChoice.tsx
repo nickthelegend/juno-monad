@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { Button, Caption, Pill, Segmented } from "./kit";
 import { api } from "../lib/api";
@@ -27,7 +27,8 @@ const OPTIONS = [
  * anywhere — nobody can claim someone else's handle, or pin theirs to a
  * wallet that is not theirs.
  *
- * Renders nothing where Privy is unavailable (the native builds for now).
+ * Renders nothing where Privy is unavailable (a build without a Privy app).
+ * On a phone sign-in is email only, through Juno's own sheet.
  */
 export function SignerChoice() {
   const privy = usePrivyWallet();
@@ -72,8 +73,10 @@ export function SignerChoice() {
       <Caption style={styles.note}>
         {onPrivy
           ? privy.authenticated
-            ? `Signed in with Privy${privy.identity?.email ? ` as ${privy.identity.email}` : privy.identity?.google ? ` as ${privy.identity.google}` : linkedX ? ` as @${linkedX}` : ""}. Your embedded wallet signs every trade and launch, after Privy asks you to confirm.`
-            : "Sign in with email, Google or X. Privy gives you an embedded wallet that follows your login to any device."
+            ? `Signed in with Privy${privy.identity?.email ? ` as ${privy.identity.email}` : privy.identity?.google ? ` as ${privy.identity.google}` : linkedX ? ` as @${linkedX}` : ""}. Your embedded wallet signs every trade and launch${Platform.OS === "web" ? ", after Privy asks you to confirm" : ""}.`
+            : Platform.OS === "web"
+              ? "Sign in with email, Google or X. Privy gives you an embedded wallet that follows your login to any device."
+              : "Sign in with your email. Privy gives you an embedded wallet that follows your login to any device — no seed phrase."
           : "A key made on this device. Nothing to sign up for, and nothing to recover it with. Switching to Privy uses a different address."}
       </Caption>
 
@@ -90,9 +93,9 @@ export function SignerChoice() {
             loading={busy}
             onPress={() => void verify()}
           />
-        ) : (
+        ) : Platform.OS === "web" ? (
           <Caption>Link an X account in Privy to show it on your profile.</Caption>
-        )
+        ) : null
       ) : null}
 
       {onPrivy && privy.authenticated ? (
