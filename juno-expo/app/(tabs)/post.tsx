@@ -2,9 +2,10 @@ import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -19,6 +20,7 @@ import { CurvePreview } from "../../components/CurvePreview";
 import { Button, Card, Pill } from "../../components/kit";
 import { juno, MON_ADDRESS, type Venue } from "../../lib/api";
 import { feedChanged } from "../../lib/refresh";
+import { useTabBarHeight } from "../../lib/tabbar";
 import { useApi } from "../../lib/useApi";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
@@ -114,6 +116,21 @@ export default function PostScreen() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /**
+   * What has actually happened, as it happens: each step with its receipt —
+   * an IPFS address, a transaction hash, the token's address — and the time
+   * it landed. Shown while the launch runs, so the chain's answers are on
+   * screen rather than a spinner that says "trust me".
+   */
+  const [log, setLog] = useState<LogEntry[]>([]);
+  const note = (entry: Omit<LogEntry, "at">) => setLog((current) => [...current, { ...entry, at: new Date() }]);
+  // The log grows under the fold, beneath the tab bar; keep its newest row in
+  // view, the way a terminal follows its output.
+  const scroller = useRef<ScrollView>(null);
+  const TAB_H = useTabBarHeight().height;
+  useEffect(() => {
+    if (log.length > 0) setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 60);
+  }, [log.length]);
 
   // A different format wants a different file: a photo for a post, a video
   // for a reel. Switching formats clears a pick of the wrong kind.
@@ -146,7 +163,12 @@ export default function PostScreen() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: kind === "reel" ? ["videos"] : ["images"],
+        // A JPEG, not the library's HEIC original: an iPhone photo is HEIC,
+        // which a browser viewing the post cannot draw. A quality below 1
+        // already makes iOS re-encode; `Compatible` says so explicitly.
         quality: 0.9,
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         videoMaxDuration: 90,
       });
       if (result.canceled || !result.assets[0]) return;
@@ -167,8 +189,23 @@ export default function PostScreen() {
     try {
       await juno.recordLaunch(record);
       setUnlisted(null);
-      setStatus(null);
+      note({ label: "Listed on Juno", receipt: record.token, link: "token" });
+      setStatus("Live");
       feedChanged();
+      // A beat on the finished log: every receipt is on screen at once, which
+      // is the proof, before the coin page replaces it.
+      await new Promise((resolve) => setTimeout(resolve, 3500));
+      setStatus(null);
+      // A blank composer for the next one. The tab stays mounted, so coming
+      // back to it showed the last post filled in — one tap from launching a
+      // duplicate coin.
+      setMedia(null);
+      setName("");
+      setSymbol("");
+      setCaption("");
+      setPreset("content");
+      setFirstBuy(0);
+      setLog([]);
       router.push(`/coin/${record.token}`);
     } catch (caught) {
       setUnlisted(record);
@@ -198,6 +235,7 @@ export default function PostScreen() {
     if (!media) return;
     setBusy(true);
     setError(null);
+    setLog([]);
     try {
       const address = wallet.address ?? (await wallet.connect());
 
@@ -210,6 +248,9 @@ export default function PostScreen() {
         },
       );
 
+      note({ label: kind === "reel" ? "Video pinned to IPFS" : "Photo pinned to IPFS", receipt: uploaded.uri });
+      if (uploaded.posterUri) note({ label: "Poster frame pinned", receipt: uploaded.posterUri });
+
       setStatus("Pinning the token metadata…");
       const metadata = await juno.pinMetadata({
         name: name.trim(),
@@ -220,6 +261,8 @@ export default function PostScreen() {
         imageUrl: uploaded.posterUrl ?? uploaded.url,
         mimeType: uploaded.posterUrl ? "image/jpeg" : uploaded.mimeType,
       });
+
+      note({ label: "Token metadata pinned", receipt: metadata.uri });
 
       setStatus("Building the launch…");
       const built = await juno.buildLaunch({
@@ -235,8 +278,21 @@ export default function PostScreen() {
         firstBuy: firstBuy > 0 ? firstBuy : undefined,
       });
 
-      const results = await wallet.signAndSubmit(built.steps, (step) =>
-        setStatus(step.total > 1 ? `${step.label}… (${step.index + 1}/${step.total})` : `${step.label}…`),
+      const results = await wallet.signAndSubmit(
+        built.steps,
+        (step) =>
+          setStatus(step.total > 1 ? `${step.label}… (${step.index + 1}/${step.total})` : `${step.label}…`),
+        (result, step) =>
+          note({
+            // The last step is the launch itself; an earlier one is an approval.
+            label:
+              step.index === step.total - 1
+                ? `Market opened on ${juno.loadedConfig()?.localFork ? "a local fork of Monad" : "Monad"}`
+                : step.label,
+            receipt: result.hash,
+            link: "tx",
+            confirmedInMs: result.confirmedInMs,
+          }),
       );
       // The launch is the last step, and its hash is the receipt a judge
       // clicks. The token address comes from the chain's own `Launched`
@@ -278,7 +334,11 @@ export default function PostScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          ref={scroller}
+          contentContainerStyle={[styles.body, { paddingBottom: TAB_H + 24 }]}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.title}>
             {kind === "reel" ? "Post a reel" : "Post a photo"}
           </Text>
@@ -419,6 +479,8 @@ export default function PostScreen() {
             </Card>
           )}
 
+          {log.length > 0 ? <LaunchLog entries={log} /> : null}
+
           {unlisted ? (
             <Button label={status ?? "Retry listing"} tall onPress={retryListing} loading={busy} />
           ) : (
@@ -534,9 +596,67 @@ function Field({
   );
 }
 
+const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
+
+type LogEntry = {
+  label: string;
+  receipt: string;
+  /** What the receipt opens on MonadVision, if anything. */
+  link?: "tx" | "token";
+  /** Broadcast to receipt, as the server measured it. */
+  confirmedInMs?: number;
+  at: Date;
+};
+
+function shorten(value: string): string {
+  const bare = value.replace(/^ipfs:\/\//, "");
+  return bare.length > 14 ? `${bare.slice(0, 6)}…${bare.slice(-6)}` : bare;
+}
+
+/** The launch, step by step, with each receipt and the second it landed. */
+function LaunchLog({ entries }: { entries: LogEntry[] }) {
+  return (
+    <View style={styles.log}>
+      {entries.map((entry, index) => (
+        <Pressable
+          key={`${entry.label}-${index}`}
+          disabled={!entry.link}
+          onPress={() => entry.link && void Linking.openURL(juno.explorer(entry.link, entry.receipt))}
+          style={styles.logRow}
+          accessibilityRole={entry.link ? "link" : undefined}
+        >
+          <Text style={styles.logTick}>✓</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.logLabel}>{entry.label}</Text>
+            <Text style={styles.logReceipt} numberOfLines={1}>
+              {entry.link === "tx" ? "tx " : entry.link === "token" ? "token " : "ipfs "}
+              {shorten(entry.receipt)}
+              {entry.confirmedInMs !== undefined ? ` · ${(entry.confirmedInMs / 1000).toFixed(1)}s` : ""}
+            </Text>
+          </View>
+          <Text style={styles.logTime}>
+            {entry.at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.bg },
   body: { paddingHorizontal: 16, paddingBottom: 140, gap: 12 },
+  log: {
+    backgroundColor: theme.colors.ink,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  logRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+  logTick: { color: theme.colors.lime, fontSize: 14, fontWeight: "900" },
+  logLabel: { color: theme.colors.onInk, fontSize: 14, fontWeight: "700" },
+  logReceipt: { color: "#9FB09A", fontSize: 12, fontFamily: MONO, marginTop: 2 },
+  logTime: { color: "#9FB09A", fontSize: 12, fontFamily: MONO },
   title: { fontSize: theme.type.screen.size, fontWeight: "800", color: theme.colors.ink },
   lede: { fontSize: theme.type.body.size, color: theme.colors.muted, lineHeight: 21 },
   form: { gap: 16 },

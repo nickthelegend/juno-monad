@@ -129,6 +129,8 @@ export type WalletState = {
   signAndSubmit: (
     steps: UnsignedTransaction[],
     onStep?: (progress: StepProgress) => void,
+    /** Each step's receipt, the moment it lands — for screens that show them as they come. */
+    onLanded?: (result: SubmitResult, step: { index: number; total: number; label: string }) => void,
   ) => Promise<SubmitResult[]>;
 };
 
@@ -338,7 +340,11 @@ export function WalletProvider({
   );
 
   const signAndSubmit = useCallback(
-    async (steps: UnsignedTransaction[], onStep?: (progress: StepProgress) => void) => {
+    async (
+      steps: UnsignedTransaction[],
+      onStep?: (progress: StepProgress) => void,
+      onLanded?: (result: SubmitResult, step: { index: number; total: number; label: string }) => void,
+    ) => {
       const total = steps.length;
       const signed: Hex[] = [];
       for (const [index, step] of steps.entries()) {
@@ -350,7 +356,9 @@ export function WalletProvider({
       for (const [index, bytes] of signed.entries()) {
         onStep?.({ index, total, label: steps[index].label, phase: "submitting" });
         try {
-          landed.push(await juno.submit({ signed: bytes }));
+          const result = await juno.submit({ signed: bytes });
+          landed.push(result);
+          onLanded?.(result, { index, total, label: steps[index].label });
         } catch (caught) {
           const reason = caught instanceof Error ? caught.message : "the network refused it";
           if (landed.length === 0) throw caught;

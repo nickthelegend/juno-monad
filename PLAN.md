@@ -193,4 +193,16 @@ agents faucet (`agents.devnads.com`) is down (its Railway app returns 404).
 
 | Task | Status | Evidence |
 |---|---|---|
-| (filled in as work lands) | | |
+| 1.1 Launch log, blank composer, JPEG | DONE | Web launch of LANTERN: "Photo pinned to IPFS · QmZKrq…", "Token metadata pinned", "Market opened … tx 0x32a3… · 0.3s", "Listed on Juno"; on return every field empty and first buy back to None. JPEG mode is iOS-only (checked in 5.1) |
+| 1.2 Trade receipt | DONE | "tx 0xf74b49…5774a4 · 02:48:40 AM" on the Done sheet |
+| 1.3 Band warning | DONE | AAPLX: "AAPL's price is stale, so this curve can't be checked…"; OPENAI after a $60 buy: "This curve is 4.0% above T-OpenAI's mark, outside its 2% band. A buy here pays more than the reference." |
+| 1.4 Depth chart | DONE | Details tab: "23.6% buying $85.69 · 69.2% buying $1.06k · 89.2% buying $6.95k" |
+| 1.5 Logos | DONE | OpenAI/Kalshi/SpaceX bundled PNGs load (512 px); AAPL from the logo endpoint (100 px); an unknown ticker 404s to the ticker tile |
+| 1.6 Light status bar on Reels | DONE in code | Native-only; checked on the simulator in 5.1 |
+| 1.7 Holdings open their coin | DONE | "Open Lantern festival" → `/coin/0x16CB…` |
+| 1.8 GET retry | DONE | A Tessera GET forced to fail at the network: retried, page drew the marks, no error shown |
+| 1.9 Read retries | DONE | `tests/unit/juno-api-retry.test.ts` (5); every GET that reads the chain and every build uses it |
+| 1.10 Tessera from registry | DONE | Route lists rows; null figures typed through to the card ("—", "progress not read yet") |
+| 1.11 Upload tolerance | DONE | `sharp().metadata()` failure gives null dimensions |
+| 1.12 Day change from opening | DONE | Two unit tests; hydratePool passes the curve's start price |
+| 1.13 Preset ranges | DONE | tight-nav launches at 1.5x (script: "graduates at 1500.00 USDC FDV"); >3x refused (unit test); comparison table in JUNO.md; fixtures and parity tests regenerated (17 pass) |

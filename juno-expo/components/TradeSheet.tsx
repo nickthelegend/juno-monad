@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Linking, Modal, TextInput } from "react-native";
+import { Linking, Modal, Platform, TextInput } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import styled from "styled-components/native";
 
@@ -162,6 +162,8 @@ export function TradeSheet({
   const [filledCurve, setFilledCurve] = useState(false);
   /** How long the last step took from broadcast to receipt, when the server measured it. */
   const [confirmedInMs, setConfirmedInMs] = useState<number | null>(null);
+  /** When the chain confirmed it — shown beside the hash on the receipt. */
+  const [landedAt, setLandedAt] = useState<Date | null>(null);
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState<string | null>(null);
   /**
@@ -216,6 +218,31 @@ export function TradeSheet({
   // Where to get more is a testnet answer; on mainnet there is no faucet to
   // send anyone to, and pointing at one would be wrong.
   const testnet = (juno.loadedConfig()?.network ?? "monad-testnet") === "monad-testnet";
+  /**
+   * The reference, said before signing rather than only on the coin page.
+   *
+   * A tracker's curve can run away from the price it is meant to follow, and
+   * the band exists for exactly that moment. Buying above it pays a premium
+   * the reference does not support; a reference that has gone stale means the
+   * band cannot be checked at all, which is a different warning.
+   */
+  const navWarning = useMemo((): string | null => {
+    const nav = coin.nav;
+    if (!nav) return null;
+    const label =
+      nav.tessera?.id ?? /^Equity\.[A-Z]+\.([A-Z.]+)\/USD$/.exec(nav.feed)?.[1] ?? nav.feed.slice(0, 8);
+    if (nav.state === "stale") {
+      return `${label}'s price is stale, so this curve can't be checked against it right now.`;
+    }
+    if (nav.deviation === null || nav.withinBand !== false) return null;
+    const above = nav.deviation > 0;
+    return `This curve is ${Math.abs(nav.deviation * 100).toFixed(1)}% ${above ? "above" : "below"} ${label}'s ${
+      nav.source === "tessera" ? "mark" : "price"
+    }, outside its ${nav.bandBps / 100}% band.${side === "buy" && above ? " A buy here pays more than the reference." : ""}${
+      side === "sell" && !above ? " A sell here gets less than the reference." : ""
+    }`;
+  }, [coin.nav, side]);
+
   const blocker = useMemo((): { text: string; url?: string; gas?: boolean } | null => {
     if (!valid) return null;
     if (balance !== null && value > balance) {
@@ -332,6 +359,7 @@ export function TradeSheet({
   const press = useCallback((key: string) => {
     setError(null);
     setTxHash(null);
+    setLandedAt(null);
     setAmount((current) => {
       if (key === "back") return current.slice(0, -1);
       if (key === ".") return current.includes(".") ? current : current === "" ? "0." : `${current}.`;
@@ -394,6 +422,7 @@ export function TradeSheet({
       setConfirmedInMs(results[results.length - 1].confirmedInMs ?? null);
       setFilledCurve(results.some((result) => result.completed?.some((token) => sameAddress(token, coin.address))));
       setTxHash(landed);
+      setLandedAt(new Date());
       setStage("done");
       onFilled?.(value, landed);
 
@@ -529,6 +558,12 @@ export function TradeSheet({
               </Label>
             ) : null}
             {noteError ? <ErrorText>{noteError}</ErrorText> : null}
+            <Receipt>
+              tx {txHash!.slice(0, 8)}…{txHash!.slice(-6)}
+              {landedAt
+                ? ` · ${landedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                : ""}
+            </Receipt>
             <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", txHash!))}>
               <LinkText>View the transaction</LinkText>
               <ExternalGlyph />
@@ -750,6 +785,7 @@ export function TradeSheet({
             {/* The button is a spinner while this runs, so the step it is
                 on has to be said beside it rather than on it. */}
             {stage === "confirming" && progress ? <HintText>{progress}</HintText> : null}
+            {navWarning && !blocker ? <WarnText>{navWarning}</WarnText> : null}
             {blocker ? (
               <HintText>
                 {blocker.text}
@@ -812,6 +848,22 @@ function Info() {
     </Svg>
   );
 }
+
+const WarnText = styled.Text`
+  font-size: ${(p) => p.theme.type.label.size}px;
+  line-height: 19px;
+  font-weight: 600;
+  color: ${(p) => p.theme.colors.neg};
+  text-align: center;
+`;
+
+const Receipt = styled.Text`
+  margin-top: 6px;
+  font-size: 12px;
+  font-family: ${Platform.OS === "ios" ? "Menlo" : "monospace"};
+  color: ${(p) => p.theme.colors.muted};
+  text-align: center;
+`;
 
 const HintText = styled.Text`
   font-size: ${(p) => p.theme.type.label.size}px;

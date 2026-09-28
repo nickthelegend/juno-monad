@@ -1,5 +1,6 @@
 import { useEventListener } from "expo";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -127,10 +128,22 @@ export default function ReelsScreen() {
   const TAB_H = useTabBarHeight().height;
   const sheetOpen = trade !== null || talking !== null;
 
+  // Light status bar while Reels is on screen. The app's is dark for its
+  // light pages, and over full-bleed night video the clock and signal simply
+  // disappeared. Tabs stay mounted, so this follows focus, not mounting.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
+
   return (
     <View style={styles.screen} onLayout={(event) =>
         setPage({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })
       }>
+      {focused ? <StatusBar style="light" /> : null}
       {reels.loading || reels.data === null || pageH === 0 ? (
         <NightState busy title="Loading reels" />
       ) : reels.error ? (

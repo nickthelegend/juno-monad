@@ -8,6 +8,7 @@ import styled from "styled-components/native";
 
 import { CoinGlyph, Identicon } from "../../components/art";
 import { CommentsSheet } from "../../components/CommentsSheet";
+import { DepthChart } from "../../components/DepthChart";
 import { Handle } from "../../components/Handle";
 import { PriceLine } from "../../components/PriceLine";
 import { Tappable } from "../../components/Press";
@@ -835,6 +836,10 @@ function DetailsTab({
       {saveCard ? <SaveSlot>{saveCard}</SaveSlot> : null}
 
       {coin.nav ? <NavBand nav={coin.nav} /> : null}
+
+      {/* How a buy of each size moves the price — the preset, measured. Only
+          while there is a curve left to quote. */}
+      {coin.curve.graduated || coin.curve.complete ? null : <DepthChart token={coin.address} />}
 
       <Rows>
         <DetailRow

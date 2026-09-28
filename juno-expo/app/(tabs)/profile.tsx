@@ -328,7 +328,15 @@ export default function ProfileScreen() {
             </Card>
           ) : (
             data!.positions.map((position) => (
-              <Card key={position.token}>
+              // A holding opens its coin, as a watched coin and a plan do.
+              <Tappable
+                key={position.token}
+                onPress={() => router.push(`/coin/${position.token}` as never)}
+                to={0.985}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${position.name}`}
+              >
+              <Card>
                 <Row gap={12}>
                   <Identicon seed={position.token} size={38} />
                   <Col gap={3} style={{ flex: 1 }}>
@@ -350,6 +358,7 @@ export default function ProfileScreen() {
                     : `Avg cost ${money(position.averageCost, position.currency, { compact: false })}`}
                 </Caption>
               </Card>
+              </Tappable>
             ))
           )
         ) : tab === "watching" ? (

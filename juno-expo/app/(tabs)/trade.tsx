@@ -291,6 +291,13 @@ function Intro({
  * market half is Juno's: the curve that tracks it, priced from chain, with the
  * preset it was launched on — the issuance shape is the product.
  */
+/** Bundled so the Pre-IPO page never waits on, or breaks with, a logo host. */
+const COMPANY_LOGOS: Record<string, number> = {
+  "T-OpenAI": require("../../assets/logos/openai.png"),
+  "T-Kalshi": require("../../assets/logos/kalshi.png"),
+  "T-SpaceX": require("../../assets/logos/spacex.png"),
+};
+
 function CompanyCard({
   company,
   live,
@@ -305,16 +312,22 @@ function CompanyCard({
   onOpen: (address: string) => void;
 }) {
   const name = company.name.replace(/^T-/, "");
-  // The icon each T-token's own metadata points at (`image` in its `uri`
-  // JSON), addressed directly rather than costing a metadata fetch per card.
-  // An SVG, so it goes through expo-image, which can draw one on iOS.
-  const logo = `https://cdn.tesseralab.co/tessera/tokenicon_${company.id}.svg`;
+  // The company's own mark where we have it — a trader looks for the OpenAI
+  // knot, not a token badge. Otherwise the icon the T-token's own metadata
+  // points at, an SVG drawn through expo-image.
+  const logo =
+    COMPANY_LOGOS[company.id] ?? { uri: `https://cdn.tesseralab.co/tessera/tokenicon_${company.id}.svg` };
 
   return (
     <View style={styles.company}>
       <View style={styles.companyHead}>
         <View style={styles.logo}>
-          <ExpoImage source={{ uri: logo }} style={{ width: 44, height: 44 }} contentFit="cover" />
+          <ExpoImage
+            source={logo}
+            style={{ width: 44, height: 44 }}
+            contentFit="cover"
+            accessibilityLabel={`${name} logo`}
+          />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.companyName}>{name}</Text>
@@ -340,7 +353,11 @@ function CompanyCard({
       ) : (
         company.markets.map((market) => {
           const coin = live.get(market.address);
-          const pct = (coin?.curve.progress ?? market.progress) * 100;
+          // Null figures mean the curve could not be read just now: the row
+          // stays, and says "—" rather than a zero it never measured.
+          const progress = coin?.curve.progress ?? market.progress;
+          const cap = coin?.marketCap ?? market.marketCap;
+          const graduated = coin?.curve.graduated ?? market.graduated;
           return (
             <Tappable key={market.address} onPress={() => onOpen(market.address)} to={0.985}>
               <View style={styles.market}>
@@ -368,11 +385,15 @@ function CompanyCard({
                     </Text>
                   ) : null}
                   <Text style={styles.marketMeta} numberOfLines={1}>
-                    {money(coin?.marketCap ?? market.marketCap, market.currency)} cap ·{" "}
-                    {market.graduated ? "graduated" : `${progressLabel(pct)} to graduation`}
+                    {cap === null ? "—" : money(cap, coin?.marketCapCurrency ?? market.currency ?? "USD")} cap ·{" "}
+                    {graduated
+                      ? "graduated"
+                      : progress === null
+                        ? "progress not read yet"
+                        : `${progressLabel(progress * 100)} to graduation`}
                   </Text>
                 </View>
-                {market.graduated ? null : (
+                {graduated ? null : (
                   <Tappable onPress={() => onTrade(market.address)} to={0.94}>
                     <View
                       style={[styles.tradeButton, pricing && !coin ? { opacity: 0.5 } : null]}
@@ -433,6 +454,38 @@ const LISTED: Record<string, { name: string; venue: string }> = {
  * the only fundamentals a meme has. Both end on the curve and the Trade
  * button, because that part is the same product either way.
  */
+/**
+ * The company's own logo, so a listed name reads as that company at a glance.
+ *
+ * Loaded from a public stock-logo endpoint by ticker. Should it fail — an
+ * unknown ticker, no network — the tile falls back to the ticker in type, so
+ * the card never shows a broken image.
+ */
+function StockLogo({ ticker }: { ticker: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <View style={styles.tickerTile}>
+        {/* Sized by length rather than `adjustsFontSizeToFit`, which web ignores. */}
+        <Text style={[styles.tickerTileText, { fontSize: ticker.length > 3 ? 12 : 15 }]} numberOfLines={1}>
+          {ticker.slice(0, 4)}
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.logoTile}>
+      <ExpoImage
+        source={{ uri: `https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png` }}
+        style={{ width: 34, height: 34 }}
+        contentFit="contain"
+        accessibilityLabel={`${LISTED[ticker]?.name ?? ticker} logo`}
+        onError={() => setFailed(true)}
+      />
+    </View>
+  );
+}
+
 function MarketCard({
   coin,
   stock,
@@ -456,15 +509,7 @@ function MarketCard({
       <View style={styles.company}>
         <View style={styles.companyHead}>
           {stock ? (
-            <View style={styles.tickerTile}>
-              {/* Sized by length rather than `adjustsFontSizeToFit`, which web ignores. */}
-              <Text
-                style={[styles.tickerTileText, { fontSize: (ticker ?? coin.symbol).length > 3 ? 12 : 15 }]}
-                numberOfLines={1}
-              >
-                {(ticker ?? coin.symbol).slice(0, 4)}
-              </Text>
-            </View>
+            <StockLogo ticker={ticker ?? coin.symbol} />
           ) : (
             <CoinArt uri={juno.still(coin.media)} seed={coin.address} size={48} radius={14} />
           )}
@@ -663,6 +708,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.ink,
+  },
+  logoTile: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.line,
   },
   tickerTileText: { fontSize: 13, fontWeight: "900", color: theme.colors.lime, letterSpacing: -0.2 },
 
