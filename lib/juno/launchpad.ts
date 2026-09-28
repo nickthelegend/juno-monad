@@ -487,6 +487,11 @@ export type ContractCall = {
   value: bigint;
   /** Shown while this step is in flight. */
   label: string;
+  /**
+   * Gas to add on top of the estimate and its margin, for work the estimate
+   * cannot see at the moment it is taken. See `V2_SWAP_HEADROOM`.
+   */
+  extraGas?: bigint;
 };
 
 export type LaunchRequest = {

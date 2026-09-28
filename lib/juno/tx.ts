@@ -3,8 +3,12 @@ import "server-only";
 import {
   BaseError,
   decodeErrorResult,
+  decodeFunctionData,
+  encodeAbiParameters,
+  erc20Abi,
   getAddress,
   keccak256,
+  maxUint256,
   isAddress,
   parseAbi,
   parseEventLogs,
@@ -180,17 +184,28 @@ async function prepare(from: Address, calls: ContractCall[]): Promise<UnsignedTr
   ]);
 
   const steps: UnsignedTransaction[] = [];
+  // Allowances granted by earlier steps in this batch, as state the estimate
+  // of a later step can assume (see `allowanceOverride`).
+  const granted: StateOverride = [];
   for (const [index, call] of calls.entries()) {
     let gas: bigint;
     try {
       const estimate = await withRetry(() =>
-        client.estimateGas({ account: from, to: call.to, data: call.data, value: call.value }),
+        client.estimateGas({
+          account: from,
+          to: call.to,
+          data: call.data,
+          value: call.value,
+          ...(granted.length > 0 ? { stateOverride: granted } : {}),
+        }),
       );
-      gas = estimate + (estimate * GAS_MARGIN_BPS) / 10_000n;
+      gas = estimate + (estimate * GAS_MARGIN_BPS) / 10_000n + (call.extraGas ?? 0n);
     } catch (error) {
       if (index === 0) throw new CallerError(explainFailure(error), 422);
-      gas = FALLBACK_GAS;
+      gas = FALLBACK_GAS + (call.extraGas ?? 0n);
     }
+    const override = await allowanceOverride(from, call).catch(() => null);
+    if (override) granted.push(override);
     steps.push({
       label: call.label,
       request: {
@@ -208,6 +223,82 @@ async function prepare(from: Address, calls: ContractCall[]): Promise<UnsignedTr
     });
   }
   return steps;
+}
+
+type StateOverride = NonNullable<Parameters<ReturnType<typeof publicClient>["estimateGas"]>[0]["stateOverride"]>;
+
+/**
+ * If `call` is an ERC-20 approval, the state it will leave: the allowance
+ * set, for estimating the steps after it.
+ *
+ * A step that depends on an approval in the same batch cannot be estimated
+ * against the chain as it is — the approval has not landed — so it used to get
+ * a fixed ceiling. That was fine for a curve buy and not for a Kuru market
+ * sell, which walks the market's vault in many small fills: on the fork a
+ * first-ever sell needed 679k gas and ran out at the 350k ceiling. Monad's RPC
+ * honours state overrides in `eth_estimateGas`, so the later step is
+ * estimated as if the approval had already landed.
+ */
+async function allowanceOverride(owner: Address, call: ContractCall): Promise<StateOverride[number] | null> {
+  let spender: Address;
+  let amount: bigint;
+  try {
+    const decoded = decodeFunctionData({ abi: erc20Abi, data: call.data });
+    if (decoded.functionName !== "approve") return null;
+    [spender, amount] = decoded.args as [Address, bigint];
+  } catch {
+    return null;
+  }
+  const index = await allowanceMappingSlot(call.to);
+  if (index === null) return null;
+  return {
+    address: call.to,
+    stateDiff: [{ slot: allowanceSlot(owner, spender, index), value: toHex(amount, { size: 32 }) }],
+  };
+}
+
+/** `allowance[owner][spender]` in a mapping declared at storage slot `index`. */
+function allowanceSlot(owner: Address, spender: Address, index: number): Hex {
+  const inner = keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [owner, BigInt(index)]));
+  return keccak256(encodeAbiParameters([{ type: "address" }, { type: "bytes32" }], [spender, inner]));
+}
+
+const mappingSlots = new Map<Address, number | null>();
+
+/**
+ * Where a token keeps its allowances — found, not assumed. OpenZeppelin's
+ * ERC-20 (every Juno token) and Circle's USDC lay storage out differently, so
+ * each candidate slot is tried with an `eth_call` of `allowance` under an
+ * override of that slot, and the one that changes the answer is it.
+ */
+async function allowanceMappingSlot(token: Address): Promise<number | null> {
+  if (mappingSlots.has(token)) return mappingSlots.get(token)!;
+  // Lowercase: viem refuses a mixed-case address whose checksum is wrong.
+  const probeOwner: Address = "0x000000000000000000000000000000000000beef";
+  const probeSpender: Address = "0x000000000000000000000000000000000000cafe";
+  const client = publicClient();
+  for (let index = 0; index < 16; index++) {
+    const value = await client
+      .readContract({
+        address: token,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [probeOwner, probeSpender],
+        stateOverride: [
+          {
+            address: token,
+            stateDiff: [{ slot: allowanceSlot(probeOwner, probeSpender, index), value: toHex(maxUint256, { size: 32 }) }],
+          },
+        ],
+      })
+      .catch(() => 0n);
+    if (value === maxUint256) {
+      mappingSlots.set(token, index);
+      return index;
+    }
+  }
+  mappingSlots.set(token, null);
+  return null;
 }
 
 function requireWallet(value: string, field: string): Address {
@@ -886,6 +977,8 @@ export function explainFailure(error: unknown): string {
       return "That position has already changed. Refresh and try again.";
     case "PriceOutOfRange":
       return "That price is outside what Perpl accepts for this market.";
+    case "KuruPriceOutOfRange":
+      return "Kuru cannot list a market at this curve's price. Launch at a larger opening valuation, or choose Uniswap v2.";
     case "ERC20InsufficientAllowance":
       return "Perpl was not allowed to take the AUSD. Try again; the approval comes first.";
     default:
@@ -959,7 +1052,7 @@ function decodeLaunchpadError(error: unknown): string | null {
   error.walk((cause) => {
     const data = (cause as { data?: unknown }).data;
     if (data && typeof data === "object" && typeof (data as { errorName?: unknown }).errorName === "string") {
-      name = (data as { errorName: string }).errorName;
+      name = disambiguate(data as { errorName: string; args?: readonly unknown[] });
       return true;
     }
     if (typeof data === "string" && data.startsWith("0x") && data.length >= 10) {
@@ -971,10 +1064,21 @@ function decodeLaunchpadError(error: unknown): string | null {
   if (name) return name;
   if (!raw) return null;
   try {
-    return decodeErrorResult({ abi: JUNO_ERRORS, data: raw }).errorName;
+    return disambiguate(decodeErrorResult({ abi: JUNO_ERRORS, data: raw }));
   } catch {
     return null;
   }
+}
+
+/**
+ * Two contracts Juno calls share an error name. Kuru's graduator reverts
+ * `PriceOutOfRange(priceWad)` when Kuru cannot list a market at a curve's
+ * price; Perpl reverts `PriceOutOfRange(price, min, max)` on an order. Their
+ * argument counts tell them apart, and only one of them is about Perpl.
+ */
+function disambiguate(decoded: { errorName: string; args?: readonly unknown[] }): string {
+  if (decoded.errorName === "PriceOutOfRange" && decoded.args?.length === 1) return "KuruPriceOutOfRange";
+  return decoded.errorName;
 }
 
 /* ------------------------------------------------------------------ */

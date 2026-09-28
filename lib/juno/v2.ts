@@ -23,6 +23,19 @@ import type { TradeSide } from "./types";
 /** v2 keeps 0.3% of every input in the pool. */
 export const V2_FEE = 0.003;
 
+/**
+ * Gas a pair's swap can need beyond what an estimate saw.
+ *
+ * A v2 pair updates its two cumulative-price slots only when time has passed
+ * since its last update. An estimate taken in the same second as that update
+ * — the swap straight after a graduation, or after another trade — skips both
+ * writes, and the swap then lands a block later and pays for them: from zero
+ * on a pair's first swap, two 22,100-gas stores. Seen on the fork: a buy
+ * built right after a graduation ran out of gas inside `swap`. Monad charges
+ * the whole limit, so this is the two stores and no more.
+ */
+export const V2_SWAP_HEADROOM = 45_000n;
+
 export class NoRouterError extends Error {
   constructor() {
     super("This deployment has no swap router for graduated coins");
@@ -145,6 +158,7 @@ export async function buildV2SwapCalls(params: {
       }),
       value: args.raw.amountIn,
       label: "Buying on Uniswap v2",
+      extraGas: V2_SWAP_HEADROOM,
     });
   } else if (side === "sell" && nativeQuote) {
     calls.push({
@@ -156,6 +170,7 @@ export async function buildV2SwapCalls(params: {
       }),
       value: 0n,
       label: "Selling on Uniswap v2",
+      extraGas: V2_SWAP_HEADROOM,
     });
   } else {
     const { tokenIn, tokenOut } = legs(snapshot, side);
@@ -168,6 +183,7 @@ export async function buildV2SwapCalls(params: {
       }),
       value: 0n,
       label: side === "buy" ? "Buying on Uniswap v2" : "Selling on Uniswap v2",
+      extraGas: V2_SWAP_HEADROOM,
     });
   }
   return calls;
