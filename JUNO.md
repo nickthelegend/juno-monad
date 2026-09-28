@@ -91,6 +91,38 @@ its Dynamic Bonding Curve, which Juno used on Solana. On Monad the contract
 enforces it: `launch` recomputes the supply the curve sells and the quote it
 raises from the ranges themselves, and reverts if they do not fit.
 
+### The presets, measured
+
+`npm run juno:compare-presets` builds all four with the launch route's own
+builder, opening at $1k FDV in USDC, and reads each off its ranges. No RPC and
+no transaction, so it is reproducible anywhere:
+
+| preset | range | raises | 1% at open | at 25% | at 50% | at 75% | at close | spread | to double |
+|---|---|---|---|---|---|---|---|---|---|
+| content | 25x | $7.0k | $1.17 | $27 | $49 | $68 | $90 | 76.89x | $127 |
+| thin-name | 25x | $2.2k | $12 | $10 | $7.63 | $5.19 | $3.11 | 4.75x | $793 |
+| ipo-book | 25x | $4.1k | $9.25 | $4.91 | $18 | $33 | $46 | 9.64x | $589 |
+| tight-nav | 1.5x | $667 | $15 | $16 | $16 | $17 | $18 | 1.22x | — |
+| tight-nav | 3x | $1.1k | $7.41 | $8.76 | $10 | $11 | $13 | 1.73x | $615 |
+
+*1% at …* is the USDC that moves the price 1% once that share of the
+graduation raise has come in. *Spread* is the most expensive 1% move along the
+curve over the cheapest. *To double* is the USDC from the open to twice the
+opening price.
+
+What it shows:
+
+- `thin-name` is **10x deeper than `content` at the issue price** ($12 against
+  $1.17 to move it 1%), and gets thinner as it rises, which is what a newly
+  listed low-float name needs.
+- `content` is the reverse, cheap to enter and 77x more expensive to move at
+  the top than at the open.
+- **Weights cannot make a wide range flat.** A uniform curve's 1% cost grows
+  with √price, so over a 25x run it would vary 5x. `tight-nav` therefore owns
+  its range: 1.5x by default (spread 1.22x, which is √1.5), and the builder
+  refuses more than 3x. Before 29 Sep it launched at 25x like the others, and
+  "near-flat" was not true.
+
 ### Rounding
 
 Every rounding choice in `CurveMath.sol` favours the pool: amounts a trader pays

@@ -64,9 +64,37 @@ export class CallerError extends Error {
 }
 
 /** A public-RPC refusal, as opposed to a fault in this server. */
-function isRpcBusy(error: unknown): boolean {
+export function isRpcBusy(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? "");
   return /429|rate limit|Too Many Requests|503|Connection rate limits/i.test(message);
+}
+
+/**
+ * Run read-only work again when the RPC refused it.
+ *
+ * Monad's public RPC limits requests per IP, and a hosted server's egress IP is
+ * shared, so it refuses in bursts that pass in a second or two. For the reads
+ * and builds a person is waiting on, a short pause beats "try again". Only for
+ * work that sends nothing: a retried build is a new unsigned transaction,
+ * never a second submission.
+ */
+export async function retryWhenBusy<T>(run: () => Promise<T>, delays = [1_200, 2_500]): Promise<T> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      if (attempt >= delays.length || !isRpcBusy(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
+}
+
+/**
+ * `junoHandler` for a read: a brief RPC refusal is waited out instead of being
+ * answered with a 503. Only for handlers that change nothing.
+ */
+export function junoRead(run: () => Promise<Response>): Promise<Response> {
+  return junoHandler(() => retryWhenBusy(run));
 }
 
 /** Run a handler, turning a thrown error into a clean 4xx/5xx. */

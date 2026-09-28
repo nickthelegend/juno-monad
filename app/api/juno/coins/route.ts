@@ -2,7 +2,7 @@ import { getAddress, isAddress } from "viem";
 
 import { hydratePools } from "@/lib/juno/chain";
 import { listPools } from "@/lib/juno/registry";
-import { junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { networkKey } from "@/lib/juno/network";
 import { socialCounts } from "@/lib/juno/social";
 import type { Coin } from "@/lib/juno/types";
@@ -23,7 +23,7 @@ export const OPTIONS = junoOptions;
  * scrolling a feed. Unknown values leave the registry's newest-first order.
  */
 export async function GET(request: Request) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const url = new URL(request.url);
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 40) || 40, 60);
     const sort = url.searchParams.get("sort");

@@ -4,7 +4,7 @@ import { hydratePool } from "@/lib/juno/chain";
 import { identicon } from "@/lib/juno/identicon";
 import { shortAddress } from "@/lib/juno/format";
 import { mediaKind, mediaSrc } from "@/lib/juno/media";
-import { junoError, junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoError, junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 
 export const dynamic = "force-dynamic";
 export const OPTIONS = junoOptions;
@@ -21,7 +21,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const { id } = await params;
 
     const post = await getPost(id);

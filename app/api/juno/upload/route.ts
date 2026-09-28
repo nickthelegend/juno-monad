@@ -78,7 +78,12 @@ export async function POST(request: Request) {
       );
     }
 
-    const meta = await sharp(bytes).metadata();
+    // Dimensions are for layout only. An image the reader cannot parse — an
+    // HEIC past libheif's limits, say — is still a pinned file; it gets no
+    // size rather than failing an upload that already succeeded.
+    const meta = await sharp(bytes)
+      .metadata()
+      .catch(() => ({ width: undefined, height: undefined }));
     return junoJson(
       { ...pinned, mimeType: file.type, width: meta.width ?? null, height: meta.height ?? null },
       { status: 201 },

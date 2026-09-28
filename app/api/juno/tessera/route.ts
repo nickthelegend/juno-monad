@@ -1,4 +1,4 @@
-import { junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { hydratePools } from "@/lib/juno/chain";
 import { networkKey } from "@/lib/juno/network";
 import { listPools } from "@/lib/juno/registry";
@@ -23,7 +23,7 @@ export const OPTIONS = junoOptions;
  * against it.
  */
 export async function GET() {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const tokens = await tesseraTokens();
     if (tokens.length === 0) {
       /*
@@ -47,10 +47,18 @@ export async function GET() {
     const { coins, missing } = referenced.length
       ? await hydratePools(referenced, 2, { nav: true })
       : { coins: [], missing: 0 };
-    const refOf = new Map(referenced.map((row) => [row.token, row.navFeedId]));
-
     const withMarkets = tokens.map((token) => {
-      const markets = coins.filter((coin) => refOf.get(coin.address) === tesseraRef(token.id));
+      /*
+       * From the registry, not from what the chain answered.
+       *
+       * Filtering the *hydrated* coins meant one refused burst of reads — every
+       * curve read at once — emptied all three companies, and the page said
+       * "No Juno market on OpenAI yet" over a live market. The rows are the
+       * list; a read that failed costs that row its figures, not its place.
+       */
+      const markets = referenced
+        .filter((row) => row.navFeedId === tesseraRef(token.id))
+        .map((row) => ({ row, coin: coins.find((coin) => coin.address === row.token) ?? null }));
 
       return {
         ...token,
@@ -67,19 +75,20 @@ export async function GET() {
           token.markValuation > 0 ? token.markPrice / token.markValuation : null,
         /** Total value of every T-token in existence, at the mark. */
         floatUsd: token.supply === null ? null : token.supply * token.markPrice,
-        markets: markets.map((coin) => ({
-          address: coin.address,
-          name: coin.name,
-          symbol: coin.symbol,
-          priceUsd: coin.priceUsd,
-          marketCap: coin.marketCap,
-          currency: coin.marketCapCurrency,
-          curvePreset: coin.curvePreset,
-          progress: coin.curve.progress,
-          graduated: coin.curve.graduated,
+        markets: markets.map(({ row, coin }) => ({
+          address: row.token,
+          name: row.name,
+          symbol: row.symbol,
+          /** Null when the curve could not be read just now; the market still exists. */
+          priceUsd: coin?.priceUsd ?? null,
+          marketCap: coin?.marketCap ?? null,
+          currency: coin?.marketCapCurrency ?? null,
+          curvePreset: row.curvePreset,
+          progress: coin?.curve.progress ?? null,
+          graduated: coin?.curve.graduated ?? null,
           /** Where the curve sits against Tessera's mark, if it could be read. */
-          deviation: coin.nav?.deviation ?? null,
-          withinBand: coin.nav?.withinBand ?? null,
+          deviation: coin?.nav?.deviation ?? null,
+          withinBand: coin?.nav?.withinBand ?? null,
         })),
       };
     });

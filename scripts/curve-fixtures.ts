@@ -33,12 +33,13 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const target = path.join(here, "..", "contracts", "test", "fixtures", "PresetFixtures.sol");
 
 /**
- * The two quote configurations the app launches with: ~$1k → $25k FDV.
- * MON is priced at $0.025, so the MON caps are 40,000 → 1,000,000 MON.
+ * The two quote configurations the app launches with: ~$1k FDV at the open
+ * (MON at $0.025, so 40,000 MON), graduating at each preset's own range above
+ * it — 25x for a launch, 1.5x for tight-nav.
  */
 const QUOTES = [
-  { key: "Mon", label: "MON", decimals: 18, initialMarketCap: 40_000, migrationMarketCap: 1_000_000 },
-  { key: "Usdc", label: "USDC", decimals: 6, initialMarketCap: 1_000, migrationMarketCap: 25_000 },
+  { key: "Mon", label: "MON", decimals: 18, initialMarketCap: 40_000 },
+  { key: "Usdc", label: "USDC", decimals: 6, initialMarketCap: 1_000 },
 ] as const;
 
 const PRESETS = Object.keys(CURVE_PRESETS) as CurvePresetId[];
@@ -48,6 +49,7 @@ type Case = {
   label: string;
   preset: CurvePresetId;
   quote: (typeof QUOTES)[number];
+  migrationMarketCap: number;
   params: CurveParams;
 };
 
@@ -64,17 +66,25 @@ function fits(value: bigint, bits: number, what: string): string {
 const cases: Case[] = [];
 for (const preset of PRESETS) {
   for (const quote of QUOTES) {
+    const migrationMarketCap = quote.initialMarketCap * CURVE_PRESETS[preset].defaultCapMultiple;
     const params = buildPresetParams({
       preset,
       initialMarketCap: quote.initialMarketCap,
-      migrationMarketCap: quote.migrationMarketCap,
+      migrationMarketCap,
       quoteDecimals: quote.decimals,
     });
     const problem = validateCurveParams(params);
     if (problem) throw new Error(`${preset}/${quote.label}: ${problem}`);
     if (params.curve.length !== CURVE_SEGMENTS) throw new Error(`${preset}/${quote.label}: not ${CURVE_SEGMENTS} ranges`);
     if (params.preset !== PRESET_INDEX[preset]) throw new Error(`${preset}: preset index mismatch`);
-    cases.push({ fn: `${camel(preset)}${quote.key}`, label: `${preset} / ${quote.label}`, preset, quote, params });
+    cases.push({
+      fn: `${camel(preset)}${quote.key}`,
+      label: `${preset} / ${quote.label}`,
+      preset,
+      quote,
+      migrationMarketCap,
+      params,
+    });
   }
 }
 
@@ -86,7 +96,7 @@ function fixtureFunction(c: Case): string {
     `        f.label = "${c.label}";`,
     `        f.quoteDecimals = ${c.quote.decimals};`,
     `        f.initialMarketCap = ${c.quote.initialMarketCap};`,
-    `        f.migrationMarketCap = ${c.quote.migrationMarketCap};`,
+    `        f.migrationMarketCap = ${c.migrationMarketCap};`,
     `        f.params.name = "Parity ${c.label}";`,
     `        f.params.symbol = "${symbol}";`,
     `        f.params.uri = "ipfs://parity";`,

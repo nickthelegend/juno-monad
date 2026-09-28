@@ -1,5 +1,5 @@
 import { loadPortfolio } from "@/lib/juno/portfolio";
-import { junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 
 export const dynamic = "force-dynamic";
 export const OPTIONS = junoOptions;
@@ -9,7 +9,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ wallet: string }> },
 ) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const { wallet } = await params;
     return junoJson(await loadPortfolio(wallet));
   });

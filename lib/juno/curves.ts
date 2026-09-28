@@ -83,6 +83,18 @@ export type CurvePreset = {
    * reaching its top — but it is what makes the launch equity-like.
    */
   navBandBps?: number;
+  /**
+   * Graduation valuation over opening valuation, when the issuer does not
+   * choose one.
+   *
+   * The weights decide where liquidity sits inside the price range; the caps
+   * decide how wide that range is. No weighting makes a 25x run flat, so a
+   * preset that promises flatness has to own its range too —
+   * `scripts/juno-compare-presets.ts` measures the difference.
+   */
+  defaultCapMultiple: number;
+  /** The widest range this preset still behaves as described in. */
+  maxCapMultiple?: number;
 };
 
 /**
@@ -122,6 +134,7 @@ export const CURVE_PRESETS: Record<CurvePresetId, CurvePreset> = {
     startingFeeBps: 900,
     endingFeeBps: 100,
     feeDecaySeconds: 600,
+    defaultCapMultiple: 25,
   },
 
   /**
@@ -138,6 +151,7 @@ export const CURVE_PRESETS: Record<CurvePresetId, CurvePreset> = {
     startingFeeBps: 500,
     endingFeeBps: 60,
     feeDecaySeconds: 900,
+    defaultCapMultiple: 25,
     navBandBps: 500,
   },
 
@@ -155,6 +169,7 @@ export const CURVE_PRESETS: Record<CurvePresetId, CurvePreset> = {
     startingFeeBps: 400,
     endingFeeBps: 50,
     feeDecaySeconds: 900,
+    defaultCapMultiple: 25,
     navBandBps: 400,
   },
 
@@ -172,6 +187,10 @@ export const CURVE_PRESETS: Record<CurvePresetId, CurvePreset> = {
     startingFeeBps: 200,
     endingFeeBps: MIN_FEE_BPS,
     feeDecaySeconds: 300,
+    defaultCapMultiple: 1.5,
+    // At 1.5x a 1% move costs within 1.22x the same anywhere on the curve
+    // (sqrt 1.5). At 25x it varied 5x and "near-flat" was not true.
+    maxCapMultiple: 3,
     navBandBps: 200,
   },
 };
@@ -241,6 +260,12 @@ export function buildPresetParams(opts: BuildPresetOptions): CurveParams {
   if (!preset) throw new Error(`Unknown preset "${opts.preset}"`);
   if (!(opts.initialMarketCap > 0) || !(opts.migrationMarketCap > opts.initialMarketCap)) {
     throw new Error("The graduation valuation must be above the opening valuation");
+  }
+  const multiple = opts.migrationMarketCap / opts.initialMarketCap;
+  if (preset.maxCapMultiple !== undefined && multiple > preset.maxCapMultiple * (1 + 1e-9)) {
+    throw new Error(
+      `${preset.label} stays near-flat only up to ${preset.maxCapMultiple}x from opening to graduation; this asks for ${multiple.toFixed(1)}x`,
+    );
   }
 
   const D = Decimal.clone({ precision: 80 });

@@ -1,4 +1,4 @@
-import { CallerError, junoHandler, junoJson, junoOptions, readJson, requireNumber, requireString } from "@/lib/juno/api";
+import { CallerError, junoHandler, junoJson, junoOptions, readJson, requireNumber, requireString, retryWhenBusy } from "@/lib/juno/api";
 import { buildKuruLimit } from "@/lib/juno/tx";
 import { launchpadMissing } from "../../_lib/guards";
 
@@ -20,14 +20,14 @@ export async function POST(request: Request) {
     const body = await readJson<Record<string, unknown>>(request);
     const side = requireString(body.side, "side");
     if (side !== "buy" && side !== "sell") throw new CallerError('"side" must be "buy" or "sell"');
-    return junoJson(
-      await buildKuruLimit({
-        token: requireString(body.token, "token"),
-        owner: requireString(body.owner, "owner"),
-        side,
-        price: requireNumber(body.price, "price"),
-        amount: requireNumber(body.amount, "amount"),
-      }),
-    );
+    // Read and checked once; only the chain reads inside the build are retried.
+    const input: Parameters<typeof buildKuruLimit>[0] = {
+      token: requireString(body.token, "token"),
+      owner: requireString(body.owner, "owner"),
+      side,
+      price: requireNumber(body.price, "price"),
+      amount: requireNumber(body.amount, "amount"),
+    };
+    return junoJson(await retryWhenBusy(() => buildKuruLimit(input)));
   });
 }

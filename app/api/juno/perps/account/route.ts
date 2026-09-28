@@ -1,4 +1,4 @@
-import { junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { perpAccount } from "@/lib/juno/perpl";
 import { requireAddress } from "../../_lib/guards";
 
@@ -13,7 +13,7 @@ export const OPTIONS = junoOptions;
  * stale: closing works, opening does not.
  */
 export async function GET(request: Request) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const owner = requireAddress(new URL(request.url).searchParams.get("owner"), "owner");
     return junoJson(await perpAccount(owner));
   });

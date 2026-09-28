@@ -1,4 +1,4 @@
-import { junoError, junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoError, junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { perpMarkets, perpl } from "@/lib/juno/perpl";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const OPTIONS = junoOptions;
  * are the contracts the orders go to.
  */
 export async function GET() {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const markets = await perpMarkets().catch(() => null);
     if (!markets) return junoError("Perpl's market data did not answer. Try again in a moment.", 503);
     return junoJson({ exchange: perpl().exchange, collateral: { symbol: "AUSD", address: perpl().ausd, decimals: 6 }, markets });

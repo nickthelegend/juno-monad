@@ -19,7 +19,7 @@ import {
 import { junoLaunchpadAbi, junoTokenAbi, kuruGraduatorAbi, kuruOrderBookAbi } from "./abi";
 import { CallerError } from "./api";
 import { publicClient } from "./client";
-import { CURVE_PRESETS } from "./curves";
+import { CURVE_PRESETS, type CurvePreset } from "./curves";
 import {
   InsufficientLiquidityError,
   VenueUnavailableError,
@@ -108,16 +108,19 @@ const FALLBACK_GAS = 350_000n;
 /**
  * Where a launch starts and where it graduates, **in US dollars**.
  *
- * Market caps are a launch parameter rather than a property of the curve
- * preset — the same shape can be opened at any size. The curve takes them in
- * quote-token units, so they are converted at the quote token's live price
- * when the launch is built.
+ * The opening size is a launch parameter rather than a property of the curve
+ * preset — the same shape can be opened at any size. The range above it is
+ * the preset's (`defaultCapMultiple`): 25x for a post, 1.5x for a tracker that
+ * must stay near-flat. The curve takes caps in quote-token units, so they are
+ * converted at the quote token's live price when the launch is built.
  */
 const DEFAULT_INITIAL_MARKET_CAP_USD = 1_000;
-const DEFAULT_MIGRATION_MARKET_CAP_USD = 25_000;
 
 /** The default market caps restated in this quote token's units. */
-async function defaultCapsIn(quote: string): Promise<{ initial: number; migration: number }> {
+async function defaultCapsIn(
+  quote: string,
+  preset: CurvePreset,
+): Promise<{ initial: number; migration: number }> {
   const usd = await quoteTokenUsdPrice(quote).catch(() => null);
   if (usd === null || !(usd > 0)) {
     throw new CallerError(
@@ -126,7 +129,8 @@ async function defaultCapsIn(quote: string): Promise<{ initial: number; migratio
   }
   return {
     initial: DEFAULT_INITIAL_MARKET_CAP_USD / usd,
-    migration: DEFAULT_MIGRATION_MARKET_CAP_USD / usd,
+    // Each preset owns its range: 25x for a launch, 1.5x for a tracker.
+    migration: (DEFAULT_INITIAL_MARKET_CAP_USD * preset.defaultCapMultiple) / usd,
   };
 }
 
@@ -383,7 +387,7 @@ export async function buildLaunch(request: LaunchBuildRequest): Promise<LaunchBu
   // that. Only the defaults are dollars, converted here.
   const caps =
     request.initialMarketCap === undefined || request.migrationMarketCap === undefined
-      ? await defaultCapsIn(quote.address)
+      ? await defaultCapsIn(quote.address, preset)
       : null;
 
   let plan;

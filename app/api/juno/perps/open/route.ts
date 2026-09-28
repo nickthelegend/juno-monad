@@ -1,4 +1,4 @@
-import { CallerError, junoHandler, junoJson, junoOptions, readJson, requireNumber, requireString } from "@/lib/juno/api";
+import { CallerError, junoHandler, junoJson, junoOptions, readJson, requireNumber, requireString, retryWhenBusy } from "@/lib/juno/api";
 import { buildPerpOpen } from "@/lib/juno/tx";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +15,15 @@ export async function POST(request: Request) {
     const body = await readJson<Record<string, unknown>>(request);
     const side = requireString(body.side, "side");
     if (side !== "long" && side !== "short") throw new CallerError('"side" must be "long" or "short"');
-    return junoJson(
-      await buildPerpOpen({
-        owner: requireString(body.owner, "owner"),
-        perpId: requireNumber(body.perpId, "perpId"),
-        side,
-        collateral: requireNumber(body.collateral, "collateral"),
-        leverage: requireNumber(body.leverage, "leverage"),
-        slippageBps: body.slippageBps === undefined ? undefined : requireNumber(body.slippageBps, "slippageBps"),
-      }),
-    );
+    // Read and checked once; only the chain reads inside the build are retried.
+    const input: Parameters<typeof buildPerpOpen>[0] = {
+      owner: requireString(body.owner, "owner"),
+      perpId: requireNumber(body.perpId, "perpId"),
+      side,
+      collateral: requireNumber(body.collateral, "collateral"),
+      leverage: requireNumber(body.leverage, "leverage"),
+      slippageBps: body.slippageBps === undefined ? undefined : requireNumber(body.slippageBps, "slippageBps"),
+    };
+    return junoJson(await retryWhenBusy(() => buildPerpOpen(input)));
   });
 }

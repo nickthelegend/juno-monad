@@ -392,6 +392,22 @@ describe("changeWithin", () => {
     expect(changeWithin(swaps, DAY_MS, 0.01, NOW)).toBeNull();
   });
 
+  it("measures a coin younger than the window from its opening price", () => {
+    const opening = { price: 0.005, at: NOW - 3 * 60 * 60 * 1000 };
+    // Every trade is inside the window, and so is the launch: the opening is the reference.
+    const swaps = [swap(1, "buy", 100, 1, 100)];
+    expect(changeWithin(swaps, DAY_MS, 0.01, NOW, opening)).toBeCloseTo(1, 12);
+    // No trades at all yet: still a measured change since launch (here none).
+    expect(changeWithin([], DAY_MS, 0.005, NOW, opening)).toBeCloseTo(0, 12);
+  });
+
+  it("ignores the opening price for a coin older than the window", () => {
+    const opening = { price: 0.005, at: NOW - 3 * DAY_MS };
+    const swaps = [swap(1, "buy", 100, 1, 100)];
+    // Launched days ago with no trade before the window: unknown, not "since launch".
+    expect(changeWithin(swaps, DAY_MS, 0.01, NOW, opening)).toBeNull();
+  });
+
   it("reports null for no history and for a nonsense current price", () => {
     expect(changeWithin([], DAY_MS, 0.01, NOW)).toBeNull();
     expect(changeWithin([swap(30, "buy", 100, 1, 100)], DAY_MS, 0, NOW)).toBeNull();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CURVE_PRESET_LIST, DEFAULT_TOTAL_SUPPLY, FEE_PERIODS, buildPresetParams, feeDecayWad } from "@/lib/juno/curves";
+import { CURVE_PRESETS, CURVE_PRESET_LIST, DEFAULT_TOTAL_SUPPLY, FEE_PERIODS, buildPresetParams, feeDecayWad } from "@/lib/juno/curves";
 import { feeSchedule, tokenomics, type FeeFields } from "@/lib/juno/economics";
 
 /**
@@ -88,7 +88,12 @@ describe("tokenomics", () => {
   const SUPPLY = BigInt(DEFAULT_TOTAL_SUPPLY) * 10n ** 18n;
 
   it.each(CURVE_PRESET_LIST.map((preset) => preset.id))("%s: the three parts sum to the fixed supply", (id) => {
-    const params = buildPresetParams({ preset: id, initialMarketCap: 1_000, migrationMarketCap: 25_000, quoteDecimals: 6 });
+    const params = buildPresetParams({
+      preset: id,
+      initialMarketCap: 1_000,
+      migrationMarketCap: 1_000 * CURVE_PRESETS[id].defaultCapMultiple,
+      quoteDecimals: 6,
+    });
     const split = tokenomics({
       sqrtStartPriceX96: params.sqrtStartPriceX96,
       curve: params.curve,

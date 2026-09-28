@@ -9,6 +9,7 @@ import {
   readJson,
   requireNumber,
   requireString,
+  retryWhenBusy,
 } from "@/lib/juno/api";
 import type { CurvePresetId } from "@/lib/juno/types";
 import { launchpadMissing, requireAddress } from "../../_lib/guards";
@@ -113,18 +114,20 @@ export async function POST(request: Request) {
       throw new CallerError('"venue" must be "uniswap-v2" or "kuru"');
     }
 
-    const result = await buildLaunch({
-      creator,
-      name,
-      symbol,
-      uri,
-      preset,
-      quote,
-      initialMarketCap,
-      migrationMarketCap,
-      firstBuy,
-      venue,
-    });
+    const result = await retryWhenBusy(() =>
+      buildLaunch({
+        creator,
+        name,
+        symbol,
+        uri,
+        preset,
+        quote,
+        initialMarketCap,
+        migrationMarketCap,
+        firstBuy,
+        venue,
+      }),
+    );
 
     return junoJson(result);
   });

@@ -1,4 +1,4 @@
-import { junoError, junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoError, junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { fetchPoolSnapshot } from "@/lib/juno/launchpad";
 import { capacity, sampleDepth, suggestSize } from "@/lib/juno/depth";
 import { quoteTokenUsdPrice } from "@/lib/juno/pyth";
@@ -21,7 +21,7 @@ export const OPTIONS = junoOptions;
  * `eth_call`, so a twelve-point chart is one round trip.
  */
 export async function GET(request: Request) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const url = new URL(request.url);
     const raw = url.searchParams.get("token") ?? "";
     if (!raw) return junoError("A token is required");

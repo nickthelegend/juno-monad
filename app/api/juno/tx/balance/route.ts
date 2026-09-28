@@ -1,6 +1,6 @@
 import { zeroAddress } from "viem";
 
-import { junoError, junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoError, junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { junoTokenAbi } from "@/lib/juno/abi";
 import { publicClient } from "@/lib/juno/client";
 import { MON, quoteTokenFor, weiToUi } from "@/lib/juno/launchpad";
@@ -31,7 +31,7 @@ export const OPTIONS = junoOptions;
  * `GET ?wallet=&token=`.
  */
 export async function GET(request: Request) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const url = new URL(request.url);
     const rawWallet = url.searchParams.get("wallet") ?? "";
     const rawToken = url.searchParams.get("token") ?? "";

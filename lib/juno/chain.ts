@@ -284,7 +284,13 @@ export async function hydratePool(
   // quiet. `volumeWithin` answers null for an empty list, so say 0 here.
   const volume24h = complete ? (volumeWithin(swaps, DAY_MS) ?? 0) : null;
   const allVolume = complete ? (sumVolume(swaps) ?? 0) : null;
-  const priceChange = complete ? changeWithin(swaps, DAY_MS, price) : null;
+  // A coin younger than a day measures its day change from its opening price,
+  // which the curve states exactly, rather than answering "unknown".
+  const opening = {
+    price: sqrtX96ToPrice(snapshot.pool.sqrtStartPriceX96, snapshot.baseDecimals, snapshot.quoteDecimals),
+    at: row.createdAt.getTime(),
+  };
+  const priceChange = complete ? changeWithin(swaps, DAY_MS, price, Date.now(), opening) : null;
 
   /*
    * Holders, from the fills. Wallets whose decoded trades still net positive —

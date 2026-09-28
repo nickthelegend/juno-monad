@@ -41,6 +41,8 @@ export const API_URL =
 
 export class ApiError extends Error {
   readonly status: number;
+  /** A request abandoned at its timeout, as opposed to one that never connected. */
+  timedOut = false;
   constructor(message: string, status: number) {
     super(message);
     this.name = "ApiError";
@@ -59,6 +61,30 @@ async function request<T>(
   path: string,
   init: RequestInit & { timeoutMs?: number } = {},
 ): Promise<T> {
+  try {
+    return await attempt<T>(path, init);
+  } catch (error) {
+    /*
+     * One quiet retry for a read that never got an answer.
+     *
+     * A dropped connection — a proxy recycling, a phone changing networks —
+     * surfaces as a fetch that throws before any response, and the coin page a
+     * launch lands on said "Could not reach Juno" for a server that answered
+     * the retry in under a second. Reads only: a POST may have reached the
+     * server, and sending a transaction twice is not a retry. A timeout is not
+     * retried either: the server was reached and is slow, and a second wait of
+     * the same length helps nobody.
+     */
+    const method = (init.method ?? "GET").toUpperCase();
+    if (method !== "GET" || !(error instanceof ApiError) || error.status !== 0 || error.timedOut) {
+      throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    return attempt<T>(path, init);
+  }
+}
+
+async function attempt<T>(path: string, init: RequestInit & { timeoutMs?: number }): Promise<T> {
   const { timeoutMs = 45_000, ...rest } = init;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -94,7 +120,9 @@ async function request<T>(
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
-      throw new ApiError("The request timed out. Check your connection.", 0);
+      const timedOut = new ApiError("The request timed out. Check your connection.", 0);
+      timedOut.timedOut = true;
+      throw timedOut;
     }
     throw new ApiError(
       `Could not reach Juno at ${API_URL}. Is the server running?`,
@@ -393,12 +421,13 @@ export type TesseraCompany = {
     address: string;
     name: string;
     symbol: string;
-    priceUsd: number;
-    marketCap: number;
-    currency: string;
+    /** Null when the curve could not be read just now; the market still exists. */
+    priceUsd: number | null;
+    marketCap: number | null;
+    currency: string | null;
     curvePreset: string;
-    progress: number;
-    graduated: boolean;
+    progress: number | null;
+    graduated: boolean | null;
     deviation: number | null;
     withinBand: boolean | null;
   }>;

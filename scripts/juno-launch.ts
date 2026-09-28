@@ -63,7 +63,6 @@ import {
 
 /** The app's default launch size, in dollars — see `lib/juno/tx.ts`. */
 const DEFAULT_INITIAL_USD = 1_000;
-const DEFAULT_MIGRATION_USD = 25_000;
 
 /** Gas money to keep on top of any MON the launch itself spends. */
 const GAS_ALLOWANCE = 10n ** 17n; // 0.1 MON
@@ -98,7 +97,8 @@ async function main() {
       throw new Error(`No USD price for ${quote.symbol} right now. Pass --initial and --migration in ${quote.symbol}.`);
     }
     initialMarketCap ??= DEFAULT_INITIAL_USD / usd;
-    migrationMarketCap ??= DEFAULT_MIGRATION_USD / usd;
+    // The preset's own range above the opening: 25x for a launch, 1.5x for tight-nav.
+    migrationMarketCap ??= (DEFAULT_INITIAL_USD * CURVE_PRESETS[preset].defaultCapMultiple) / usd;
     line("price", `1 ${quote.symbol} = $${usd}`);
   }
 

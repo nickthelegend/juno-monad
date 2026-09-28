@@ -7,7 +7,7 @@ import { listSwapHistory } from "@/lib/juno/swaps";
 import { quoteTokenUsdPrice } from "@/lib/juno/pyth";
 import { getPool } from "@/lib/juno/registry";
 import { networkKey } from "@/lib/juno/network";
-import { junoError, junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoError, junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import type { Holder } from "@/lib/juno/types";
 import { requireAddress } from "../../_lib/guards";
 
@@ -29,7 +29,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> },
 ) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const { token: raw } = await params;
     const token = requireAddress(raw, "token");
 

@@ -28,17 +28,24 @@ import type { CurvePresetId } from "@/lib/juno/types";
  * signs anything.
  */
 
-/** The two quote tokens a launch can use, at the valuations the app opens them at. */
+/**
+ * The two quote tokens a launch can use, at the valuation the app opens them
+ * at. The graduation valuation is each preset's own range above that.
+ */
 const QUOTES = [
-  { label: "MON", quoteDecimals: 18, initialMarketCap: 40_000, migrationMarketCap: 1_000_000 },
-  { label: "USDC", quoteDecimals: 6, initialMarketCap: 1_000, migrationMarketCap: 25_000 },
+  { label: "MON", quoteDecimals: 18, initialMarketCap: 40_000 },
+  { label: "USDC", quoteDecimals: 6, initialMarketCap: 1_000 },
 ] as const;
 
 /** The launchpad's fixed supply, in raw units: 1e27. */
 const SUPPLY = BigInt(DEFAULT_TOTAL_SUPPLY) * 10n ** BigInt(BASE_DECIMALS);
 
 const CASES = CURVE_PRESET_LIST.flatMap((preset) =>
-  QUOTES.map((quote) => ({ preset: preset.id, ...quote })),
+  QUOTES.map((quote) => ({
+    preset: preset.id,
+    ...quote,
+    migrationMarketCap: quote.initialMarketCap * preset.defaultCapMultiple,
+  })),
 );
 
 function build(c: (typeof CASES)[number]): CurveParams {
@@ -150,7 +157,11 @@ describe("preset shapes", () => {
 
   it("carries the weights through to the on-chain liquidity, in proportion", () => {
     for (const preset of CURVE_PRESET_LIST) {
-      const params = buildPresetParams({ preset: preset.id, ...QUOTES[1] });
+      const params = buildPresetParams({
+        preset: preset.id,
+        ...QUOTES[1],
+        migrationMarketCap: QUOTES[1].initialMarketCap * preset.defaultCapMultiple,
+      });
       const ratio = Number(params.curve[CURVE_SEGMENTS - 1].liquidity) / Number(params.curve[0].liquidity);
       expect(ratio).toBeCloseTo(preset.weights[CURVE_SEGMENTS - 1] / preset.weights[0], 4);
     }
@@ -209,6 +220,15 @@ describe("invalid inputs", () => {
     expect(() => buildPresetParams({ ...good, initialMarketCap: 0 })).toThrow();
     expect(() => buildPresetParams({ ...good, initialMarketCap: -5 })).toThrow();
     expect(() => buildPresetParams({ ...good, initialMarketCap: Number.NaN })).toThrow();
+  });
+
+  it("refuses a tight-nav range wider than it stays flat over", () => {
+    expect(() =>
+      buildPresetParams({ ...good, preset: "tight-nav", migrationMarketCap: 25_000 }),
+    ).toThrow(/near-flat only up to 3x/);
+    // Its own default, and its maximum, are fine.
+    expect(validateCurveParams(buildPresetParams({ ...good, preset: "tight-nav", migrationMarketCap: 1_500 }))).toBeNull();
+    expect(validateCurveParams(buildPresetParams({ ...good, preset: "tight-nav", migrationMarketCap: 3_000 }))).toBeNull();
   });
 
   it("refuses an unknown preset", () => {

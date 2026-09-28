@@ -8,6 +8,7 @@ import {
   readJson,
   requireNumber,
   requireString,
+  retryWhenBusy,
 } from "@/lib/juno/api";
 import type { TradeSide } from "@/lib/juno/types";
 import { launchpadMissing, requireAddress } from "../../_lib/guards";
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     const row = await getPool(token);
     if (!row) throw new CallerError("Coin not found", 404);
 
-    const result = await buildSwap({ token, side, amountIn, owner, slippageBps });
+    const result = await retryWhenBusy(() => buildSwap({ token, side, amountIn, owner, slippageBps }));
 
     return junoJson({ ...result, token: row.token, symbol: row.symbol });
   });

@@ -1,4 +1,4 @@
-import { junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { networkKey } from "@/lib/juno/network";
 import { leaderboard } from "@/lib/juno/leaderboard";
 import { followerCounts } from "@/lib/juno/social-graph";
@@ -16,7 +16,7 @@ export const OPTIONS = junoOptions;
  * looks complete.
  */
 export async function GET(request: Request) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const url = new URL(request.url);
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 20) || 20, 50);
 

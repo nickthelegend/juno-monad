@@ -1,5 +1,5 @@
 import { buildGraduate } from "@/lib/juno/tx";
-import { junoHandler, junoJson, junoOptions, readJson, requireString } from "@/lib/juno/api";
+import { junoHandler, junoJson, junoOptions, readJson, requireString, retryWhenBusy } from "@/lib/juno/api";
 import { launchpadMissing, requireAddress } from "../../_lib/guards";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const from = requireAddress(requireString(body.from, "from"), "from");
     const token = requireAddress(requireString(body.token, "token"), "token");
 
-    const steps = await buildGraduate({ from, token });
+    const steps = await retryWhenBusy(() => buildGraduate({ from, token }));
     return junoJson({ steps });
   });
 }

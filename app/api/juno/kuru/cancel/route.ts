@@ -1,4 +1,4 @@
-import { CallerError, junoHandler, junoJson, junoOptions, readJson, requireString } from "@/lib/juno/api";
+import { CallerError, junoHandler, junoJson, junoOptions, readJson, requireString, retryWhenBusy } from "@/lib/juno/api";
 import { buildKuruCancelOrders } from "@/lib/juno/tx";
 import { launchpadMissing } from "../../_lib/guards";
 
@@ -12,11 +12,13 @@ export async function POST(request: Request) {
     if (missing) return missing;
     const body = await readJson<Record<string, unknown>>(request);
     if (!Array.isArray(body.orderIds)) throw new CallerError('"orderIds" must be a list');
-    const steps = await buildKuruCancelOrders({
+    // Read and checked once; only the chain reads inside the build are retried.
+    const input = {
       token: requireString(body.token, "token"),
       owner: requireString(body.owner, "owner"),
       orderIds: body.orderIds.map((id) => String(id)),
-    });
+    };
+    const steps = await retryWhenBusy(() => buildKuruCancelOrders(input));
     return junoJson({ steps });
   });
 }

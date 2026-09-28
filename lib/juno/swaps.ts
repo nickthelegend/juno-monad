@@ -441,15 +441,25 @@ export function priceSeries(swaps: PoolSwap[]): PricePoint[] {
  *
  * Null when there is no trade old enough to compare against — a market whose
  * entire history is inside the window has no "before" to measure from, and a
- * 0% change would be a claim about a period we cannot see.
+ * 0% change would be a claim about a period we cannot see. The exception is a
+ * market younger than the window: its "before" is its own opening price,
+ * which the curve states exactly.
  */
 export function changeWithin(
   swaps: PoolSwap[],
   windowMs: number,
   currentPrice: number,
   now = Date.now(),
+  /**
+   * Where the curve opened, and when. A coin younger than the window has no
+   * trade from before it opened, and "unknown" was the answer — but for such a
+   * coin the change over the window *is* the change since launch, and the
+   * curve's start price is exactly known.
+   */
+  opening?: { price: number; at: number },
 ): number | null {
-  if (swaps.length === 0 || currentPrice <= 0) return null;
+  if (currentPrice <= 0) return null;
+  if (swaps.length === 0 && !opening) return null;
 
   const ordered = [...swaps].sort(chronological);
   // The last trade at or before the window opened is the reference.
@@ -458,6 +468,7 @@ export function changeWithin(
     const at = Date.parse(swap.timestamp);
     if (Number.isFinite(at) && now - at > windowMs) reference = swap.price;
   }
+  if (reference === null && opening && now - opening.at <= windowMs) reference = opening.price;
   if (reference === null || reference <= 0) return null;
 
   return (currentPrice - reference) / reference;

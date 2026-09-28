@@ -1,4 +1,4 @@
-import { junoError, junoHandler, junoJson, junoOptions, readJson, requireNumber, requireString } from "@/lib/juno/api";
+import { junoError, junoHandler, junoJson, junoOptions, junoRead, readJson, requireNumber, requireString } from "@/lib/juno/api";
 import { hydratePools } from "@/lib/juno/chain";
 import { getPool, listPools } from "@/lib/juno/registry";
 import { assertAddress, crossed, unwatch, watch, watchlist } from "@/lib/juno/social-graph";
@@ -16,7 +16,7 @@ export const OPTIONS = junoOptions;
  * follows.
  */
 export async function GET(request: Request) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const raw = new URL(request.url).searchParams.get("wallet") ?? "";
     if (!raw) return junoError("A wallet is required");
     const wallet = assertAddress(raw);

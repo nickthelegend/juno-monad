@@ -1,4 +1,4 @@
-import { CallerError, junoHandler, junoJson, junoOptions } from "@/lib/juno/api";
+import { CallerError, junoJson, junoOptions, junoRead } from "@/lib/juno/api";
 import { envioConfigured, envioKuruOrderIds } from "@/lib/juno/envio";
 import { kuruBalances, kuruMarketOf, kuruOpenOrders } from "@/lib/juno/kuru";
 import { requireAddress, launchpadMissing } from "../../_lib/guards";
@@ -15,7 +15,7 @@ export const OPTIONS = junoOptions;
  * when there is no indexer to ask — not "no orders".
  */
 export async function GET(request: Request) {
-  return junoHandler(async () => {
+  return junoRead(async () => {
     const missing = launchpadMissing();
     if (missing) return missing;
     const params = new URL(request.url).searchParams;
