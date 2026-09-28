@@ -472,6 +472,125 @@ describe("Kuru limit orders", () => {
   });
 });
 
+describe("A coin that graduated into its Uniswap v2 pair", () => {
+  // The pair the launch locked. Juno's token sorts below WMON here, so the
+  // coin is token0.
+  const PAIR = "0x5a5A5a5a5A5a5a5a5a5A5a5A5A5a5a5A5A5A5A5A" as const;
+  const COIN = "0x0000000000000000000000000000000000000aa1" as `0x${string}`;
+  const ROUTER = "0x7777777777777777777777777777777777777777";
+
+  const sync = (reserve0: bigint, reserve1: bigint, block: number, logIndex: number) => ({
+    contract: "UniswapV2Pair" as const,
+    event: "Sync" as const,
+    srcAddress: PAIR,
+    logIndex,
+    block: { number: block, timestamp: 1_758_700_000 + block },
+    params: { reserve0, reserve1 },
+  });
+  const swap = (
+    from: string,
+    amounts: [bigint, bigint, bigint, bigint],
+    to: string,
+    block: number,
+    logIndex: number,
+  ) => ({
+    contract: "UniswapV2Pair" as const,
+    event: "Swap" as const,
+    srcAddress: PAIR,
+    logIndex,
+    block: { number: block, timestamp: 1_758_700_000 + block },
+    transaction: { hash: tx(block), from: from as `0x${string}` },
+    params: {
+      sender: ROUTER as `0x${string}`,
+      amount0In: amounts[0],
+      amount1In: amounts[1],
+      amount0Out: amounts[2],
+      amount1Out: amounts[3],
+      to: to as `0x${string}`,
+    },
+  });
+
+  it("registers the pair at launch and records trades against it, by sender, at the pair's price", async (t) => {
+    const indexer = createTestIndexer();
+    const launch = launched(COIN, NATIVE, 501);
+    await indexer.process({
+      chains: {
+        [TESTNET]: {
+          simulate: [
+            { ...launch, params: { ...launch.params, venue: PAIR } },
+            // Graduation mints the pair: 150M tokens against 100 MON.
+            sync(150_000_000n * E18, 100n * E18, 502, 1),
+            // Alice buys 1 MON's worth through the router: coin out, MON in.
+            sync(149_000_000n * E18, 101n * E18, 503, 4),
+            swap(alice, [0n, E18, 1_000_000n * E18, 0n], alice, 503, 5),
+            // Then sells 400k back: the pair pays MON to the router, which unwraps it for her.
+            sync(149_400_000n * E18, (1007n * E18) / 10n, 504, 2),
+            swap(alice, [400_000n * E18, 0n, 0n, (3n * E18) / 10n], ROUTER, 504, 3),
+          ],
+        },
+      },
+    });
+
+    t.expect(indexer.chains[TESTNET].UniswapV2Pair.addresses).toEqual([PAIR]);
+    const pair = await indexer.V2Pair.getOrThrow(PAIR);
+    t.expect([pair.token, pair.coinIsToken0, pair.tradeCount, pair.coinReserveRaw]).toEqual([
+      COIN,
+      true,
+      2,
+      149_400_000n * E18,
+    ]);
+
+    const buy = await indexer.PairTrade.getOrThrow(`${tx(503)}:5`);
+    t.expect({
+      trader: buy.trader,
+      isBuy: buy.isBuy,
+      base: buy.baseAmount.toString(),
+      quote: buy.quoteAmount.toString(),
+      // The pair's price after the trade: 101 MON / 149M tokens.
+      price: buy.price.toString(),
+    }).toEqual({
+      trader: alice,
+      isBuy: true,
+      base: "1000000",
+      quote: "1",
+      price: tradePrice(149_000_000n * E18, 101n * E18, 18).toString(),
+    });
+
+    const sell = await indexer.PairTrade.getOrThrow(`${tx(504)}:3`);
+    // Attributed to the sender, not to the router the pair paid.
+    t.expect([sell.trader, sell.isBuy, sell.baseAmount.toString(), sell.quoteAmount.toString()]).toEqual([
+      alice,
+      false,
+      "400000",
+      "0.3",
+    ]);
+
+    const position = await indexer.Position.getOrThrow(`${alice}-${COIN}`);
+    t.expect({
+      boughtBase: position.boughtBase.toString(),
+      soldBase: position.soldBase.toString(),
+      spentQuote: position.spentQuote.toString(),
+      receivedQuote: position.receivedQuote.toString(),
+      tradeCount: position.tradeCount,
+    }).toEqual({ boughtBase: "1000000", soldBase: "400000", spentQuote: "1", receivedQuote: "0.3", tradeCount: 2 });
+  });
+
+  it("does not index Kuru's MarginAccount, which a Kuru-bound launch locks instead", async (t) => {
+    const indexer = createTestIndexer();
+    const launch = launched(COIN, NATIVE, 601);
+    await indexer.process({
+      chains: {
+        [TESTNET]: {
+          simulate: [
+            { ...launch, params: { ...launch.params, venue: "0xd029C2D98ff85D8F64799017fE00a59B1159CE02" } },
+          ],
+        },
+      },
+    });
+    t.expect(indexer.chains[TESTNET].UniswapV2Pair.addresses).toEqual([]);
+  });
+});
+
 describe("math", () => {
   it("prices a trade and a curve in display units", (t) => {
     // 1 USDC for 3 tokens, kept to 30 significant digits.

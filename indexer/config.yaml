@@ -75,6 +75,18 @@ contracts:
           transaction_fields: [hash]
       - event: "OrdersCanceled(uint40[] orderId, address owner)"
 
+  # The Uniswap v2 pair a coin graduates into — the default venue. Its address
+  # is fixed at launch (the token refuses transfers into it until then), so it
+  # is registered from `Launched`; it emits nothing until graduation mints its
+  # liquidity. `Sync` carries the reserves after every change; `Swap` is a
+  # trade, through Juno's router or any other, attributed to the sender.
+  - name: UniswapV2Pair
+    events:
+      - event: "Sync(uint112 reserve0, uint112 reserve1)"
+      - event: "Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)"
+        field_selection:
+          transaction_fields: [hash, from]
+
 chains:
   # Monad testnet. HyperSync: https://monad-testnet.hypersync.xyz
   - id: 10143
@@ -100,6 +112,7 @@ chains:
         # JUNO_KURU_GRADUATOR in the app. Zero until one is deployed.
         address: "${ENVIO_JUNO_TESTNET_KURU_GRADUATOR:-0x0000000000000000000000000000000000000000}"
       - name: KuruMarket
+      - name: UniswapV2Pair
 
   # Monad mainnet. HyperSync: https://monad.hypersync.xyz
   # Skipped until there is a mainnet launchpad: set ENVIO_JUNO_SKIP_MAINNET=false.
@@ -110,3 +123,4 @@ chains:
       - name: JunoLaunchpad
         address: "${ENVIO_JUNO_MAINNET_LAUNCHPAD:-0x0000000000000000000000000000000000000000}"
       - name: JunoToken
+      - name: UniswapV2Pair

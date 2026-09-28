@@ -77,6 +77,26 @@ library CurveMath {
         return SafeCast.toUint160(Math.mulDiv(numerator1, sqrtP, denominator, Math.Rounding.Ceil));
     }
 
+    /// @notice Where the price lands after `baseOut` leaves a range. Price rises.
+    /// @dev Solves `baseOut = L * (b - a) / (a * b)` for b:
+    /// `b = L * a / (L - baseOut * a)` in Q96, rounded up, so the buyer pays
+    /// for slightly more movement than exactly — in the pool's favour. The
+    /// caller only asks for less base than the range holds above `sqrtP`, which
+    /// keeps the denominator positive; a request past that is an error, not a
+    /// price.
+    function nextSqrtPriceFromBaseOut(uint160 sqrtP, uint128 liquidity, uint256 baseOut)
+        internal
+        pure
+        returns (uint160)
+    {
+        if (liquidity == 0) revert ZeroLiquidity();
+        if (baseOut == 0) return sqrtP;
+        uint256 numerator1 = uint256(liquidity) << 96;
+        uint256 product = baseOut * sqrtP;
+        if (product >= numerator1) revert ZeroLiquidity();
+        return SafeCast.toUint160(Math.mulDiv(numerator1, sqrtP, numerator1 - product, Math.Rounding.Ceil));
+    }
+
     /// @notice Raw price (quote wei per base wei) as a Q96 fraction, floored.
     /// @dev Used for the base side of migration: the reserve leaves the curve
     /// at the curve's final price so the AMM opens exactly where the curve ended.

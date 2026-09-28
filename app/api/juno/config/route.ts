@@ -9,6 +9,7 @@ import {
   localFork,
   network,
   networkKey,
+  swapRouterAddress,
 } from "@/lib/juno/network";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +52,8 @@ export async function GET() {
     explorer: explorer.tx("").replace(/\/tx\/$/, ""),
     quoteTokens: QUOTE_TOKENS,
     faucet: network() === "testnet",
+    // Graduated coins trade in the app when the deployment has Juno's router.
+    v2Trading: swapRouterAddress() !== null,
     venues: [
       { id: "uniswap-v2", name: "Uniswap v2", quotes: QUOTE_TOKENS.map((token) => token.address) },
       ...(kuruGraduatorAddress()

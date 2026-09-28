@@ -414,6 +414,68 @@ export async function quoteTrade(params: {
   };
 }
 
+/** An exact-out buy's quote: the tokens are fixed, the cost is what the curve names. */
+export type ExactOutQuote = TradeQuote & {
+  /** What the buy is expected to cost, fee included, in quote UI units. */
+  amountIn: number;
+  /** The most the transaction may spend: the cost plus the slippage allowance. */
+  maximumAmountIn: number;
+};
+
+/**
+ * Quote buying exactly `amountOut` tokens, against the live curve.
+ *
+ * The launchpad's own `quoteBuyExactOut` walks the ranges by base out, so the
+ * figure is the one `buyExactOut` will charge in the same state. The
+ * transaction is then capped at the cost plus the slippage allowance; if the
+ * curve has moved further by the time it lands, it reverts instead of paying
+ * more. Past the curve's remaining supply it is `InsufficientLiquidityError`:
+ * an exact-out buy never fills part-way.
+ */
+export async function quoteExactOutBuy(params: {
+  snapshot: PoolSnapshot;
+  /** Tokens to receive, in UI units. */
+  amountOut: number;
+  slippageBps?: number;
+}): Promise<ExactOutQuote> {
+  const { snapshot, amountOut, slippageBps = 100 } = params;
+  const outRaw = uiToWei(amountOut, snapshot.baseDecimals);
+  let costRaw: bigint;
+  let feeRaw: bigint;
+  try {
+    [costRaw, feeRaw] = await publicClient().readContract({
+      address: snapshot.launchpad,
+      abi: junoLaunchpadAbi,
+      functionName: "quoteBuyExactOut",
+      args: [snapshot.token, outRaw],
+    });
+  } catch (error) {
+    if (/InsufficientLiquidity/.test(String((error as Error)?.message ?? error))) {
+      throw new InsufficientLiquidityError();
+    }
+    throw error;
+  }
+  const maxRaw = (costRaw * BigInt(10_000 + slippageBps)) / 10_000n;
+  const cost = weiToUi(costRaw, snapshot.quoteDecimals);
+  const fee = weiToUi(feeRaw, snapshot.quoteDecimals);
+  const got = weiToUi(outRaw, snapshot.baseDecimals);
+  // Against spot: what `cost` would have bought at the current price.
+  const spotOut = snapshot.price > 0 ? cost / snapshot.price : 0;
+  const curveSpotOut = snapshot.price > 0 ? Math.max(cost - fee, 0) / snapshot.price : 0;
+  return {
+    amountOut: got,
+    // Exact: the contract delivers precisely this or reverts.
+    minimumAmountOut: got,
+    amountUsed: cost,
+    fee,
+    priceImpact: spotOut > 0 ? Math.max(0, (spotOut - got) / spotOut) : 0,
+    curveImpact: curveSpotOut > 0 ? Math.max(0, (curveSpotOut - got) / curveSpotOut) : 0,
+    amountIn: cost,
+    maximumAmountIn: weiToUi(maxRaw, snapshot.quoteDecimals),
+    raw: { amountIn: maxRaw, amountOut: outRaw, minimumAmountOut: outRaw },
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Writes — calldata only; signing happens on the device                */
 /* ------------------------------------------------------------------ */
@@ -562,6 +624,29 @@ export function buildSwapCall(params: {
     }),
     value: 0n,
     label: "Selling",
+  };
+}
+
+/**
+ * `buyExactOut`: exactly the quoted tokens, capped at `maximumAmountIn`. With
+ * native MON the cap is sent and the unused part comes back in the same call.
+ */
+export function buildExactOutBuyCall(params: {
+  snapshot: PoolSnapshot;
+  owner: Address;
+  quote: ExactOutQuote;
+  deadline: bigint;
+}): ContractCall {
+  const { snapshot, owner, quote, deadline } = params;
+  return {
+    to: snapshot.launchpad,
+    data: encodeFunctionData({
+      abi: junoLaunchpadAbi,
+      functionName: "buyExactOut",
+      args: [snapshot.token, quote.raw.amountOut, quote.raw.amountIn, owner, deadline],
+    }),
+    value: snapshot.quote.native ? quote.raw.amountIn : 0n,
+    label: "Buying",
   };
 }
 

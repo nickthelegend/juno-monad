@@ -8,6 +8,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {JunoLaunchpad} from "../src/JunoLaunchpad.sol";
 import {UniswapV2Graduator} from "../src/graduators/UniswapV2Graduator.sol";
 import {KuruGraduator} from "../src/graduators/KuruGraduator.sol";
+import {JunoSwapRouter} from "../src/JunoSwapRouter.sol";
 import {IUniswapV2Factory} from "../src/interfaces/IUniswapV2.sol";
 import {IKuruRouter} from "../src/interfaces/IKuru.sol";
 
@@ -88,6 +89,7 @@ contract Deploy is Script {
         address wmon;
         address usdc;
         address kuruGraduator;
+        address swapRouter;
         address kuruRouter;
         address kuruMarginAccount;
         uint256 deployBlock;
@@ -193,6 +195,8 @@ contract Deploy is Script {
         }
         launchpad.setQuoteAllowed(d.usdc, true);
         if (d.owner != d.deployer) launchpad.transferOwnership(d.owner);
+        // Trades a coin after it graduates into its v2 pair. Ownerless.
+        d.swapRouter = address(new JunoSwapRouter(IUniswapV2Factory(d.uniswapV2Factory), d.wmon));
 
         vm.stopBroadcast();
 
@@ -279,6 +283,7 @@ contract Deploy is Script {
         vm.serializeAddress(k, "wmon", d.wmon);
         vm.serializeAddress(k, "usdc", d.usdc);
         vm.serializeAddress(k, "kuruGraduator", d.kuruGraduator);
+        vm.serializeAddress(k, "swapRouter", d.swapRouter);
         vm.serializeAddress(k, "kuruRouter", d.kuruRouter);
         vm.serializeAddress(k, "kuruMarginAccount", d.kuruMarginAccount);
         string memory json = vm.serializeUint(k, "deployBlock", d.deployBlock);
@@ -303,6 +308,7 @@ contract Deploy is Script {
             d.uniswapV2Factory
         );
         if (d.kuruGraduator != address(0)) console.log("KuruGraduator        ", d.kuruGraduator);
+        console.log("JunoSwapRouter       ", d.swapRouter);
         console.log("WMON                 ", d.wmon);
         console.log("USDC (allowed quote) ", d.usdc);
         console.log("Owner                ", d.owner);
@@ -320,6 +326,7 @@ contract Deploy is Script {
         if (d.kuruGraduator != address(0)) {
             console.log(string.concat("JUNO_KURU_GRADUATOR=", vm.toString(d.kuruGraduator)));
         }
+        console.log(string.concat("JUNO_SWAP_ROUTER=", vm.toString(d.swapRouter)));
     }
 
     /* ------------------------------------------------------------------ */

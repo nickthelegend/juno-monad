@@ -12,11 +12,12 @@ import {
 import { junoLaunchpadAbi } from "./abi";
 import { publicClient } from "./client";
 import { sqrtX96ToPrice } from "./curve-math";
-import { envioConfigured, envioKuruTrades, envioTrades } from "./envio";
+import { envioConfigured, envioKuruTrades, envioPairTrades, envioTrades } from "./envio";
 import { quoteTokenOfPool } from "./launchpad";
-import { launchpadAddress, launchpadDeployBlock } from "./network";
+import { launchpadAddress, launchpadDeployBlock, swapRouterAddress } from "./network";
 import { ttlCache, withRetry } from "./rpc";
 import { mergeSwaps, readCursor, recalledSwaps, rememberSwaps, writeCursor } from "./swap-store";
+import { routerSwapsIn } from "./v2";
 import type { PricePoint } from "./types";
 
 /**
@@ -76,9 +77,11 @@ export type PoolSwap = {
   blockNumber: number;
   /**
    * Where it traded. Absent for the curve; "kuru" for a fill on the coin's
-   * Kuru market after it graduated there, whose `price` is the fill's price.
+   * Kuru market after it graduated there, whose `price` is the fill's price;
+   * "uniswap-v2" for a trade against its v2 pair, whose `price` is the pair's
+   * after the trade.
    */
-  venue?: "kuru";
+  venue?: "kuru" | "uniswap-v2";
 };
 
 const BASE_DECIMALS = 18;
@@ -162,7 +165,9 @@ export async function recordReceiptTrades(receipt: TransactionReceipt): Promise<
     eventName: "Trade",
     logs: receipt.logs.filter((log) => getAddress(log.address) === launchpad),
   });
-  if (events.length === 0) return [];
+  const router = swapRouterAddress();
+  const viaRouter = router !== null && receipt.logs.some((log) => getAddress(log.address) === router);
+  if (events.length === 0 && !viaRouter) return [];
 
   const block = await withRetry(() => publicClient().getBlock({ blockNumber: receipt.blockNumber }));
   const swaps: PoolSwap[] = [];
@@ -178,6 +183,11 @@ export async function recordReceiptTrades(receipt: TransactionReceipt): Promise<
       quoteDecimals: quote.decimals,
     });
     if (swap) swaps.push(swap);
+  }
+  // After graduation into Uniswap v2 the coin trades through the router.
+  if (viaRouter) {
+    const lookup = (token: Address) => quoteTokenOfPool(token, launchpad);
+    swaps.push(...(await routerSwapsIn(receipt, lookup, block.timestamp).catch(() => [] as PoolSwap[])));
   }
   await rememberSwaps(swaps).catch(() => undefined);
   for (const swap of swaps) invalidateSwapHistory(swap.token);
@@ -315,17 +325,18 @@ export async function listSwapHistory(token: string, limit = DEFAULT_LIMIT): Pro
     `${address}:${limit}`,
     async () => {
       if (envioConfigured()) {
-        const [fromIndexer, onKuru] = await Promise.all([
+        const [fromIndexer, onKuru, onPair] = await Promise.all([
           envioTrades({ token: address, limit }).catch(() => null),
-          // After a graduation into Kuru the coin keeps trading there; the
-          // indexer follows it into its market. Empty for every other coin.
+          // After a graduation the coin keeps trading, on its Kuru market or
+          // its v2 pair; the indexer follows it there. Empty before then.
           envioKuruTrades({ token: address, limit }).catch(() => [] as PoolSwap[]),
+          envioPairTrades({ token: address, limit }).catch(() => [] as PoolSwap[]),
         ]);
         if (fromIndexer) {
           // The indexer lags the head by a block or two; anything the receipt
           // path recorded since is merged in so a fresh trade is never missing.
           const recent = await recalledSwaps(address, 20).catch(() => [] as PoolSwap[]);
-          return { swaps: mergeSwaps([...fromIndexer, ...onKuru], recent).slice(0, limit), partial: false };
+          return { swaps: mergeSwaps([...fromIndexer, ...onKuru, ...onPair], recent).slice(0, limit), partial: false };
         }
       }
 

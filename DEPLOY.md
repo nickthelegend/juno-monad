@@ -38,6 +38,7 @@ NEXT_PUBLIC_JUNO_LAUNCHPAD=0x…
 JUNO_LAUNCHPAD_DEPLOY_BLOCK=…
 NEXT_PUBLIC_JUNO_USDC=0x534b2f3A21130d7a60830c2Df862319e593943A3
 JUNO_KURU_GRADUATOR=0x…
+JUNO_SWAP_ROUTER=0x…
 ```
 
 On testnet the script also deploys a `KuruGraduator` against Kuru's testnet
@@ -98,6 +99,7 @@ npm run build && npm start
 | `MONAD_WS_URL` | optional | WebSocket for the live commit-state tape; defaults to Monad's public one. |
 | `ENVIO_GRAPHQL_URL` | recommended | Step 2. |
 | `JUNO_KURU_GRADUATOR` | optional (testnet) | From step 1. Offers the Kuru venue at launch and trades Kuru-graduated coins on their market. |
+| `JUNO_SWAP_ROUTER` | recommended | From step 1. Trades a coin in the app after it graduates into its Uniswap v2 pair. |
 | `PYTH_API_KEY` | optional | Fresh equity marks for stock trackers; MON/USD needs no key. |
 | `JUNO_APP_URL` | recommended | The app's web URL. Page requests to the API redirect there. |
 | `FAUCET_AMOUNT_MON` | optional | MON per faucet request (default 0.5). |

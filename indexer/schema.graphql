@@ -134,6 +134,8 @@ type Pool {
 
   trades: [Trade!]! @derivedFrom(field: "pool")
   kuruTrades: [KuruTrade!]! @derivedFrom(field: "pool")
+  "Trades against the coin's Uniswap v2 pair, after it graduated there."
+  pairTrades: [PairTrade!]! @derivedFrom(field: "pool")
   positions: [Position!]! @derivedFrom(field: "pool")
   creatorClaims: [CreatorClaim!]! @derivedFrom(field: "pool")
 }
@@ -363,3 +365,52 @@ type KuruOrder @index(fields: ["owner", "status"]) {
   createdTx: String!
   updatedAt: BigInt!
 }
+
+"""
+A coin's Uniswap v2 pair, the default graduation venue. Registered at launch —
+its address is fixed then — and silent until graduation mints its liquidity.
+"""
+type V2Pair {
+  "The pair's address."
+  id: ID!
+  token: String! @index
+  pool: Pool!
+  "Whether the coin is the pair's token0 (the lower address)."
+  coinIsToken0: Boolean!
+  quoteDecimals: Int!
+  "Reserves after the pair's last Sync."
+  coinReserveRaw: BigInt!
+  quoteReserveRaw: BigInt!
+  tradeCount: Int!
+  "Sum of trade quoteAmount."
+  volumeQuote: BigDecimal!
+  "The pair's price after its last trade, quote per token."
+  lastPrice: BigDecimal
+  lastTradeAt: BigInt
+}
+
+"""
+One trade against a graduated coin's v2 pair — through Juno's router or any
+other. The trader is the transaction's sender.
+"""
+type PairTrade @index(fields: ["token", "blockNumber", "logIndex"]) @index(fields: ["trader", "blockNumber", "logIndex"]) {
+  "`${txHash}:${logIndex}`"
+  id: ID!
+  txHash: String!
+  logIndex: Int!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+
+  pair: V2Pair!
+  token: String! @index
+  pool: Pool!
+  trader: String! @index
+  isBuy: Boolean!
+  "Tokens that changed hands."
+  baseAmount: BigDecimal!
+  "Quote paid on a buy (v2's 0.3% fee included) or received on a sell."
+  quoteAmount: BigDecimal!
+  "The pair's price right after the trade, quote per token — what a chart plots."
+  price: BigDecimal!
+}
+

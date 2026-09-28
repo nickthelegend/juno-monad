@@ -115,6 +115,15 @@ export function kuruGraduatorAddress(): Address | null {
   return envAddress("JUNO_KURU_GRADUATOR");
 }
 
+/**
+ * The router that trades a coin after it graduates into its Uniswap v2 pair
+ * (`JunoSwapRouter`). Null on a deployment without one: such a coin is then
+ * shown as graduated with a link to its pair, and not traded in the app.
+ */
+export function swapRouterAddress(): Address | null {
+  return envAddress("JUNO_SWAP_ROUTER");
+}
+
 /** Native MON, as the launchpad spells it. */
 export const NATIVE: Address = zeroAddress;
 

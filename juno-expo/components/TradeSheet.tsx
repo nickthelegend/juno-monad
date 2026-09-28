@@ -50,6 +50,8 @@ const QUICK_USD = [2, 20, 50];
 const QUICK_QUOTE = [0.1, 0.25, 0.5];
 /** A sell is a fraction of what you hold; absolute sizes mean nothing there. */
 const QUICK_SELL = [0.25, 0.5, 0.75, 1];
+/** Exact-out sizes, in tokens. Every Juno coin has a one-billion supply. */
+const QUICK_TOKENS = [100_000, 1_000_000, 10_000_000, 50_000_000];
 
 /**
  * MON kept back for gas: off the top of a Max buy, and as the floor under any
@@ -151,6 +153,15 @@ export function TradeSheet({
   const wallet = useWallet();
   const [side, setSide] = useState<"buy" | "sell">(initialSide);
   const [amount, setAmount] = useState(initialAmount);
+  /**
+   * Buy an exact number of tokens rather than spend an exact amount.
+   *
+   * The trader names what they want to hold and the curve names the price;
+   * the transaction is capped at a maximum spend instead of guarded by a
+   * minimum out. Buys on the curve only — a sell already names its token
+   * amount exactly.
+   */
+  const [exact, setExact] = useState(false);
   const [quote, setQuote] = useState<Awaited<ReturnType<typeof juno.buildSwap>> | null>(null);
   const [quoting, setQuoting] = useState(false);
   const [stage, setStage] = useState<Stage>("entry");
@@ -189,9 +200,15 @@ export function TradeSheet({
    * suggester, the fill-the-curve note) do not apply.
    */
   const onKuru = coin.curve.graduated && coin.venue === "kuru";
+  /** Graduated into its Uniswap v2 pair: traded through Juno's router. */
+  const onPair = coin.curve.graduated && coin.venue !== "kuru";
+  const offCurve = onKuru || onPair;
   const value = Number(amount || "0");
   const valid = Number.isFinite(value) && value > 0;
-  const unit = side === "buy" ? coin.quote.symbol : coin.symbol;
+  const exactOut = side === "buy" && exact && !offCurve;
+  const unit = side === "buy" && !exactOut ? coin.quote.symbol : coin.symbol;
+  /** What the balance is counted in — never the exact-out token. */
+  const balanceUnit = side === "buy" ? coin.quote.symbol : coin.symbol;
   const rate = coin.quoteUsdRate;
 
   /**
@@ -243,9 +260,12 @@ export function TradeSheet({
     }`;
   }, [coin.nav, side]);
 
+  // What this trade takes out of the wallet. For an exact-out buy that is only
+  // known once quoted, and the bound that matters is the most it may cost.
+  const spend = exactOut ? (quote?.quote.maximumAmountIn ?? null) : value;
   const blocker = useMemo((): { text: string; url?: string; gas?: boolean } | null => {
     if (!valid) return null;
-    if (balance !== null && value > balance) {
+    if (balance !== null && spend !== null && spend > balance) {
       if (side === "sell") return { text: `You hold ${tokens(balance)} ${coin.symbol}.` };
       if (native) {
         return {
@@ -262,7 +282,7 @@ export function TradeSheet({
     // Gas is paid in MON whatever the market is priced in. On a MON market the
     // quote balance is the MON balance, on either side of the trade.
     const mon = native ? quoteBalance : feeBalance;
-    const spending = native && side === "buy" ? value : 0;
+    const spending = native && side === "buy" ? (spend ?? 0) : 0;
     if (mon !== null && mon !== undefined && mon - spending < GAS_RESERVE_MON) {
       return {
         gas: true,
@@ -273,18 +293,18 @@ export function TradeSheet({
       };
     }
     return null;
-  }, [valid, balance, value, side, coin.symbol, coin.quote.symbol, native, testnet, quoteBalance, feeBalance]);
+  }, [valid, balance, spend, side, coin.symbol, coin.quote.symbol, native, testnet, quoteBalance, feeBalance]);
 
   const usdEquivalent = useMemo(() => {
     if (!valid) return null;
     const live = quote?.quoteUsdRate ?? rate;
-    if (side === "buy") return live === null ? null : money(value * live, "USD", { compact: false });
+    if (side === "buy" && !exactOut) return live === null ? null : money(value * live, "USD", { compact: false });
     return coin.priceUsd > 0 ? money(value * coin.priceUsd, coin.marketCapCurrency, { compact: false }) : null;
-  }, [valid, value, side, quote?.quoteUsdRate, rate, coin.priceUsd, coin.marketCapCurrency]);
+  }, [valid, value, side, exactOut, quote?.quoteUsdRate, rate, coin.priceUsd, coin.marketCapCurrency]);
 
   // An amount the wallet cannot cover is refused in words above; quoting it
   // would spend a round trip on a transaction nobody can sign.
-  const overBalance = valid && balance !== null && value > balance;
+  const overBalance = valid && balance !== null && !exactOut && value > balance;
   /** The hint's size is more than this wallet holds to sell. */
   const sellsAll =
     side === "sell" && suggestion !== null && holding !== null && holding > 0 && holding < suggestion.amountIn;
@@ -305,7 +325,7 @@ export function TradeSheet({
           token: coin.address,
           owner: wallet.address!,
           side,
-          amountIn: value,
+          ...(exactOut ? { amountOut: value } : { amountIn: value }),
         });
         if (!cancelled) {
           setQuote(built);
@@ -325,13 +345,13 @@ export function TradeSheet({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [amount, valid, value, side, coin.address, wallet.address, overBalance]);
+  }, [amount, valid, value, side, exactOut, coin.address, wallet.address, overBalance]);
 
   useEffect(() => {
     let cancelled = false;
     setSuggestion(null);
-    // The suggester walks the curve; after a Kuru graduation there is none.
-    if (onKuru) return;
+    // The suggester walks the curve; after a graduation there is none.
+    if (offCurve) return;
     setSuggesting(true);
     juno
       .depth(coin.address, side, IMPACT_BUDGET)
@@ -354,7 +374,7 @@ export function TradeSheet({
     return () => {
       cancelled = true;
     };
-  }, [coin.address, side, onKuru]);
+  }, [coin.address, side, offCurve]);
 
   const press = useCallback((key: string) => {
     setError(null);
@@ -391,7 +411,15 @@ export function TradeSheet({
        * one before signing, so what is signed is what the sheet shows.
        */
       const fresh = await juno
-        .buildSwap({ token: coin.address, owner: address, side, amountIn: value }, REQUOTE_MS)
+        .buildSwap(
+          {
+            token: coin.address,
+            owner: address,
+            side,
+            ...(exactOut ? { amountOut: value } : { amountIn: value }),
+          },
+          REQUOTE_MS,
+        )
         // A refresh that times out is not a reason to refuse the trade while
         // the quote on screen still has comfortable life left — failing here
         // would turn a slow endpoint into a failed buy. Past that margin the
@@ -424,7 +452,8 @@ export function TradeSheet({
       setTxHash(landed);
       setLandedAt(new Date());
       setStage("done");
-      onFilled?.(value, landed);
+      // What was spent: on an exact-out buy, the cost the curve named.
+      onFilled?.(exactOut ? (live.quote.amountIn ?? value) : value, landed);
 
       // The announcement, if one was written. Its failure is reported on its
       // own line: the trade is already on chain and saying "the trade failed"
@@ -487,13 +516,14 @@ export function TradeSheet({
         amount: balance === null ? null : balance * fraction,
       }));
     }
+    if (exactOut) return QUICK_TOKENS.map((size) => ({ label: tokens(size), amount: size as number | null }));
     const spendable = balance === null ? null : native ? balance - GAS_RESERVE_MON : balance;
     const max = { label: "Max", amount: spendable !== null && spendable > 0 ? spendable : null };
     if (rate === null || rate <= 0) {
       return [...QUICK_QUOTE.map((size) => ({ label: `${size} ${coin.quote.symbol}`, amount: size })), max];
     }
     return [...QUICK_USD.map((dollars) => ({ label: `$${dollars}`, amount: dollars / rate })), max];
-  }, [side, balance, rate, native, coin.quote.symbol]);
+  }, [side, exactOut, balance, rate, native, coin.quote.symbol]);
 
   const done = stage === "done" && txHash !== null;
 
@@ -541,7 +571,7 @@ export function TradeSheet({
               {side === "buy"
                 ? `Bought ${receiving ?? ""}`
                 : `Sold ${tokens(value)} ${coin.symbol} for ${receiving ?? ""}`}{" "}
-              {onKuru ? "on Kuru " : ""}— confirmed on{" "}
+              {onKuru ? "on Kuru " : onPair ? "on Uniswap v2 " : ""}— confirmed on{" "}
               {juno.loadedConfig()?.localFork ? "a local fork of Monad testnet" : "Monad"}
               {/* Measured on the server from broadcast to receipt — the one
                   number that says why this runs on Monad. */}
@@ -584,12 +614,34 @@ export function TradeSheet({
                 <Caption>{usdEquivalent ? `~${usdEquivalent}` : " "}</Caption>
               </Col>
               <Col gap={4} style={{ alignItems: "flex-end" }}>
-                <TokenChip>
-                  <TokenDot />
-                  <TokenText>{unit}</TokenText>
-                </TokenChip>
+                {/* On a curve buy the chip is the switch: spend an exact amount
+                    of the quote token, or receive an exact number of tokens. */}
+                <Tappable
+                  onPress={() => {
+                    if (side !== "buy" || offCurve) return;
+                    setExact((on) => !on);
+                    setAmount("");
+                    setQuote(null);
+                    setError(null);
+                  }}
+                  to={0.95}
+                  accessibilityRole={side === "buy" && !offCurve ? "button" : undefined}
+                  accessibilityLabel={
+                    side === "buy" && !offCurve
+                      ? exactOut
+                        ? `Buying an exact number of ${coin.symbol}. Switch to spending ${coin.quote.symbol}`
+                        : `Spending ${coin.quote.symbol}. Switch to buying an exact number of ${coin.symbol}`
+                      : undefined
+                  }
+                >
+                  <TokenChip>
+                    <TokenDot />
+                    <TokenText>{unit}</TokenText>
+                    {side === "buy" && !offCurve ? <TokenText>⇅</TokenText> : null}
+                  </TokenChip>
+                </Tappable>
                 <Caption>
-                  Balance: {balance === null ? "—" : `${tokens(balance)} ${unit}`}
+                  Balance: {balance === null ? "—" : `${tokens(balance)} ${balanceUnit}`}
                 </Caption>
               </Col>
             </Field>
@@ -614,11 +666,11 @@ export function TradeSheet({
                 A bonding curve's whole character is how it absorbs size, and
                 that number was invisible in the one place a trader is deciding
                 on size. */}
-            {suggesting ? (
+            {suggesting && !exactOut ? (
               <Depth>
                 <Caption>Measuring what this curve will take…</Caption>
               </Depth>
-            ) : suggestion ? (
+            ) : suggestion && !exactOut ? (
               /* A seller can only sell what they hold. When that is less than
                  the curve would take inside the budget, the useful answer is
                  about their holding, and every smaller sale moves it less. */
@@ -701,22 +753,35 @@ export function TradeSheet({
               {quoting
                 ? onKuru
                   ? "Quoting Kuru's book…"
-                  : "Quoting against the curve…"
-                : receiving
-                  ? `You'll receive ${receiving}`
-                  : " "}
+                  : onPair
+                    ? "Quoting its Uniswap v2 pair…"
+                    : "Quoting against the curve…"
+                : exactOut && quote?.quote.amountIn !== undefined
+                  ? `Costs ${money(quote.quote.amountIn, coin.quote.symbol, { compact: false })} · at most ${money(
+                      quote.quote.maximumAmountIn ?? quote.quote.amountIn,
+                      coin.quote.symbol,
+                      { compact: false },
+                    )}`
+                  : receiving
+                    ? `You'll receive ${receiving}`
+                    : " "}
             </Receive>
             {onKuru ? (
               <Caption style={{ textAlign: "center" }}>
                 Fills on {coin.symbol}&rsquo;s Kuru market — its order book and the vault holding the curve&rsquo;s
                 reserves. Kuru charges the taker fee.
               </Caption>
+            ) : onPair ? (
+              <Caption style={{ textAlign: "center" }}>
+                Fills against {coin.symbol}&rsquo;s Uniswap v2 pair — the curve&rsquo;s reserves, locked there for good.
+                The pair keeps 0.3% of what goes in.
+              </Caption>
             ) : null}
 
             {/* A buy bigger than what is left on the curve fills it and gets
                 the rest back in the same transaction. Said before signing,
                 with the exact size, rather than discovered on the receipt. */}
-            {side === "buy" && !onKuru && quote && !quoting && quote.quote.amountUsed < value * (1 - 1e-9) ? (
+            {side === "buy" && !offCurve && !exactOut && quote && !quoting && quote.quote.amountUsed < value * (1 - 1e-9) ? (
               <FillNote>
                 <HintText>
                   {`This fills the curve: it uses ${tokens(quote.quote.amountUsed)} ${coin.quote.symbol} and refunds the rest in the same transaction.`}

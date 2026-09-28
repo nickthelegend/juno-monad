@@ -10,7 +10,7 @@ import { quoteTokenUsdPrice } from "./pyth";
 import { listPools } from "./registry";
 import { tryRead } from "./rpc";
 import { CallerError } from "./api";
-import { envioConfigured, envioKuruTrades, envioPositions, envioTrades } from "./envio";
+import { envioConfigured, envioKuruTrades, envioPairTrades, envioPositions, envioTrades } from "./envio";
 import { listSwapHistory } from "./swaps";
 import type { JunoPoolRow } from "./registry";
 
@@ -384,13 +384,14 @@ export async function loadPortfolio(
  * position in some other token the launchpad sold has no name or media here.
  */
 async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promise<Position[] | null> {
-  const [indexed, curveTrades, kuruTrades] = await Promise.all([
+  const [indexed, curveTrades, kuruTrades, pairTrades] = await Promise.all([
     envioPositions(owner),
     envioTrades({ trader: owner, limit: 1_000 }),
-    // After a graduation into Kuru the same position keeps trading there.
+    // After a graduation the same position keeps trading, on Kuru or the v2 pair.
     envioKuruTrades({ trader: owner, limit: 1_000 }).catch(() => []),
+    envioPairTrades({ trader: owner, limit: 1_000 }).catch(() => []),
   ]);
-  const trades = [...curveTrades, ...kuruTrades];
+  const trades = [...curveTrades, ...kuruTrades, ...pairTrades];
   const byToken = new Map(rows.map((row) => [row.token, row]));
   const positions: Position[] = [];
   for (const entry of indexed) {

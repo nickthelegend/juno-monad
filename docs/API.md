@@ -60,7 +60,7 @@ const signed = await account.signTransaction({
 
 | Route | Body | Answer |
 |---|---|---|
-| `POST tx/swap` | `{ token, owner, side: "buy"\|"sell", amountIn, slippageBps? }` | `{ steps, window: { deadline }, quote: { amountOut, minimumAmountOut, amountUsed, fee, priceImpact, curveImpact }, quoteSymbol, quoteUsdRate, venue: "curve"\|"kuru", market? }` — a coin that graduated into Kuru is traded on its Kuru market (`venue: "kuru"`, a market order; a sell adds a one-time approval step) |
+| `POST tx/swap` | `{ token, owner, side: "buy"\|"sell", amountIn, slippageBps? }`, or on a curve buy `{ …, amountOut }` for an exact number of tokens | `{ steps, window: { deadline }, quote: { amountOut, minimumAmountOut, amountUsed, fee, priceImpact, curveImpact, amountIn?, maximumAmountIn? }, quoteSymbol, quoteUsdRate, venue: "curve"\|"kuru"\|"uniswap-v2", market?, pair? }` — with `amountOut` the build is `buyExactOut`: exactly those tokens, capped at `maximumAmountIn` (the quoted cost plus slippage), never a partial fill. A coin that graduated into Kuru is traded on its Kuru market (`venue: "kuru"`); one that graduated into Uniswap v2 is traded against its pair through `JunoSwapRouter` (`venue: "uniswap-v2"`, needs `JUNO_SWAP_ROUTER`). On either, a sell adds a one-time approval step |
 | `POST tx/launch` | `{ creator, name, symbol, preset, uri?, quoteToken?, initialMarketCap?, migrationMarketCap?, firstBuy?, venue?: "uniswap-v2"\|"kuru" }` — `venue` is where the curve graduates, fixed at launch; Kuru needs a MON quote and a server with `JUNO_KURU_GRADUATOR` | `{ steps, token, launchpad, migrationQuoteThreshold }` — `token` is where the coin will be deployed, predicted by the launchpad |
 | `POST tx/claim` | `{ creator, token }` | `{ steps }` — pays the creator their accrued trading fees |
 | `POST tx/graduate` | `{ from, token }` | `{ steps }` — moves a filled curve into its venue (its Uniswap v2 pair, or a new Kuru market); anyone may send it |
@@ -105,7 +105,7 @@ field is the confirmation to index the coin with `POST pools`.
 
 | Route | Answer |
 |---|---|
-| `GET config` | `{ network, chainId, rpcUrl, launchpad, explorer, quoteTokens: QuoteToken[], faucet: boolean, venues: { id, name, quotes }[] }` — `explorer` is the base URL; links are `${explorer}/tx/${hash}`, `/address/${a}`, `/token/${t}` |
+| `GET config` | `{ network, chainId, rpcUrl, localFork, launchpad, explorer, quoteTokens: QuoteToken[], faucet: boolean, v2Trading: boolean, venues: { id, name, quotes }[] }` — `explorer` is the base URL; links are `${explorer}/tx/${hash}`, `/address/${a}`, `/token/${t}`. `localFork` is true when the server's RPC is a local node (say so instead of crediting Monad). `v2Trading` says whether coins that graduated into Uniswap v2 can be traded through the API |
 
 ## Coins
 

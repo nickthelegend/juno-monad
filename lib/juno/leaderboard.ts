@@ -1,6 +1,6 @@
 import "server-only";
 
-import { envioAllTrades, envioConfigured, envioKuruTrades } from "./envio";
+import { envioAllTrades, envioConfigured, envioKuruTrades, envioPairTrades } from "./envio";
 import { basisFromSwaps } from "./portfolio";
 import { fetchPoolSnapshot } from "./launchpad";
 import { markPrice } from "./mark";
@@ -118,20 +118,23 @@ export async function leaderboard(poolLimit = 60, width = 2): Promise<Leaderboar
 async function indexedHistories(): Promise<Map<string, SwapHistory> | null> {
   if (!envioConfigured()) return null;
   try {
-    const [curve, kuru] = await Promise.all([
+    // Every page of a post-graduation venue's trades, oldest first.
+    const everyPage = async (read: typeof envioKuruTrades) => {
+      const out: PoolSwap[] = [];
+      for (let offset = 0; offset < 10_000; offset += 1_000) {
+        const page = await read({ limit: 1_000, offset, oldestFirst: true });
+        out.push(...page);
+        if (page.length < 1_000) break;
+      }
+      return out;
+    };
+    const [curve, kuru, pair] = await Promise.all([
       envioAllTrades(),
-      (async () => {
-        const out: PoolSwap[] = [];
-        for (let offset = 0; offset < 10_000; offset += 1_000) {
-          const page = await envioKuruTrades({ limit: 1_000, offset, oldestFirst: true });
-          out.push(...page);
-          if (page.length < 1_000) break;
-        }
-        return out;
-      })(),
+      everyPage(envioKuruTrades),
+      everyPage(envioPairTrades).catch(() => [] as PoolSwap[]),
     ]);
     const byToken = new Map<string, SwapHistory>();
-    for (const swap of [...curve.swaps, ...kuru]) {
+    for (const swap of [...curve.swaps, ...kuru, ...pair]) {
       const entry = byToken.get(swap.token) ?? { swaps: [], partial: !curve.complete };
       entry.swaps.push(swap);
       byToken.set(swap.token, entry);

@@ -44,7 +44,11 @@ export async function POST(request: Request) {
     if (side !== "buy" && side !== "sell") {
       throw new CallerError('"side" must be "buy" or "sell"');
     }
-    const amountIn = requireNumber(body.amountIn, "amountIn");
+    // Either what to spend (`amountIn`) or, on a buy against the curve,
+    // exactly how many tokens to receive (`amountOut`).
+    const amountOut =
+      body.amountOut === undefined || body.amountOut === null ? undefined : requireNumber(body.amountOut, "amountOut");
+    const amountIn = amountOut === undefined ? requireNumber(body.amountIn, "amountIn") : 0;
 
     // Basis points become a bigint factor when the minimum is computed, so a
     // fraction would throw deep inside the quote and come back as a 500.
@@ -59,7 +63,7 @@ export async function POST(request: Request) {
     const row = await getPool(token);
     if (!row) throw new CallerError("Coin not found", 404);
 
-    const result = await retryWhenBusy(() => buildSwap({ token, side, amountIn, owner, slippageBps }));
+    const result = await retryWhenBusy(() => buildSwap({ token, side, amountIn, amountOut, owner, slippageBps }));
 
     return junoJson({ ...result, token: row.token, symbol: row.symbol });
   });

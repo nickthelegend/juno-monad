@@ -14,7 +14,7 @@ import {
   toUnits,
   tradePrice,
 } from "./math";
-import { quoteDecimals } from "./quotes";
+import { isV2Lock, pairQuoteAddress, quoteDecimals } from "./quotes";
 
 /**
  * Juno launchpad handlers.
@@ -204,6 +204,8 @@ function applyFill(
 // block, so the constructor's mint (emitted before `Launched`) is seen too.
 indexer.contractRegister({ contract: "JunoLaunchpad", event: "Launched" }, async ({ event, context }) => {
   context.chain.JunoToken.add(event.params.token);
+  // The v2 pair it will graduate into, whose address is fixed from here on.
+  if (isV2Lock(event.chainId, event.params.venue)) context.chain.UniswapV2Pair.add(event.params.venue);
 });
 
 indexer.onEvent({ contract: "JunoLaunchpad", event: "Launched" }, async ({ event, context }) => {
@@ -264,6 +266,24 @@ indexer.onEvent({ contract: "JunoLaunchpad", event: "Launched" }, async ({ event
     liquidity: undefined,
     burned: undefined,
   });
+
+  // The pair this coin graduates into, ready for its first Sync.
+  const pairQuote = pairQuoteAddress(event.chainId, quote);
+  if (isV2Lock(event.chainId, event.params.venue) && pairQuote) {
+    context.V2Pair.set({
+      id: event.params.venue,
+      token,
+      pool_id: token,
+      coinIsToken0: token.toLowerCase() < pairQuote,
+      quoteDecimals: decimals,
+      coinReserveRaw: 0n,
+      quoteReserveRaw: 0n,
+      tradeCount: 0,
+      volumeQuote: ZERO,
+      lastPrice: undefined,
+      lastTradeAt: undefined,
+    });
+  }
 
   context.Launchpad.set({ ...lp, poolCount: lp.poolCount + 1 });
   context.QuoteToken.set({ ...quoteToken, poolCount: quoteToken.poolCount + 1 });
@@ -531,6 +551,91 @@ indexer.onEvent({ contract: "KuruMarket", event: "Trade" }, async ({ event, cont
     quoteRaw: leg.quoteRaw,
     feeRaw: leg.feeRaw,
     quoteDecimals: 18,
+    at,
+    block: BigInt(event.block.number),
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* The Uniswap v2 venue                                               */
+/* ------------------------------------------------------------------ */
+
+// Reserves after every change — the graduation's mint, then every trade. A
+// pair emits `Sync` just before `Swap`, so a trade reads the price it left.
+indexer.onEvent({ contract: "UniswapV2Pair", event: "Sync" }, async ({ event, context }) => {
+  const pair = await context.V2Pair.get(event.srcAddress);
+  if (!pair) return;
+  const { reserve0, reserve1 } = event.params;
+  context.V2Pair.set({
+    ...pair,
+    coinReserveRaw: pair.coinIsToken0 ? reserve0 : reserve1,
+    quoteReserveRaw: pair.coinIsToken0 ? reserve1 : reserve0,
+  });
+});
+
+// One trade against a graduated coin's pair. The trader is whoever sent the
+// transaction: through Juno's router the pair's own `to` is the router on a
+// sell, and through anyone else's it is whatever that router chose.
+indexer.onEvent({ contract: "UniswapV2Pair", event: "Swap" }, async ({ event, context }) => {
+  const pair = await context.V2Pair.get(event.srcAddress);
+  if (!pair) return;
+  const { amount0In, amount1In, amount0Out, amount1Out } = event.params;
+  const coinOut = pair.coinIsToken0 ? amount0Out : amount1Out;
+  const coinIn = pair.coinIsToken0 ? amount0In : amount1In;
+  const quoteIn = pair.coinIsToken0 ? amount1In : amount0In;
+  const quoteOut = pair.coinIsToken0 ? amount1Out : amount0Out;
+  const isBuy = coinOut > 0n;
+  const baseRaw = isBuy ? coinOut : coinIn;
+  const quoteRaw = isBuy ? quoteIn : quoteOut;
+  if (baseRaw === 0n || quoteRaw === 0n) return;
+
+  const trader = event.transaction.from ?? event.params.to;
+  const [position, account] = await Promise.all([
+    context.Position.get(positionId(trader, pair.token)),
+    context.Account.get(trader),
+  ]);
+  const at = BigInt(event.block.timestamp);
+  const price =
+    pair.coinReserveRaw > 0n ? tradePrice(pair.coinReserveRaw, pair.quoteReserveRaw, pair.quoteDecimals) : undefined;
+  const quote = toUnits(quoteRaw, pair.quoteDecimals);
+
+  context.PairTrade.set({
+    id: `${event.transaction.hash}:${event.logIndex}`,
+    txHash: event.transaction.hash,
+    logIndex: event.logIndex,
+    blockNumber: BigInt(event.block.number),
+    timestamp: at,
+    pair_id: pair.id,
+    token: pair.token,
+    pool_id: pair.token,
+    trader,
+    isBuy,
+    baseAmount: toUnits(baseRaw, BASE_DECIMALS),
+    quoteAmount: quote,
+    price: price ?? tradePrice(baseRaw, quoteRaw, pair.quoteDecimals),
+  });
+  context.V2Pair.set({
+    ...pair,
+    tradeCount: pair.tradeCount + 1,
+    volumeQuote: pair.volumeQuote.plus(quote),
+    lastPrice: price ?? pair.lastPrice,
+    lastTradeAt: at,
+  });
+
+  // The same position the curve built, carried across the graduation. v2
+  // keeps 0.3% of the input: of the quote on a buy, of the tokens on a sell
+  // (counted here in quote, at the trade's own rate).
+  const feeRaw = isBuy ? (quoteRaw * 3n) / 1_000n : (quoteRaw * 3n) / 997n;
+  applyFill(context, {
+    position,
+    account,
+    trader,
+    token: pair.token,
+    isBuy,
+    baseRaw,
+    quoteRaw,
+    feeRaw,
+    quoteDecimals: pair.quoteDecimals,
     at,
     block: BigInt(event.block.number),
   });

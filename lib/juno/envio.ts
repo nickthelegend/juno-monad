@@ -169,6 +169,55 @@ export async function envioKuruTrades(params: {
   });
 }
 
+type PairTradeRow = KuruTradeRow;
+
+/** v2 keeps 0.3% of every input (`JunoSwapRouter.getAmountOut`). */
+const V2_FEE = 0.003;
+
+/**
+ * Trades against the Uniswap v2 pairs coins graduated into, newest first — by
+ * any router, attributed to the transaction's sender. `quoteAmount` is what
+ * was paid (a buy, fee included) or received (a sell, fee already kept by
+ * the pair), as a curve trade reports it.
+ */
+export async function envioPairTrades(params: {
+  token?: string;
+  trader?: string;
+  limit?: number;
+  offset?: number;
+  oldestFirst?: boolean;
+}): Promise<PoolSwap[]> {
+  const where: Record<string, unknown> = {};
+  if (params.token) where.token = { _eq: getAddress(params.token) };
+  if (params.trader) where.trader = { _eq: getAddress(params.trader) };
+  const data = await query<{ PairTrade: PairTradeRow[] }>(
+    `query PairTrades($where: PairTrade_bool_exp!, $limit: Int!, $offset: Int!) {
+      PairTrade(where: $where, order_by: [{ blockNumber: ${params.oldestFirst ? "asc" : "desc"} }, { logIndex: ${params.oldestFirst ? "asc" : "desc"} }], limit: $limit, offset: $offset) {
+        id txHash logIndex token trader isBuy baseAmount quoteAmount price blockNumber timestamp
+      }
+    }`,
+    { where, limit: params.limit ?? 200, offset: params.offset ?? 0 },
+  );
+  return data.PairTrade.map((row) => {
+    const quote = Number(row.quoteAmount);
+    return {
+      id: row.id,
+      txHash: row.txHash,
+      logIndex: Number(row.logIndex),
+      token: getAddress(row.token),
+      side: row.isBuy ? "buy" : "sell",
+      baseAmount: Number(row.baseAmount),
+      quoteAmount: quote,
+      fee: row.isBuy ? quote * V2_FEE : (quote * V2_FEE) / (1 - V2_FEE),
+      price: Number(row.price),
+      trader: getAddress(row.trader),
+      timestamp: new Date(Number(row.timestamp) * 1000).toISOString(),
+      blockNumber: Number(row.blockNumber),
+      venue: "uniswap-v2" as const,
+    };
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Positions, holders and pool stats                                   */
 /* ------------------------------------------------------------------ */

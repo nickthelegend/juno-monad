@@ -237,6 +237,11 @@ export type ChainConfig = {
    * Absent on an older server, which offers Uniswap v2 only.
    */
   venues?: Array<{ id: Venue; name: string; quotes: string[] }>;
+  /**
+   * Whether a coin that graduated into Uniswap v2 can be traded in the app
+   * (the deployment has Juno's swap router). Absent on an older server.
+   */
+  v2Trading?: boolean;
 };
 
 /** A Perpl perpetual market, live. Prices USD; `fundingRate` per interval as a ratio. */
@@ -665,12 +670,16 @@ export type SwapBuild = {
     fee: number;
     priceImpact: number;
     curveImpact: number;
+    /** Exact-out buys only: the expected cost, and the most the transaction may spend. */
+    amountIn?: number;
+    maximumAmountIn?: number;
   };
   quoteSymbol: string;
   quoteUsdRate: number | null;
-  /** Where the order goes: the curve, or the coin's Kuru market after graduation. */
-  venue?: "curve" | "kuru";
+  /** Where the order goes: the curve, or after graduation the Kuru market or the v2 pair. */
+  venue?: "curve" | "kuru" | "uniswap-v2";
   market?: string;
+  pair?: string;
 };
 
 export type LaunchBuild = {
@@ -1128,7 +1137,10 @@ export const juno = {
       token: string;
       owner: string;
       side: "buy" | "sell";
-      amountIn: number;
+      /** What to spend (quote on a buy, tokens on a sell)… */
+      amountIn?: number;
+      /** …or, on a curve buy, exactly how many tokens to receive. */
+      amountOut?: number;
       slippageBps?: number;
     },
     /** Shorter than the default when the caller has a usable quote to fall back on. */

@@ -80,3 +80,37 @@ export async function quoteDecimals(context: Pick<EvmOnEventContext, "effect">, 
   if (known !== undefined) return known;
   return context.effect(readDecimals, quote);
 }
+
+/**
+ * Wrapped MON per chain: the other side of a MON-quoted coin's v2 pair.
+ * (`Deploy.s.sol` uses the same addresses.)
+ */
+const WRAPPED_NATIVE: Record<number, string> = {
+  10143: "0xfb8bf4c1cc7a94c73d209a149ea2abea852bc541",
+  143: "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+};
+
+/**
+ * Kuru's MarginAccount per chain. A coin that will graduate into Kuru locks
+ * this address at launch instead of a v2 pair, so it is never a pair to index.
+ */
+const KURU_MARGIN_ACCOUNTS: Record<number, string[]> = {
+  10143: ["0xd029c2d98ff85d8f64799017fe00a59b1159ce02"],
+  143: [],
+};
+
+/** The pair side a coin's quote sits on: WMON for native MON, else the token itself. */
+export function pairQuoteAddress(chainId: number, quote: string): string | null {
+  if (quote.toLowerCase() !== ZERO_ADDRESS) return quote.toLowerCase();
+  return WRAPPED_NATIVE[chainId] ?? null;
+}
+
+/**
+ * Whether the address a launch locked is a Uniswap v2 pair: not the zero
+ * address (no graduator), and not Kuru's MarginAccount (the Kuru venue).
+ */
+export function isV2Lock(chainId: number, venue: string): boolean {
+  const lock = venue.toLowerCase();
+  return lock !== ZERO_ADDRESS && !(KURU_MARGIN_ACCOUNTS[chainId] ?? []).includes(lock);
+}
+

@@ -25,12 +25,14 @@ import {
   VenueUnavailableError,
   buildApproveCall,
   buildClaimCreatorFeesCall,
+  buildExactOutBuyCall,
   buildGraduateCall,
   buildSwapCall,
   fetchPoolSnapshot,
   invalidatePoolSnapshot,
   planLaunch,
   quoteAllowance,
+  quoteExactOutBuy,
   quoteTokenFor,
   quoteTrade,
   readPool,
@@ -38,6 +40,7 @@ import {
   venueOf,
   uiToWei,
   type ContractCall,
+  type PoolSnapshot,
   type TradeQuote,
 } from "./launchpad";
 import {
@@ -51,7 +54,7 @@ import {
   kuruTokenOf,
   quoteKuruTrade,
 } from "./kuru";
-import { chainId, launchpadAddress, requireLaunchpad } from "./network";
+import { chainId, launchpadAddress, requireLaunchpad, swapRouterAddress } from "./network";
 import {
   PerpRejected,
   perpAccount,
@@ -67,6 +70,7 @@ import { quoteTokenUsdPrice } from "./pyth";
 import { withRetry } from "./rpc";
 import { invalidateSwapHistory, recordReceiptTrades } from "./swaps";
 import type { CurvePresetId, TradeSide, Venue } from "./types";
+import { buildV2SwapCalls, quoteV2Trade } from "./v2";
 
 /**
  * Transactions built on the server, signed on the device.
@@ -221,6 +225,12 @@ export type SwapBuildRequest = {
   side: TradeSide;
   /** Input amount in UI units — quote units on a buy, token units on a sell. */
   amountIn: number;
+  /**
+   * On a buy against the curve, exactly how many tokens to receive instead:
+   * the curve names the price and the transaction caps what it may spend.
+   * `amountIn` is ignored when this is set.
+   */
+  amountOut?: number;
   /** The wallet that will sign and pay. */
   owner: string;
   slippageBps?: number;
@@ -230,38 +240,57 @@ export type SwapBuildResult = {
   /** In order. Usually one; an approval first when a USDC buy needs one. */
   steps: UnsignedTransaction[];
   window: TxWindow;
-  quote: Omit<TradeQuote, "raw">;
+  /** On an exact-out buy, also `amountIn` (the cost) and `maximumAmountIn` (the cap). */
+  quote: Omit<TradeQuote, "raw"> & { amountIn?: number; maximumAmountIn?: number };
   /** What the quote is denominated in, for honest labelling on the client. */
   quoteSymbol: string;
   /** Null when no USD feed is available for the quote token. */
   quoteUsdRate: number | null;
-  /** Where the order goes: the curve, or the coin's Kuru market after graduation. */
-  venue: "curve" | "kuru";
+  /**
+   * Where the order goes: the curve, or after graduation the coin's Kuru
+   * market or its Uniswap v2 pair.
+   */
+  venue: "curve" | "kuru" | "uniswap-v2";
   /** The Kuru market, when `venue` is "kuru". */
   market?: Address;
+  /** The v2 pair, when `venue` is "uniswap-v2". */
+  pair?: Address;
 };
 
 export async function buildSwap(request: SwapBuildRequest): Promise<SwapBuildResult> {
-  if (!Number.isFinite(request.amountIn) || request.amountIn <= 0) {
+  const exactOut = request.amountOut !== undefined;
+  const size = exactOut ? request.amountOut! : request.amountIn;
+  if (!Number.isFinite(size) || size <= 0) {
     throw new CallerError("Amount must be greater than zero");
+  }
+  if (exactOut && request.side !== "buy") {
+    throw new CallerError('"amountOut" is for buys; a sell already names its token amount');
   }
 
   const owner = requireWallet(request.owner, "owner");
   const snapshot = await fetchPoolSnapshot(request.token);
   if (!snapshot) throw new CallerError("This coin has no pool on this network");
 
+  if (exactOut && (snapshot.curve.graduated || snapshot.curve.complete)) {
+    throw new CallerError("Buying an exact number of tokens is for coins still on their curve");
+  }
   // A coin that graduated into Kuru keeps trading here, on its Kuru market.
   if (snapshot.curve.graduated && snapshot.venue === "kuru") {
     return buildKuruSwap(request, owner, snapshot.token, snapshot.quote.symbol, snapshot.quote.address);
   }
+  // One that graduated into Uniswap v2 trades against its pair, through the router.
+  if (snapshot.curve.graduated) {
+    if (!swapRouterAddress()) {
+      throw new CallerError("This coin has graduated — it trades on its AMM pair now");
+    }
+    return buildV2Swap(request, owner, snapshot);
+  }
   // The contract rejects a trade against a finished curve. Saying so here is a
   // far better error than the one the chain would return after signing.
-  if (snapshot.curve.graduated) {
-    throw new CallerError("This coin has graduated — it trades on its AMM pair now");
-  }
   if (snapshot.curve.complete) {
     throw new CallerError("This curve is full. It graduates to its AMM pair next.");
   }
+  if (exactOut) return buildExactOutSwap(request, owner, snapshot);
 
   const quote = await quoteTrade({
     snapshot,
@@ -299,6 +328,82 @@ export async function buildSwap(request: SwapBuildRequest): Promise<SwapBuildRes
     quoteSymbol: snapshot.quote.symbol,
     quoteUsdRate,
     venue: "curve",
+  };
+}
+
+/** Exactly `amountOut` tokens from the curve, the spend capped by slippage. */
+async function buildExactOutSwap(
+  request: SwapBuildRequest,
+  owner: Address,
+  snapshot: PoolSnapshot,
+): Promise<SwapBuildResult> {
+  const quote = await quoteExactOutBuy({
+    snapshot,
+    amountOut: request.amountOut!,
+    slippageBps: request.slippageBps ?? 100,
+  }).catch((error: unknown) => {
+    if (error instanceof InsufficientLiquidityError) {
+      throw new CallerError("The curve does not hold that many tokens. Ask for fewer.");
+    }
+    throw error;
+  });
+  if (quote.raw.amountIn === 0n) throw new CallerError("That amount is too small to trade");
+
+  const deadline = tradeDeadline();
+  const calls: ContractCall[] = [];
+  if (!snapshot.quote.native) {
+    const allowance = await quoteAllowance(owner, snapshot.quote, snapshot.launchpad);
+    if (allowance < quote.raw.amountIn) calls.push(buildApproveCall(snapshot.quote, snapshot.launchpad));
+  }
+  calls.push(buildExactOutBuyCall({ snapshot, owner, quote, deadline }));
+
+  const steps = await prepare(owner, calls);
+  const quoteUsdRate = await quoteTokenUsdPrice(snapshot.quote.address).catch(() => null);
+  const { raw: _raw, ...publicQuote } = quote;
+  return {
+    steps,
+    window: { deadline: Number(deadline) },
+    quote: publicQuote,
+    quoteSymbol: snapshot.quote.symbol,
+    quoteUsdRate,
+    venue: "curve",
+  };
+}
+
+/** A graduated coin, against its Uniswap v2 pair. */
+async function buildV2Swap(
+  request: SwapBuildRequest,
+  owner: Address,
+  snapshot: PoolSnapshot,
+): Promise<SwapBuildResult> {
+  const quote = await quoteV2Trade({
+    snapshot,
+    side: request.side,
+    amountIn: request.amountIn,
+    slippageBps: request.slippageBps ?? 100,
+  }).catch((error: unknown) => {
+    if (error instanceof InsufficientLiquidityError) {
+      throw new CallerError("This coin's pair cannot fill that size. Try a smaller amount.");
+    }
+    throw error;
+  });
+  if (quote.raw.amountOut === 0n) throw new CallerError("That amount is too small to trade");
+
+  const deadline = tradeDeadline();
+  const steps = await prepare(
+    owner,
+    await buildV2SwapCalls({ snapshot, owner, side: request.side, quote, deadline }),
+  );
+  const quoteUsdRate = await quoteTokenUsdPrice(snapshot.quote.address).catch(() => null);
+  const { raw: _raw, ...publicQuote } = quote;
+  return {
+    steps,
+    window: { deadline: Number(deadline) },
+    quote: publicQuote,
+    quoteSymbol: snapshot.quote.symbol,
+    quoteUsdRate,
+    venue: "uniswap-v2",
+    pair: snapshot.pool.venue,
   };
 }
 
@@ -638,6 +743,8 @@ async function describeReceipt(receipt: TransactionReceipt, from: Address): Prom
 
   const trades = await recordReceiptTrades(receipt).catch(() => []);
   result.trades = trades.length;
+  // A graduated coin's trades move its pair, not the launchpad: mark them too.
+  for (const trade of trades) if (trade.venue === "uniswap-v2") touched.add(trade.token);
 
   // Perpl: whether an order filled, opened or closed a position.
   const exchange = perpExchange();

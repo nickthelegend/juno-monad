@@ -120,6 +120,9 @@ export default function CoinScreen() {
   const coin = detail.data?.coin;
   /** The creator chose Kuru: the curve graduates into its own Kuru market, and trades there after. */
   const onKuru = coin?.venue === "kuru";
+  // A coin that graduated into Uniswap v2 trades in the app through Juno's
+  // router, when the deployment has one; otherwise it links to its pair.
+  const pairTrading = !!coin?.curve.graduated && !onKuru && juno.loadedConfig()?.v2Trading === true;
 
   // Only for the count on the tab — the sheet reads its own list when opened,
   // because a list fetched on mount is stale by the time anyone looks at it.
@@ -432,7 +435,9 @@ export default function CoinScreen() {
                     <Caption style={{ flex: 1 }}>
                       {onKuru
                         ? "Trades on its own Kuru market now: an order book, plus a vault holding the curve's reserves for good."
-                        : "Trades on its Uniswap v2 pair now. The liquidity is locked for good."}
+                        : pairTrading
+                          ? "Trades on its Uniswap v2 pair now, right here: buys and sells go through Juno's router. The liquidity is locked for good."
+                          : "Trades on its Uniswap v2 pair now. The liquidity is locked for good."}
                     </Caption>
                   </Row>
                   {onKuru && coin.kuru ? (
@@ -559,7 +564,7 @@ export default function CoinScreen() {
                 <PostGlyph />
               </PostTap>
             </Tappable>
-            {coin.curve.graduated && !onKuru ? (
+            {coin.curve.graduated && !onKuru && !pairTrading ? (
               <GraduatedNote>Trades on its Uniswap v2 pair.</GraduatedNote>
             ) : coin.curve.complete && !coin.curve.graduated ? (
               <Button

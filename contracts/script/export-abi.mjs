@@ -16,6 +16,7 @@ const contracts = [
   ["junoTokenAbi", "JunoToken.sol/JunoToken.json"],
   ["uniswapV2GraduatorAbi", "UniswapV2Graduator.sol/UniswapV2Graduator.json"],
   ["kuruGraduatorAbi", "KuruGraduator.sol/KuruGraduator.json"],
+  ["junoSwapRouterAbi", "JunoSwapRouter.sol/JunoSwapRouter.json"],
   // Kuru's own contracts, as far as Juno uses them (src/interfaces/IKuru.sol).
   ["kuruOrderBookAbi", "IKuru.sol/IKuruOrderBook.json"],
   ["kuruRouterAbi", "IKuru.sol/IKuruRouter.json"],

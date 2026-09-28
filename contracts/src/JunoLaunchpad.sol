@@ -219,6 +219,8 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
     error ZeroAmount();
     error BadValue();
     error Slippage(uint256 got, uint256 wanted);
+    /// @dev An exact-out buy would cost more than the buyer allowed.
+    error ExceedsMax(uint256 cost, uint256 max);
     error InsufficientLiquidity();
     error NotCreator();
     error TransferFailed();
@@ -354,6 +356,51 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         Pool storage p = _live(token);
         _collect(p.quote, quoteIn);
         (baseOut, quotePaid) = _buy(token, p, quoteIn, minBaseOut, recipient);
+    }
+
+    /// @notice Buy an exact number of tokens, paying at most `maxQuoteIn`.
+    /// @dev The trader names what they want to hold and the curve names the
+    /// price: the quote needed is walked up the ranges by base out, the fee is
+    /// added on top, and the buy reverts if that comes to more than the cap.
+    /// With native MON, send exactly `maxQuoteIn`; what the buy did not need
+    /// is refunded in the same call. With a token quote, only the cost is
+    /// pulled. It never fills part-way: past the curve's supply it reverts.
+    /// @return quotePaid Quote actually spent, fee included.
+    function buyExactOut(address token, uint256 baseOut, uint256 maxQuoteIn, address recipient, uint256 deadline)
+        external
+        payable
+        nonReentrant
+        returns (uint256 quotePaid)
+    {
+        if (block.timestamp > deadline) revert Expired();
+        if (baseOut == 0) revert ZeroAmount();
+        Pool storage p = _live(token);
+
+        (uint256 net, uint256 fee, uint160 sqrtAfter) = _quoteBuyExactOut(token, p, baseOut);
+        quotePaid = net + fee;
+        if (quotePaid > maxQuoteIn) revert ExceedsMax(quotePaid, maxQuoteIn);
+
+        if (p.quote == NATIVE) {
+            if (msg.value != maxQuoteIn) revert BadValue();
+        } else {
+            if (msg.value != 0) revert BadValue();
+            IERC20(p.quote).safeTransferFrom(msg.sender, address(this), quotePaid);
+        }
+
+        p.sqrtPriceX96 = sqrtAfter;
+        p.baseReserve -= baseOut;
+        p.quoteReserve += net;
+        _accrue(p, fee);
+
+        uint160 top = _curves[token][SEGMENTS - 1].sqrtPriceX96;
+        bool completed = sqrtAfter >= top;
+        if (completed) p.complete = true;
+
+        IERC20(token).safeTransfer(recipient, baseOut);
+        if (p.quote == NATIVE && maxQuoteIn > quotePaid) _pay(NATIVE, msg.sender, maxQuoteIn - quotePaid);
+
+        emit Trade(token, recipient, true, baseOut, quotePaid, fee, sqrtAfter, p.quoteReserve);
+        if (completed) emit CurveCompleted(token, p.quoteReserve);
     }
 
     /// @notice Sell an exact amount of tokens back to the curve. No approval
@@ -522,6 +569,20 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         return _quoteBuy(token, p, quoteIn);
     }
 
+    /// @notice What `buyExactOut` would cost right now, without doing it.
+    /// @return quoteIn Quote the buy takes, fee included.
+    function quoteBuyExactOut(address token, uint256 baseOut)
+        external
+        view
+        returns (uint256 quoteIn, uint256 fee, uint160 sqrtAfter)
+    {
+        if (baseOut == 0) revert ZeroAmount();
+        Pool storage p = _live(token);
+        uint256 net;
+        (net, fee, sqrtAfter) = _quoteBuyExactOut(token, p, baseOut);
+        quoteIn = net + fee;
+    }
+
     /// @notice What `sell` would do right now, without doing it.
     function quoteSell(address token, uint256 baseIn)
         external
@@ -584,6 +645,57 @@ contract JunoLaunchpad is Ownable2Step, ReentrancyGuardTransient {
         }
         if (baseOut > p.baseReserve) baseOut = p.baseReserve;
         quotePaid = used + fee;
+    }
+
+    /// @dev The quote an exact-out buy of `baseOut` needs: net to the curve,
+    /// and the fee on top, charged at the same rate as an exact-in buy.
+    function _quoteBuyExactOut(address token, Pool storage p, uint256 baseOut)
+        internal
+        view
+        returns (uint256 net, uint256 fee, uint160 sqrtAfter)
+    {
+        if (baseOut > p.baseReserve) revert InsufficientLiquidity();
+        (net, sqrtAfter) = _walkUpForBase(token, p.sqrtPriceX96, p.sqrtStartPriceX96, baseOut);
+        uint256 feePpm = _feePpm(p);
+        // gross * (1 - fee) = net, rounded up: the same fee an exact-in buy of
+        // `net + fee` would be charged, never less.
+        fee = Math.mulDiv(net, feePpm, FEE_DENOMINATOR - feePpm, Math.Rounding.Ceil);
+    }
+
+    /// @dev Walk the price up through the ranges until `amount` of base has
+    /// left the curve. The quote is rounded up in every range and the price
+    /// lands on the rounded-up side: the buyer pays for the movement, never
+    /// the pool. Reverts rather than stopping short at the top.
+    function _walkUpForBase(address token, uint160 sqrtP, uint160 sqrtStart, uint256 amount)
+        internal
+        view
+        returns (uint256 quoteIn, uint160)
+    {
+        Segment[16] storage curve = _curves[token];
+        uint256 remaining = amount;
+        for (uint256 i; i < SEGMENTS && remaining > 0; ++i) {
+            Segment memory seg = curve[i];
+            uint160 lower = i == 0 ? sqrtStart : curve[i - 1].sqrtPriceX96;
+            if (sqrtP >= seg.sqrtPriceX96) continue;
+            if (sqrtP < lower) sqrtP = lower;
+
+            // What the range gives up to its top, counted the way an exact-in
+            // buy counts it (rounded down).
+            uint256 toTop = CurveMath.baseDelta(sqrtP, seg.sqrtPriceX96, seg.liquidity, false);
+            if (remaining >= toTop) {
+                quoteIn += CurveMath.quoteDelta(sqrtP, seg.sqrtPriceX96, seg.liquidity, true);
+                remaining -= toTop;
+                sqrtP = seg.sqrtPriceX96;
+            } else {
+                uint160 next = CurveMath.nextSqrtPriceFromBaseOut(sqrtP, seg.liquidity, remaining);
+                if (next > seg.sqrtPriceX96) next = seg.sqrtPriceX96;
+                quoteIn += CurveMath.quoteDelta(sqrtP, next, seg.liquidity, true);
+                remaining = 0;
+                sqrtP = next;
+            }
+        }
+        if (remaining > 0) revert InsufficientLiquidity();
+        return (quoteIn, sqrtP);
     }
 
     /// @dev Walk the price up through the ranges, spending `amount` of quote.
