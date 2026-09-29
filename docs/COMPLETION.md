@@ -176,3 +176,30 @@ overall; the difference is the three claims added, not a regression.
 - **Beyond the checklist:** a coin that graduates into Uniswap v2 cannot be
   traded in the app (feature #40). No README claim covers it, so it is not
   counted, but it is the largest product gap left.
+
+## Third run (2026-09-29): after the Solana 1.1.0 migration
+
+Measured against the same 52-item checklist and the same weights. What
+changed is in [`PLAN.md`](../PLAN.md)'s Status table, each row with its
+evidence.
+
+| Part | Score | Since the last run |
+|---|---|---|
+| A. Product | **94%** (49 of 52) | **X4 closed**: an iOS release build (simulator) and an Android release APK (emulator, API 35) both reach the feed against the API; on iOS a device-key wallet took MON from the app's faucet and bought a graduated coin on Uniswap v2 ("confirmed on a local fork of Monad testnet in 0.7s"). **X5 closed**: a fresh clone set up as the README says passes every suite — and found that `next build` had been failing since 24 Sep (Next's file tracer and a `let … = null` in the faucet route), now fixed. Open: **B5** (a Privy login needs a person; the native SDK now starts and its sheet opens), **D4** (the live tape follows real testnet), **X1** (no `PYTH_API_KEY`) |
+| B. On Monad | **15%** | Unchanged: the deployer still holds 0 MON. A mainnet deploy was simulated read-only (`docs/MAINNET.md`) |
+| C. Sponsors | **48%** | Unchanged under the strict definition. Privy is now wired on iOS and Android too, but no login has been completed on any platform |
+| D. Submission | **10%** | Unchanged: item 10 only. Ready but not done: `docs/SUBMISSION.md`, the v1.1.0 artifacts, `scripts/publish-github.sh` for item 9 |
+| E. Engineering | **95%** | 74 Foundry tests + 7 Kuru fork tests, 312 unit tests, 10 indexer tests, three typechecks, Slither clean at medium, the production build, fixtures without drift — all run locally at `0654f98`. CI has still never run: there is no remote |
+
+0.35 × 94 + 0.25 × 15 + 0.15 × 48 + 0.15 × 10 + 0.10 × 95 = **55%**.
+
+Beyond the checklist, the largest product gap the last run named — a coin
+that graduated into Uniswap v2 could not be traded in the app — is closed
+(`JunoSwapRouter`, `lib/juno/v2.ts`), and exact-out buys came across from the
+Solana app.
+
+**What is left is the same list, and none of it can be done from here:**
+testnet MON for the deployer (B, most of C and D), a person's Privy login
+(B5), a Pyth key (X1), the Monad bundle id allowed in Privy, and the team's
+own submission items — repository, videos, cover, profile, track entry,
+hosting.
