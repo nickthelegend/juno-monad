@@ -262,6 +262,13 @@ export function WalletProvider({
   // and their position history.
   useEffect(() => {
     let cancelled = false;
+    // A new source starts from nothing. Switching from the device key to
+    // Privy kept the device key's signer, and its `ready`, while Privy was
+    // still starting: the profile offered "Sign in" on a provider that had
+    // not restored yet, and a trade in between signed with the old key.
+    adopt(null);
+    setReady(false);
+    connecting.current = null;
     source
       .restore()
       .then((existing) => {

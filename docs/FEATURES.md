@@ -57,7 +57,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 22 | Per-trade finality timeline | S | 4 | 5 | 5 | 100 | BUILT | `Finality.tsx` |
 | 23 | Permissionless graduation button (anyone can send it on) | F | 4 | 5 | 5 | 100 | BUILT | coin page "Graduate" / "Open on Kuru" |
 | 24 | Portfolio with average cost, realised and unrealised P&L | F | 5 | 5 | 4 | 100 | BUILT | `lib/juno/portfolio.ts`, profile screen |
-| 25 | Privy embedded wallet signs every transaction (web) | S | 5 | 4 | 5 | 100 | BUILT, login unverified | `lib/privy.web.tsx`; provider and login modal verified; a full login needs a real account |
+| 25 | Privy embedded wallet signs every transaction (web, iOS, Android) | S | 5 | 4 | 5 | 100 | BUILT, login unverified | `lib/privy.web.tsx`, `lib/privy.native.tsx`; web provider and modal verified; iOS release build: SDK starts and the email sheet opens; `app.launch.junomonad` still to be allowed in the Privy dashboard before a sign-in; a full login needs a real account |
 | 26 | Real testnet deployment and one full lifecycle with MonadVision links | P | 5 | 4 | 5 | 100 | BLOCKED | deployer has 0 MON; `contracts/deploy.sh testnet` is ready |
 | 27 | Reels: full-screen video, double-tap like, inline market | F | 5 | 5 | 4 | 100 | BUILT | `app/(tabs)/reels.tsx` |
 | 28 | Verified X handle on profiles through Privy | S | 4 | 5 | 5 | 100 | BUILT, login unverified | `lib/juno/privy.ts`, `POST profiles/privy` (401 on a bad token verified) |
@@ -72,7 +72,7 @@ Nothing is on real Monad testnet yet, because the deployer
 | 37 | Squat-proof Kuru graduation (reuse a pre-deployed market) | S | 3 | 5 | 5 | 75 | BUILT | `test_graduate_reusesAMarketSomeoneDeployedFirst` |
 | 38 | API host deploy | P | 4 | 4 | 4 | 64 | NOT BUILT | the user asked not to deploy; DEPLOY.md covers Railway/Render/Fly |
 | 39 | Onboarding: fund, name, first buy in three taps | D | 4 | 4 | 4 | 64 | PARTIAL | faucet and names exist; not stitched into one flow |
-| 40 | Trade Uniswap-graduated coins in the app (router swap) | F | 4 | 4 | 4 | 64 | NOT BUILT | today the app says "trades on its Uniswap v2 pair" |
+| 40 | Trade Uniswap-graduated coins in the app (router swap) | F | 4 | 4 | 4 | 64 | BUILT | `JunoSwapRouter.sol` (7 Foundry tests), `lib/juno/v2.ts`; on the fork a coin filled, graduated, then bought and sold in the app, recorded and indexed as `PairTrade` |
 | 41 | Web deploy of the app | P | 4 | 4 | 4 | 64 | NOT BUILT | the user asked not to deploy; `npm run export:web` is ready |
 | 42 | CI: contracts and app on every push | P | 3 | 5 | 4 | 60 | BUILT | `.github/workflows/ci.yml` |
 | 43 | Candles and line chart with volume | D | 3 | 5 | 4 | 60 | BUILT | `Candles.tsx`, `PriceLine.tsx` |

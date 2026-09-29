@@ -5,6 +5,7 @@ import {
   useLoginWithEmail,
   usePrivy,
 } from "@privy-io/expo";
+import * as Application from "expo-application";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getAddress, parseTransaction, toHex, type Hex } from "viem";
 import { monad, monadTestnet } from "viem/chains";
@@ -44,6 +45,22 @@ const CLIENT_ID =
   process.env.EXPO_PUBLIC_PRIVY_NATIVE_CLIENT_ID?.trim() || "client-WY6dy4WiB1bozhetK8yhaZh1mu4kQNUhF8a8SmV7xoJWN";
 
 const PrivyContext = createContext<PrivyState | null>(null);
+
+/**
+ * How long Privy may take to come up before the sheet says so. Privy is ready
+ * once its hidden wallet page has loaded, usually a second or two. On a
+ * simulator short of memory it took minutes, and a page that never loads
+ * would leave "Connecting…" on screen forever.
+ */
+const STALL_MS = 15_000;
+
+/** What the sheet says when Privy will not come up. */
+function notConnected(reason: string | null): string {
+  const build = Application.applicationId ?? "this build";
+  return reason
+    ? `Privy could not start: ${reason}`
+    : `Privy has not connected yet. Check the connection and try again in a moment. If it keeps happening, check that the Privy app allows ${build}.`;
+}
 
 type Provider = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
 type Waiter = { resolve: () => void; reject: (error: Error) => void };
@@ -94,8 +111,11 @@ function identityOf(user: { linked_accounts?: LinkedAccount[] } | null): PrivyId
  * three things the sheet can ask for.
  */
 export type NativeSignIn = {
-  /** No session; signed in with the wallet on its way (or stuck); usable. */
-  status: "loading" | "signed-out" | "creating" | "error" | "ready";
+  /**
+   * Privy starting; Privy that did not start (`error` says why); no session;
+   * signed in with the wallet on its way (or stuck); usable.
+   */
+  status: "loading" | "unavailable" | "signed-out" | "creating" | "error" | "ready";
   /** Privy's own wallet state, shown while the wallet is on its way. */
   walletStatus: string;
   error: string | null;
@@ -105,7 +125,7 @@ export type NativeSignIn = {
 };
 
 function Bridge({ children }: { children: ReactNode }) {
-  const { user, isReady, logout, getAccessToken } = usePrivy();
+  const { user, isReady, error: initError, logout, getAccessToken } = usePrivy();
   const ethereum = useEmbeddedEthereumWallet();
   const walletState = useEmbeddedWallet();
   const email = useLoginWithEmail();
@@ -128,14 +148,24 @@ function Bridge({ children }: { children: ReactNode }) {
     waiting.forEach((resolve) => resolve());
   }, [isReady]);
 
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    if (isReady) {
+      setStalled(false);
+      return;
+    }
+    const timer = setTimeout(() => setStalled(true), STALL_MS);
+    return () => clearTimeout(timer);
+  }, [isReady]);
+
   // Signed in *and* holding a wallet is the finish line: close the sheet and
   // hand the result to whoever asked.
   useEffect(() => {
-    if (!user || !wallet) return;
+    if (!isReady || !user || !wallet) return;
     setSheet(false);
     signInWaiter.current?.resolve();
     signInWaiter.current = null;
-  }, [user, wallet]);
+  }, [isReady, user, wallet]);
 
   /*
    * `createOnLogin` covers a new sign-in. An account that signed in before its
@@ -172,8 +202,17 @@ function Bridge({ children }: { children: ReactNode }) {
   }, []);
 
   const source = useMemo<SignerSource>(() => {
+    /** Privy ready, or false once it has had `STALL_MS` and still is not. */
     const whenReady = () =>
-      latest.current.isReady ? Promise.resolve() : new Promise<void>((resolve) => readyWaiters.current.push(resolve));
+      latest.current.isReady
+        ? Promise.resolve(true)
+        : new Promise<boolean>((resolve) => {
+            const timer = setTimeout(() => resolve(false), STALL_MS);
+            readyWaiters.current.push(() => {
+              clearTimeout(timer);
+              resolve(true);
+            });
+          });
 
     const provider = async (): Promise<Provider> => {
       const current = latest.current.wallet;
@@ -225,13 +264,15 @@ function Bridge({ children }: { children: ReactNode }) {
     return {
       mode: "privy",
       async restore() {
-        await whenReady();
+        // A Privy that never starts restores nothing; signing in says why.
+        if (!(await whenReady())) return null;
         const { user: current, wallet: held } = latest.current;
         return current && held ? signerFor(held.address) : null;
       },
       async create() {
-        await whenReady();
-        if (!latest.current.user || !latest.current.wallet) await signIn();
+        // The sheet opens at once and shows Privy starting, rather than a
+        // button that does nothing until it has.
+        if (!latest.current.isReady || !latest.current.user || !latest.current.wallet) await signIn();
         const held = latest.current.wallet;
         if (!held) throw new Error("Privy signed you in but has not made the wallet yet. Try again.");
         return signerFor(held.address);
@@ -244,9 +285,19 @@ function Bridge({ children }: { children: ReactNode }) {
 
   const flow = useMemo<NativeSignIn>(
     () => ({
-      status: !isReady ? "loading" : !user ? "signed-out" : wallet ? "ready" : walletError ? "error" : "creating",
+      status: !isReady
+        ? initError || stalled
+          ? "unavailable"
+          : "loading"
+        : !user
+          ? "signed-out"
+          : wallet
+            ? "ready"
+            : walletError
+              ? "error"
+              : "creating",
       walletStatus: walletState.status,
-      error: walletError,
+      error: !isReady && (initError || stalled) ? notConnected(initError?.message ?? null) : walletError,
       sendCode: async (address) => {
         await latest.current.email.sendCode({ email: address });
       },
@@ -263,7 +314,7 @@ function Bridge({ children }: { children: ReactNode }) {
         await latest.current.ethereum.create();
       },
     }),
-    [isReady, user, wallet, walletError, walletState.status],
+    [isReady, initError, stalled, user, wallet, walletError, walletState.status],
   );
 
   const value = useMemo<PrivyState>(

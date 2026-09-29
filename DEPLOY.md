@@ -152,6 +152,9 @@ Developer / Play Console accounts). A local Android release build:
   and `PRIVY_APP_SECRET` on the API, `EXPO_PUBLIC_PRIVY_APP_ID` on the web
   build. In the Privy dashboard: the web app's origin under allowed domains
   (`http://localhost:3000` for local runs), email / Google / X login, and
-  Ethereum embedded wallets. The native builds keep the device key until they
-  move to `@privy-io/expo` and a development build.
+  Ethereum embedded wallets. The iOS and Android builds use the "juno" app's
+  native client (ids in `juno-expo/lib/privy.native.tsx`, overridable with
+  `EXPO_PUBLIC_PRIVY_NATIVE_APP_ID` / `EXPO_PUBLIC_PRIVY_NATIVE_CLIENT_ID`);
+  that client must allow the bundle id `app.launch.junomonad` and the URL
+  scheme `junomonad`, or Privy refuses sign-ins from the phone.
 - **Pyth**: a Hermes API key for live equity marks.

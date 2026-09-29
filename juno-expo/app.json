@@ -36,7 +36,8 @@
           "photosPermission": "Juno uses your photos and videos so you can launch them as a post or a reel."
         }
       ],
-      "./plugins/withQuotedBundleScript"
+      "./plugins/withQuotedBundleScript",
+      "./plugins/withLocalCleartext"
     ],
     "scheme": "junomonad",
     "backgroundColor": "#D3E3CB",

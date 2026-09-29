@@ -42,6 +42,8 @@ export function SignInSheet({
   }, [visible]);
 
   const creating = flow.status === "creating" || flow.status === "error";
+  const starting = flow.status === "loading";
+  const unavailable = flow.status === "unavailable";
 
   const sendCode = async () => {
     setBusy(true);
@@ -72,16 +74,28 @@ export function SignInSheet({
   return (
     <BottomSheet visible={visible} onClose={onClose} dismissable={!busy}>
       <Sheet>
-        <Title>{creating ? "Creating your wallet" : "Sign in to Juno"}</Title>
+        <Title>{unavailable ? "Privy is not connected" : creating ? "Creating your wallet" : "Sign in to Juno"}</Title>
         <Body muted>
-          {creating
-            ? "Privy is making a Monad wallet for this account."
-            : step === "email"
-              ? "Privy creates a Monad wallet for you. No seed phrase, nothing to install."
-              : `Enter the six-digit code sent to ${email.trim()}.`}
+          {unavailable
+            ? flow.error
+            : creating
+              ? "Privy is making a Monad wallet for this account."
+              : step === "email"
+                ? "Privy creates a Monad wallet for you. No seed phrase, nothing to install."
+                : `Enter the six-digit code sent to ${email.trim()}.`}
         </Body>
 
-        {creating ? (
+        {unavailable ? (
+          <>
+            <Button label="Close" variant="ink" onPress={onClose} tall />
+            <Caption>A device key works without Privy: choose it under Sign with.</Caption>
+          </>
+        ) : starting ? (
+          <Waiting>
+            <ActivityIndicator color={theme.colors.text} />
+            <Caption>Connecting to Privy…</Caption>
+          </Waiting>
+        ) : creating ? (
           <Waiting>
             {flow.error || !["creating", "connecting", "reconnecting"].includes(flow.walletStatus) ? (
               <Button
@@ -138,7 +152,6 @@ export function SignInSheet({
         )}
 
         {error ? <ErrorText>{error}</ErrorText> : null}
-        {flow.status === "loading" && !creating ? <Caption>Connecting to Privy…</Caption> : null}
         <Secured>Secured by Privy</Secured>
       </Sheet>
     </BottomSheet>

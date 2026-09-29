@@ -81,9 +81,10 @@ read fails the app says so — it does not print a zero it never measured.
   creator's optional first buy — is one call. Selling needs no approval.
 - **Keys never leave the device — or sign in with Privy.** The server builds
   unsigned transactions; the wallet signs; the server submits and records
-  what the receipt says. The wallet is a device key by default, or on the web
-  a Privy embedded wallet behind email, Google or X sign-in, with Privy's own
-  confirmation on every trade and launch. An X account linked in Privy can be
+  what the receipt says. The wallet is a device key by default, or a Privy
+  embedded wallet: on the web behind email, Google or X sign-in with Privy's
+  own confirmation on every trade and launch, on iOS and Android behind an
+  email code in Juno's own sheet. An X account linked in Privy can be
   shown on the creator's profile once the server has verified it with Privy
   ([`lib/juno/privy.ts`](lib/juno/privy.ts)).
 - **History without hammering the RPC.** Monad's public RPC answers
