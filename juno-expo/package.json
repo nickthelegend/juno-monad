@@ -51,7 +51,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "postinstall": "patch-package",
-    "export:web": "expo export --platform web && node scripts/web-meta.mjs && cp vercel.web.json dist/vercel.json"
+    "export:web": "expo export --platform web --clear && node scripts/web-meta.mjs && cp vercel.web.json dist/vercel.json"
   },
   "private": true
 }

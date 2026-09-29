@@ -13,7 +13,18 @@ const { getDefaultConfig } = require("expo/metro-config");
  */
 const config = getDefaultConfig(__dirname);
 
+/**
+ * Optional peers `@privy-io/react-auth` imports for features Juno does not
+ * use (the card on-ramp). They are not installed, so they resolve to an empty
+ * module. The dev server bundles that import lazily and never met it;
+ * `expo export` bundles everything, and failed the web build on it.
+ */
+const UNUSED_OPTIONAL_PEERS = new Set(["@stripe/stripe-js"]);
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (UNUSED_OPTIONAL_PEERS.has(moduleName)) {
+    return { type: "empty" };
+  }
   if (platform !== "web") {
     if (moduleName === "jose") {
       return context.resolveRequest({ ...context, unstable_conditionNames: ["browser"] }, moduleName, platform);
