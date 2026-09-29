@@ -43,3 +43,6 @@ npm-debug.log*
 /juno-expo/android
 /juno-expo/dist
 /juno-expo/web-build
+
+# Python bytecode (scripts/demo)
+__pycache__/
