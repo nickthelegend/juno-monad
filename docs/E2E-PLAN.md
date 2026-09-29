@@ -132,10 +132,10 @@ run is measured against; `Status` is filled in as each item is run.
 
 | ID | Item | Correct means | Status |
 |---|---|---|---|
-| H1 | Portfolio | Value, P&L, positions and trade count agree with the wallet's trades | |
-| H2 | Watching tab | Lists watched coins with prices | |
-| H3 | Plans tab | Lists plans from Postgres | |
-| H4 | Trader page | `/trader/<wallet>` shows rank, stats, holdings and trades; an unknown wallet says so | |
+| H1 | Portfolio | Value, P&L, positions and trade count agree with the wallet's trades | PASS: $9,928.47 = DAWN $4,968.27 + BLOOMK $4,960.20 (balance × price); P&L $1.29k = realised 1,892.07 + unrealised −603.38; 2 positions, 13 trades (= indexer: 9 curve + 2 Kuru orders + 2 pair); balances on chain: 250,202.07 MON, 533,986,637.03 DAWN, 533,986,637.39 BLOOMK — all equal to the page |
+| H2 | Watching tab | Lists watched coins with prices | PASS: Watching lists DAWN $0.0₅930 +830.41% (was '—' until the D9 hydrate fix) with its alert 'Alert at $0.0₄200' |
+| H3 | Plans tab | Lists plans from Postgres | FAIL→fixed→PASS: created a plan from DAWN's page (5 MON weekly, goal 50) → POST 201, row in Postgres. 'Put in 5.00 MON' bought 15,475 DAWN on v2 but 'was not recorded against your plan' — verifyFill only accepted the curve's Trade event, so no graduated coin could ever record a contribution. It now accepts the router's Swapped (v2) and the coin's Kuru market Trade (wallet as taker); a failed record keeps the fill with a 'Record it again' link. Re-run: next buy recorded (5 of 50, 1 fill); the first tx re-sent via the same PATCH → 10 of 50, 2 fills = psql row (contributed 10, fills 2); a Kuru buy verified on a BLOOMK plan (then deleted); a sell tx is refused. Plans tab: 'Falls at Dawn · 5.00 MON ($0.1444) weekly · 2 fills · 10.00 of 50.00 MON' |
+| H4 | Trader page | `/trader/<wallet>` shows rank, stats, holdings and trades; an unknown wallet says so | PASS: from Traders → /trader/0x82eb…9d7a: Creator, '#2 by profit taken', +$1.44 taken, $10.32k open, 100% win, 4 fills, 1 coin; holding 711.93M TIDEWTR $17.79k = balanceOf 711,928,246.9 × $2.4992e-5; 4 trades listed. A valid address with no history → 'No fills from this wallet on any Juno pool yet' / 'holds none of the coins'; /trader/notawallet → 'No such wallet — That is not a Monad address' with Back to the feed; no console errors |
 
 ## I. API, every method (from the browser, `fetch`)
 

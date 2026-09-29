@@ -220,6 +220,11 @@ function CoinDetail({ token }: { token: string }) {
   );
   const [savedLocal, setSavedLocal] = useState<SavedState | null>(null);
   const [savedError, setSavedError] = useState<string | null>(null);
+  // A confirmed buy whose contribution the server did not record, kept so it
+  // can be sent again.
+  const [unrecorded, setUnrecorded] = useState<{ plan: Omit<Plan, "coin">; spent: number; txHash: string } | null>(
+    null,
+  );
   useEffect(() => {
     if (!savedRead.data) return;
     setSavedLocal({
@@ -564,6 +569,11 @@ function CoinDetail({ token }: { token: string }) {
                       saved={savedLocal}
                       wallet={wallet.address}
                       error={savedError}
+                      onRetry={
+                        unrecorded
+                          ? () => void recordFill(unrecorded.plan, unrecorded.spent, unrecorded.txHash)
+                          : undefined
+                      }
                       onEditAlert={() => setSavingsSheet("alert")}
                       onNewPlan={() => setSavingsSheet("plan")}
                       onContribute={(plan) => {
@@ -620,7 +630,7 @@ function CoinDetail({ token }: { token: string }) {
               quoteBalance={spendable.data?.balance ?? null}
               feeBalance={quoteNative ? null : (feeMon.data?.balance ?? null)}
               initialAmount={sheet === "buy" && contributing ? String(contributing.amount) : ""}
-              onFilled={(spent, txHash) => void recordFill(spent, txHash)}
+              onFilled={(spent, txHash) => void recordFill(contributing, spent, txHash)}
               onCommented={() => comments.refresh()}
               onClose={() => {
                 setSheet(null);
@@ -703,10 +713,10 @@ function CoinDetail({ token }: { token: string }) {
    * is supposed to mean *this actually happened*, so it moves only once the
    * server has agreed, and the row it returns is what replaces the local one.
    */
-  async function recordFill(spent: number, txHash: string) {
-    const plan = contributing;
+  async function recordFill(plan: Omit<Plan, "coin"> | null, spent: number, txHash: string) {
     if (!plan || spent <= 0) return;
     setSavedError(null);
+    setUnrecorded(null);
     try {
       const { plan: fresh } = await juno.recordContribution(plan.id, spent, txHash);
       setSavedLocal((current) =>
@@ -720,6 +730,9 @@ function CoinDetail({ token }: { token: string }) {
     } catch (caught) {
       // The swap landed either way — this only failed to be *recorded*, and
       // saying so is better than a progress bar that quietly did not move.
+      // The fill is kept so it can be recorded again: a buy that happened
+      // should not be lost to one refused write.
+      setUnrecorded({ plan, spent, txHash });
       setSavedError(
         caught instanceof Error
           ? `The buy went through, but it was not recorded against your plan: ${caught.message}`

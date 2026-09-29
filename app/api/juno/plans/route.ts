@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { TransactionReceiptNotFoundError, getAddress, parseEventLogs, type Hex } from "viem";
+import { TransactionReceiptNotFoundError, getAddress, parseEventLogs, type Address, type Hex } from "viem";
 
 import { getDb } from "@/lib/db";
 import { junoPlans } from "@/lib/db/schema";
@@ -13,10 +13,11 @@ import {
   requireNumber,
   requireString,
 } from "@/lib/juno/api";
-import { junoLaunchpadAbi } from "@/lib/juno/abi";
+import { junoLaunchpadAbi, junoSwapRouterAbi, kuruOrderBookAbi } from "@/lib/juno/abi";
+import { kuruMarketOf } from "@/lib/juno/kuru";
 import { hydratePools } from "@/lib/juno/chain";
 import { publicClient } from "@/lib/juno/client";
-import { launchpadAddress, networkKey } from "@/lib/juno/network";
+import { launchpadAddress, networkKey, swapRouterAddress } from "@/lib/juno/network";
 import { getPool, listPools } from "@/lib/juno/registry";
 import {
   assertAddress,
@@ -158,11 +159,18 @@ export async function DELETE(request: Request) {
 /**
  * Check the fill a client says it made against the chain.
  *
- * The transaction must have succeeded and carry the launchpad's own `Trade`
- * event: a buy, of this plan's coin, by this plan's wallet. That is what lets
- * the progress bar claim to be a record of transactions. It does not stop the
- * same confirmed buy being reported twice — the plan table keeps totals, not a
- * ledger — but it does stop a contribution that never happened.
+ * The transaction must have succeeded and carry a buy of this plan's coin by
+ * this plan's wallet, from whichever venue the coin trades on: the
+ * launchpad's `Trade` while it is on its curve, the swap router's `Swapped`
+ * once it has graduated into Uniswap v2, or its Kuru market's `Trade` (with
+ * the wallet as taker) once it has graduated there. Only the curve was
+ * checked before, so a plan on any graduated coin could never record a
+ * contribution — the buy went through and the plan said it had not.
+ *
+ * That is what lets the progress bar claim to be a record of transactions. It
+ * does not stop the same confirmed buy being reported twice — the plan table
+ * keeps totals, not a ledger — but it does stop a contribution that never
+ * happened.
  */
 async function verifyFill(id: string, hash: Hex): Promise<void> {
   const [plan] = await getDb()
@@ -187,17 +195,27 @@ async function verifyFill(id: string, hash: Hex): Promise<void> {
     throw new CallerError("That transaction reverted, so it bought nothing");
   }
 
-  const bought = parseEventLogs({
-    abi: junoLaunchpadAbi,
-    eventName: "Trade",
-    logs: receipt.logs.filter((log) => getAddress(log.address) === launchpad),
-  }).some(
-    (event) =>
-      event.args.isBuy &&
-      getAddress(event.args.token) === getAddress(plan.token) &&
-      getAddress(event.args.trader) === getAddress(plan.wallet),
+  const token = getAddress(plan.token);
+  const wallet = getAddress(plan.wallet);
+  const from = (address: Address | null) =>
+    address ? receipt.logs.filter((log) => getAddress(log.address) === getAddress(address)) : [];
+
+  const onCurve = parseEventLogs({ abi: junoLaunchpadAbi, eventName: "Trade", logs: from(launchpad) }).some(
+    (event) => event.args.isBuy && getAddress(event.args.token) === token && getAddress(event.args.trader) === wallet,
   );
-  if (!bought) {
+  const onPair =
+    !onCurve &&
+    parseEventLogs({ abi: junoSwapRouterAbi, eventName: "Swapped", logs: from(swapRouterAddress()) }).some(
+      (event) => getAddress(event.args.tokenOut) === token && getAddress(event.args.trader) === wallet,
+    );
+  const market = onCurve || onPair ? null : await kuruMarketOf(token).catch(() => null);
+  const onKuru =
+    market !== null &&
+    parseEventLogs({ abi: kuruOrderBookAbi, eventName: "Trade", logs: from(market) }).some(
+      (event) => event.args.isBuy && event.args.filledSize > 0n && getAddress(event.args.takerAddress) === wallet,
+    );
+
+  if (!onCurve && !onPair && !onKuru) {
     throw new CallerError("That transaction is not a buy of this plan's coin by its wallet");
   }
 }

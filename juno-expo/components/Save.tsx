@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { TextInput } from "react-native";
+import { Pressable, TextInput } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import styled from "styled-components/native";
 
@@ -161,11 +161,14 @@ export function SaveCard({
   onContribute,
   onTogglePlan,
   onRemovePlan,
+  onRetry,
 }: {
   coin: Coin;
   saved: SavedState | null;
   wallet: string | null;
   error: string | null;
+  /** When the error is a buy that was not recorded: send it again. */
+  onRetry?: () => void;
   onEditAlert: () => void;
   onNewPlan: () => void;
   onContribute: (plan: Omit<Plan, "coin">) => void;
@@ -188,6 +191,11 @@ export function SaveCard({
       </Row>
 
       {error ? <Body style={{ color: theme.colors.neg, marginTop: 10 }}>{error}</Body> : null}
+      {error && onRetry ? (
+        <Pressable onPress={onRetry} accessibilityRole="button" hitSlop={8} style={{ marginTop: 6 }}>
+          <Label style={{ color: theme.colors.focus, fontWeight: "700" }}>Record it again</Label>
+        </Pressable>
+      ) : null}
 
       {/* Alert */}
       <AlertRow onPress={onEditAlert} accessibilityRole="button">
