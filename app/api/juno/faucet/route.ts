@@ -38,8 +38,15 @@ function amountMon(): number {
  */
 const RESERVE_WEI = parseEther("10");
 
-/** The block the faucet's last transfer landed in, for the spacing above. */
-let lastSentBlock: bigint | null = null;
+/**
+ * The block the faucet's last transfer landed in, for the spacing above.
+ *
+ * No initialiser, on purpose. `next build` traces each file by evaluating its
+ * top-level declarations; it took `= null` as this binding's only value, then
+ * evaluated `lastSentBlock + SETTLE_BLOCKS` below and failed the production
+ * build with "Cannot mix BigInt and other types".
+ */
+let lastSentBlock: bigint | undefined;
 
 /** A plain value transfer. Fixed by the protocol. */
 const TRANSFER_GAS = 21_000n;
@@ -203,7 +210,7 @@ export async function POST(request: Request) {
       // the last one. Serialised, the previous request already waited, so this
       // is normally instant; a slow head gets a short wait, then a refusal
       // rather than a transfer that would revert.
-      if (balance - needed < RESERVE_WEI && lastSentBlock !== null) {
+      if (balance - needed < RESERVE_WEI && lastSentBlock !== undefined) {
         const clearAt = lastSentBlock + SETTLE_BLOCKS;
         const until = Date.now() + SETTLE_BUDGET_MS;
         let head = await client.getBlockNumber({ cacheTime: 0 }).catch(() => null);
