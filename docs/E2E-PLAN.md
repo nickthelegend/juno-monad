@@ -36,6 +36,7 @@ run is measured against; `Status` is filled in as each item is run.
 | A5 | Deep link reload | Reloading `/coin/<token>`, `/trader/<wallet>`, `/post/<id>` renders that screen directly, not the landing | PASS (coin, trader); post page under D9 |
 | A6 | Web frame | On a 1400px window the app is a centred column ≤ 480px | PASS — 480px column centred in a 1440px window |
 | A7 | API page request | `GET http://localhost:3100/coin/<token>` redirects (307) to the app's `/coin/<token>`; `/api/*` is not redirected | PASS — /coin/… on the API 307 → app; /api/juno/config 200 |
+| A8 | Accessibility | Every control has a role and a name; tabs sit in tablists and radios in radiogroups; no control is nested in another | FAIL→fixed→PASS: headless-Chrome sweeps of 15 screens/tabs and the trade (buy + sell), comments and create sheets found tappable cards, rows, icons and chips with no role (the coin page's share and comment icons had no name either), segmented tabs outside a tablist, launch choices with no radio role, and — once Tappable defaulted to a button — a button nested in a button on five screens. After the fixes: 0 controls without a role, 0 nested buttons, 0 console errors, on every screen with and without a wallet |
 
 ## B. Wallet and identity
 
@@ -178,3 +179,34 @@ run is measured against; `Status` is filled in as each item is run.
 | K2 | App/API | unit tests, three typechecks, production build | PASS: unit 353 passed (the 6 skipped are the env-gated integration suite, run separately against the fork with its env: 29/29); tsc clean for root, juno-expo and indexer; production builds from a clean clone of HEAD: next build --webpack exit 0 (every route, no warnings) and expo export --platform web exit 0 (8 third-party export-map warnings from @noble/hashes / multiformats, none in app code) |
 | K3 | Indexer | `pnpm test` | PASS: indexer pnpm test 10/10; indexer tsc clean |
 | K4 | Stand-ins | No mock, stub or fallback data in shipped code | PASS: shipped code (lib, app, juno-expo app/components/lib, indexer/src, contracts/src) searched for mock/stub/fake/dummy/lorem/sample/hardcoded/TODO/FIXME/not implemented/Math.random/fallback: only comments refusing fakes, retry jitter, an animation tilt, a fixed gas ceiling when estimation is unsupported, failover across real IPFS gateways, address-derived identicons for media-less coins, real Circle USDC and MonadVision constants, and privy.tsx (types base; Metro loads .web/.native). Demo content (demo_* wallets) was made by scripts/juno-demo.ts through the real API — server-built, wallet-signed, submitted on-chain — not mocked rows. Test-only stubs live in tests/stubs (server-only) |
+
+## Phase 4 — the whole plan again (2026-09-29)
+
+Run as a new visitor (fresh browser profile, new device wallet, faucet MON) in
+real Google Chrome, headless, driven by Playwright (`.juno/rerun.mjs`), against
+a **production** build of the API (`next build` + `next start` of HEAD, fork
+env) — the dev server's route compiles (6–22 s each, evicted after a minute
+idle) were measuring Next's dev mode, not the app. Every console error or
+warning, page error, failed request and 4xx/5xx was recorded for every step.
+
+- **UI, A–H: 57/57 PASS, 0 problems** (no console errors or warnings, no failed
+  requests). New coins launched from scratch — a photo post with a 1 MON first
+  buy and a Kuru-venue post — and taken through their whole lives: buy, exact
+  buy, exact 50% sell, size hints, over-balance refusal, close mid-flow,
+  activity/holders/details/depth, creator-fee claim, watch + price alert, a
+  plan (put in, pause, remove), fill + graduate to the v2 pair and trade there
+  (exact quarter sold), fill + Open on Kuru, Kuru buy/sell, a bid placed →
+  cancelled → withdrawn, one activity row per Kuru order.
+- **API, I: 88/88 PASS** from the app's page (origin :3000).
+- **Indexer vs chain, J1:** every trade Envio holds for four coins (219 events)
+  equals the receipts; 16/16 pair trades equal the pairs' Swap events.
+- **Suites, K:** 353 unit, 29 integration (fork env), tsc ×3, forge 74 + the
+  live Kuru fork suite 7/7, indexer 10/10, `next build` and `expo export` of
+  HEAD from a clean clone.
+- **Accessibility (A8):** 0 role-less controls and 0 nested buttons on every
+  screen and sheet.
+
+Still not PASS, because the dependency does not exist here: **B8** (a person's
+Privy login), **J6** (a Pyth API key for live equity marks), **J7** and the
+testnet half of **D10** / **G5** (Juno is not on real testnet: the deployer
+holds 0 MON; testnet AUSD cannot be minted and Agora's faucet is dry).
