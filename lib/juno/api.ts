@@ -139,6 +139,12 @@ export async function readJson<T>(request: Request): Promise<T> {
 }
 
 export function requireString(value: unknown, field: string): string {
+  // Sent but not text is a different mistake from not sent: telling a caller
+  // who passed `issuedAt: 1790669000000` that it "is required" sends them
+  // looking for a field they already have.
+  if (value !== undefined && value !== null && typeof value !== "string") {
+    throw new CallerError(`"${field}" must be a string`);
+  }
   if (typeof value !== "string" || value.trim().length === 0) {
     throw new CallerError(`"${field}" is required`);
   }

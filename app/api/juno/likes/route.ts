@@ -59,11 +59,14 @@ export async function POST(request: Request) {
     // Only coins Juno launched; otherwise this is an open write keyed on any string.
     if (!(await getPool(token))) return junoError("No such coin", 404);
 
+    // A boolean, not "anything but false": the string "false" liked a coin.
+    if (typeof body.liked !== "boolean") return junoError('"liked" must be true or false');
+
     const result = await setLike({
       token,
       network: networkKey(),
       wallet,
-      like: body.liked !== false,
+      like: body.liked,
     });
     return junoJson({ token, ...result });
   });

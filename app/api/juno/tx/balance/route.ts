@@ -50,6 +50,9 @@ export async function GET(request: Request) {
         symbol: MON.symbol,
         decimals: MON.decimals,
         balance: wei === null ? null : weiToUi(wei, MON.decimals),
+        // Exact, in wei, as a decimal string: `balance` is a JS number and
+        // loses the last digits of an 18-decimal amount.
+        raw: wei === null ? null : wei.toString(),
       });
     }
 
@@ -80,6 +83,8 @@ export async function GET(request: Request) {
       // Without the decimals a raw balance cannot be scaled, and a guess at
       // them would be off by powers of ten — so that is unknown too.
       balance: raw === null || decimals === null ? null : weiToUi(raw, decimals),
+      // Exact, in the token's smallest unit, as a decimal string.
+      raw: raw === null ? null : raw.toString(),
     });
   });
 }

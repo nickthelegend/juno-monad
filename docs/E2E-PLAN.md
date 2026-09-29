@@ -141,22 +141,22 @@ run is measured against; `Status` is filled in as each item is run.
 
 | ID | Item | Correct means | Status |
 |---|---|---|---|
-| I1 | `GET config` | 200: chainId, launchpad, quote tokens, `v2Trading: true`, `localFork: true` | |
-| I2 | `GET coins`, `coins/[token]` | 200 lists; unknown token 404; bad address 400 | |
-| I3 | `GET feed`, `posts`, `posts/[id]` | 200; unknown post 404 | |
-| I4 | `GET depth` | 200 levels for an open curve; bad token 400 | |
-| I5 | `GET leaderboard`, `portfolio/[wallet]` | 200; bad wallet 400 | |
-| I6 | `GET tessera`, `perps`, `perps/account` | 200 from the real services | |
-| I7 | `GET live`, `index` | `live` connected; `index` caught up | |
-| I8 | `GET tx/balance` | 200 exact balance; bad input 400 | |
-| I9 | `POST tx/swap` | Quote and steps for buy/sell/exact-out; amount 0, bad token, bad side → 400 sentences | |
-| I10 | `POST tx/launch`, `tx/claim`, `tx/graduate` | Steps for valid input; each bad input → 400 | |
-| I11 | `POST tx/submit` | A garbage raw tx → 400 with a sentence, not 500 | |
-| I12 | `POST upload`, `metadata`, `GET ipfs/[cid]` | Upload pins and returns a CID; metadata pins JSON; the IPFS route serves the bytes; a bad CID → 400 | |
-| I13 | Social writes | `comments`, `likes`, `follow`, `profiles`, `watchlist`, `plans` (GET/POST/PATCH/DELETE): a bad signature or wallet → 400/401, never 500 | |
-| I14 | `kuru/*`, `perps/*` writes | Bad input → 400 sentences | |
-| I15 | `pools` | GET 200; POST without a real launch tx → 400 | |
-| I16 | `saved` | 200 for a wallet; bad wallet 400 | |
+| I1 | `GET config` | 200: chainId, launchpad, quote tokens, `v2Trading: true`, `localFork: true` | PASS: 200 chainId 10143, launchpad set, v2Trading true, localFork true |
+| I2 | `GET coins`, `coins/[token]` | 200 lists; unknown token 404; bad address 400 | PASS: coins 200 (20, missing 0); coins/DAWN 200; coins/0x…dEaD 404 'Coin not found'; coins/notanaddress 400 'Not a Monad address: token' |
+| I3 | `GET feed`, `posts`, `posts/[id]` | 200; unknown post 404 | PASS: feed 200 (33 items); posts 200; posts/<id> 200 (1 reply, change 8.31 after the D9 fix); unknown id 404 'Post not found'; POST posts bad author/empty body → 400 sentences |
+| I4 | `GET depth` | 200 levels for an open curve; bad token 400 | PASS: depth OPENAIX 200 (12 points); bad token 400; graduated DAWN 200 with 0 points (no curve left) |
+| I5 | `GET leaderboard`, `portfolio/[wallet]` | 200; bad wallet 400 | PASS: leaderboard 200 (partial false, 20/20, 9 traders); portfolio 200 ($9,929, 2 positions); portfolio/bad 400 |
+| I6 | `GET tessera`, `perps`, `perps/account` | 200 from the real services | PASS: tessera 200 (3 companies from rest-api.tessera.pe); perps 200 (8 markets from Perpl); perps/account 200 (#738); bad owner 400 |
+| I7 | `GET live`, `index` | `live` connected; `index` caught up | PASS: live 200 connected (wss testnet); index 200 cursor = latest = 66547773, caughtUp true |
+| I8 | `GET tx/balance` | 200 exact balance; bad input 400 | FAIL→fixed→PASS: 200, but only a JS float (534017586.05474454 vs 534017586.054744538367133064 on chain). Now also 'raw' in wei as a string = balanceOf exactly (MON and tokens); bad wallet/token → 400 |
+| I9 | `POST tx/swap` | Quote and steps for buy/sell/exact-out; amount 0, bad token, bad side → 400 sentences | PASS: buy (curve) 1 step, exact-out (max in 0.0351), sell on v2 (venue uniswap-v2), sell 50% on Kuru (venue kuru); amount 0 → 'Amount must be greater than zero'; bad token → 400; side 'hold' → '"side" must be "buy" or "sell"'; unknown coin → 404; bad JSON → 'Invalid JSON body' |
+| I10 | `POST tx/launch`, `tx/claim`, `tx/graduate` | Steps for valid input; each bad input → 400 | PASS: launch 200 (1 step); empty name / 'H!' / preset 'nope' → 400 sentences; claim 200 for the creator, 403 'Only the creator can claim', bad token 400; graduate an unfilled curve → 400 'The curve has not filled yet', bad token 400 |
+| I11 | `POST tx/submit` | A garbage raw tx → 400 with a sentence, not 500 | PASS: garbage → 400 'That is not a signed Monad transaction'; empty/missing → 400 '"signed" is required' |
+| I12 | `POST upload`, `metadata`, `GET ipfs/[cid]` | Upload pins and returns a CID; metadata pins JSON; the IPFS route serves the bytes; a bad CID → 400 | PASS: upload (browser FormData and curl) → 201 {cid, uri, url, mimeType, width, height}; /api/ipfs/<cid> 200 image/png, sha256 = the bytes sent; metadata → 201, JSON read back from gateway.pinata.cloud with name/symbol/description; bad CID → 400; empty metadata → 400; non-image upload → 415 (refused before pinning). The route sends no CORS header — correct for its callers (<img>/<video> only; nothing in the app fetch()es media) |
+| I13 | Social writes | `comments`, `likes`, `follow`, `profiles`, `watchlist`, `plans` (GET/POST/PATCH/DELETE): a bad signature or wallet → 400/401, never 500 | FAIL→fixed→PASS: every bad wallet/token/body → 400 sentence (comments, likes, follow incl. 'cannot follow itself', profiles incl. bad signature 'does not match this wallet' and expired request, privy 400, watchlist incl. alert ≤ 0, plans incl. cadence/amount/txHash/id). But likes accepted liked:"yes" (and "false" liked!) — follow and watchlist had the same 'anything but false' parsing; all three now require a boolean (400), state untouched. requireString now says 'must be a string' for a present non-string instead of 'is required' |
+| I14 | `kuru/*`, `perps/*` writes | Bad input → 400 sentences | PASS: kuru/order price/amount ≤ 0 → 'must be greater than zero', non-Kuru coin → 'This coin does not graduate into Kuru', bad side → 400; cancel empty ids → 400; withdraw bad owner → 400; orders on a non-Kuru coin → 404; perps open/close/deposit/withdraw → 400 sentences (no balance, no such market, no position, 'This wallet holds 500 AUSD', 'withdraw up to 0 AUSD') |
+| I15 | `pools` | GET 200; POST without a real launch tx → 400 | PASS: GET pools 200 (20); POST with a token that has no launch → 404 'There is no Juno pool for this token on this network' (also with a real but unrelated tx); bad token 400 |
+| I16 | `saved` | 200 for a wallet; bad wallet 400 | PASS: saved 200 (watching true, 1 plan); bad wallet 400. Faucet GET 200 (fork faucet 1,000 MON, 0.5 per drip); POST bad wallet 400 |
 
 ## J. Indexer and integrations
 

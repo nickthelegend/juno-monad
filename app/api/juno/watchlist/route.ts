@@ -76,6 +76,8 @@ export async function POST(request: Request) {
     const wallet = assertAddress(requireString(body.wallet, "wallet"));
     const token = assertAddress(requireString(body.token, "token"), "token");
 
+    // A boolean, not "anything but false": the string "false" watched.
+    if (typeof body.watch !== "boolean") return junoError('"watch" must be true or false');
     if (body.watch === false) {
       await unwatch(wallet, token);
       return junoJson({ token, watching: false });

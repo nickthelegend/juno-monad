@@ -37,7 +37,9 @@ export async function POST(request: Request) {
     const body = await readJson<Record<string, unknown>>(request);
     const follower = requireString(body.follower, "follower");
     const target = requireString(body.target, "target");
-    const on = body.following !== false;
+    // A boolean, not "anything but false": the string "false" followed.
+    if (typeof body.following !== "boolean") return junoError('"following" must be true or false');
+    const on = body.following;
 
     if (on) await follow(follower, target);
     else await unfollow(follower, target);
