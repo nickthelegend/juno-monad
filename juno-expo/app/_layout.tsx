@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "styled-components/native";
 
+import { PortalHost } from "../components/Portal";
 import { juno } from "../lib/api";
 import { PrivyBridge } from "../lib/privy";
 import { WalletRoot } from "../lib/wallet-choice";
@@ -41,6 +42,7 @@ export default function RootLayout() {
             WalletRoot picks the signer — the device key or Privy's. */}
         <PrivyBridge>
         <WalletRoot>
+        <PortalHost>
           <StatusBar style="dark" />
           <Stack
             screenOptions={{
@@ -55,6 +57,7 @@ export default function RootLayout() {
             <Stack.Screen name="trader/[wallet]" />
             <Stack.Screen name="post/[id]" />
           </Stack>
+        </PortalHost>
         </WalletRoot>
         </PrivyBridge>
       </SafeAreaProvider>

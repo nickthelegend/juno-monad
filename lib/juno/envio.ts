@@ -1,6 +1,7 @@
 import { getAddress } from "viem";
 
 import type { PoolSwap } from "./swaps";
+import { coalesceFills } from "./fills";
 
 /**
  * Reads from Juno's Envio HyperIndex deployment (see `indexer/`).
@@ -136,6 +137,21 @@ export async function envioKuruTrades(params: {
   offset?: number;
   oldestFirst?: boolean;
 }): Promise<PoolSwap[]> {
+  return (await envioKuruTradesPage(params)).trades;
+}
+
+/**
+ * Kuru trades plus how many fills they were read from. `limit` counts fills,
+ * not trades — one order can be a hundred of them — so a caller that needs to
+ * know whether it has everything compares `fills` with the limit it asked for.
+ */
+export async function envioKuruTradesPage(params: {
+  token?: string;
+  trader?: string;
+  limit?: number;
+  offset?: number;
+  oldestFirst?: boolean;
+}): Promise<{ trades: PoolSwap[]; fills: number }> {
   const where: Record<string, unknown> = {};
   if (params.token) where.token = { _eq: getAddress(params.token) };
   if (params.trader) where.trader = { _eq: getAddress(params.trader) };
@@ -147,7 +163,9 @@ export async function envioKuruTrades(params: {
     }`,
     { where, limit: params.limit ?? 200, offset: params.offset ?? 0 },
   );
-  return data.KuruTrade.map((row) => {
+  // One row per price level an order took, from the indexer; one per order
+  // from here. See `coalesceFills`.
+  const trades = coalesceFills(data.KuruTrade.map((row) => {
     const gross = Number(row.quoteAmount);
     const fee = gross * KURU_TAKER_FEE;
     return {
@@ -166,7 +184,8 @@ export async function envioKuruTrades(params: {
       blockNumber: Number(row.blockNumber),
       venue: "kuru" as const,
     };
-  });
+  }));
+  return { trades, fills: data.KuruTrade.length };
 }
 
 type PairTradeRow = KuruTradeRow;

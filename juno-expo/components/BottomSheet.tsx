@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import styled from "styled-components/native";
 
 import { motion, useReducedMotion, nativeDriver } from "../lib/motion";
+import { Portal } from "./Portal";
 import { theme } from "../theme";
 
 /**
@@ -276,7 +277,10 @@ export function BottomSheet({
     extrapolate: "clamp",
   });
 
+  // Hoisted to the app's root: a sheet written inside a card on a scrolling
+  // page would otherwise fill the card, not the screen. See `Portal`.
   return (
+    <Portal>
     <View style={[StyleSheet.absoluteFill, { pointerEvents: "box-none" }]}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: scrim }]}>
         <Pressable
@@ -303,6 +307,7 @@ export function BottomSheet({
         </Animated.View>
       </GestureDetector>
     </View>
+    </Portal>
   );
 }
 

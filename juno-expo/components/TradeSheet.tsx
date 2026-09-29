@@ -810,18 +810,19 @@ export function TradeSheet({
                 <HintText>
                   {`This fills the curve: it uses ${tokens(quote.quote.amountUsed)} ${coin.quote.symbol} and refunds the rest in the same transaction.`}
                 </HintText>
-                <LinkTap
-                  onPress={() =>
-                    // A hair over what is left, so fee decay between now and
-                    // the block cannot leave the last range unfilled; the
-                    // excess is refunded.
-                    setSize(trimTrailingZeros(quote.quote.amountUsed * 1.0005 + 1e-6))
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="Buy only what's left on the curve"
-                >
-                  <LinkText>Buy only what's left</LinkText>
-                </LinkTap>
+                {/* A hair over what is left, so fee decay between now and the
+                    block cannot leave the last range unfilled; the excess is
+                    refunded. Once the size is that, the link has nothing left
+                    to do — offering it again read as a tap that failed. */}
+                {value > leftOnCurve(quote.quote.amountUsed) * (1 + 1e-9) ? (
+                  <LinkTap
+                    onPress={() => setSize(trimTrailingZeros(leftOnCurve(quote.quote.amountUsed)))}
+                    accessibilityRole="button"
+                    accessibilityLabel="Buy only what's left on the curve"
+                  >
+                    <LinkText>Buy only what's left</LinkText>
+                  </LinkTap>
+                ) : null}
               </FillNote>
             ) : null}
 
@@ -912,6 +913,11 @@ export function TradeSheet({
  * than any curve quote needs and still exact enough that the dollar figure
  * beside it rounds to the preset.
  */
+/** The size that buys exactly what is left on the curve, with a 0.05% margin. */
+function leftOnCurve(amountUsed: number): number {
+  return amountUsed * 1.0005 + 1e-6;
+}
+
 /**
  * A size for the input field, to six significant digits — rounded *down*.
  *

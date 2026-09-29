@@ -12,7 +12,7 @@ import {
 import { junoLaunchpadAbi } from "./abi";
 import { publicClient } from "./client";
 import { sqrtX96ToPrice } from "./curve-math";
-import { envioConfigured, envioKuruTrades, envioPairTrades, envioTrades } from "./envio";
+import { envioConfigured, envioKuruTradesPage, envioPairTrades, envioTrades } from "./envio";
 import { quoteTokenOfPool } from "./launchpad";
 import { launchpadAddress, launchpadDeployBlock, swapRouterAddress } from "./network";
 import { ttlCache, withRetry } from "./rpc";
@@ -309,6 +309,8 @@ export type SwapHistory = {
 
 /** Kept small: a coin page shows recent trades, not an archive. */
 const DEFAULT_LIMIT = 200;
+/** How much deeper Kuru's fills are read than trades — see `listSwapHistory`. */
+const KURU_FILLS_PER_TRADE = 25;
 
 /**
  * History is cached briefly. A trade that just landed is still shown at once:
@@ -329,14 +331,31 @@ export async function listSwapHistory(token: string, limit = DEFAULT_LIMIT): Pro
           envioTrades({ token: address, limit }).catch(() => null),
           // After a graduation the coin keeps trading, on its Kuru market or
           // its v2 pair; the indexer follows it there. Empty before then.
-          envioKuruTrades({ token: address, limit }).catch(() => [] as PoolSwap[]),
+          // Kuru is read deeper: its limit counts fills, and one order can be
+          // a hundred of them.
+          envioKuruTradesPage({ token: address, limit: limit * KURU_FILLS_PER_TRADE }).catch(() => ({
+            trades: [] as PoolSwap[],
+            fills: 0,
+          })),
           envioPairTrades({ token: address, limit }).catch(() => [] as PoolSwap[]),
         ]);
         if (fromIndexer) {
           // The indexer lags the head by a block or two; anything the receipt
           // path recorded since is merged in so a fresh trade is never missing.
           const recent = await recalledSwaps(address, 20).catch(() => [] as PoolSwap[]);
-          return { swaps: mergeSwaps([...fromIndexer, ...onKuru, ...onPair], recent).slice(0, limit), partial: false };
+          const merged = mergeSwaps([...fromIndexer, ...onKuru.trades, ...onPair], recent);
+          /*
+           * Complete only if nothing was cut. A source that filled its page may
+           * have more behind it, and the merge keeps the newest `limit` — so a
+           * total or a holder count from a cut history would understate while
+           * claiming to be whole.
+           */
+          const cut =
+            fromIndexer.length >= limit ||
+            onKuru.fills >= limit * KURU_FILLS_PER_TRADE ||
+            onPair.length >= limit ||
+            merged.length > limit;
+          return { swaps: merged.slice(0, limit), partial: cut };
         }
       }
 

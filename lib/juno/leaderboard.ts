@@ -9,6 +9,7 @@ import { listSwapHistory, type PoolSwap, type SwapHistory } from "./swaps";
 import { listPools } from "./registry";
 import { ttlCache } from "./rpc";
 import type { JunoPoolRow } from "./registry";
+import { coalesceFills } from "./fills";
 
 /**
  * Who is actually good at this.
@@ -130,7 +131,9 @@ async function indexedHistories(): Promise<Map<string, SwapHistory> | null> {
     };
     const [curve, kuru, pair] = await Promise.all([
       envioAllTrades(),
-      everyPage(envioKuruTrades),
+      // Merged again across pages: an order that straddles a page boundary
+      // arrives as two partial trades.
+      everyPage(envioKuruTrades).then(coalesceFills),
       everyPage(envioPairTrades).catch(() => [] as PoolSwap[]),
     ]);
     const byToken = new Map<string, SwapHistory>();
