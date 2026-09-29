@@ -40,6 +40,13 @@ describe("money", () => {
   it("compacts large figures and labels a non-USD quote", () => {
     expect(money(225_118, "USD")).toBe("$225.12k");
     expect(money(1_240_000, "USD")).toBe("$1.24M");
+    expect(money(950_000_000_000, "USD")).toBe("$950.00B");
+    expect(money(14_000_000_000, "USD")).toBe("$14.00B");
+    expect(money(2_500_000_000_000, "USD")).toBe("$2.50T");
+    // The tier is chosen after rounding.
+    expect(money(999_999_999, "USD")).toBe("$1.00B");
+    expect(money(999_999, "USD")).toBe("$1.00M");
+    expect(money(999_990_000, "USD")).toBe("$999.99M");
     expect(money(2.5, "MON", { compact: false })).toBe("2.50 MON");
   });
 

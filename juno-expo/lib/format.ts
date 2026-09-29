@@ -27,6 +27,26 @@ export function since(iso: string, now = Date.now()): string {
  * and printing a `$` in front of that number would overstate it by the MON
  * price.
  */
+/**
+ * The letter a compact figure takes: k, M, B or T.
+ *
+ * Billions and trillions have their own letters — a valuation read as
+ * "$950000.00M" is a number nobody can say out loud. And the tier is chosen
+ * after rounding, so 999,999,999 is "$1.00B", not "$1000.00M".
+ */
+function compactTier(abs: number): { size: number; letter: string } | null {
+  for (const [size, letter] of [
+    [1e12, "T"],
+    [1e9, "B"],
+    [1e6, "M"],
+    [1e3, "k"],
+  ] as const) {
+    // At or past the point where the tier below would round to 1000.00.
+    if (abs >= size * (1 - 5e-6)) return { size, letter };
+  }
+  return null;
+}
+
 export function money(
   value: number | null | undefined,
   currency = "USD",
@@ -38,12 +58,11 @@ export function money(
   const sign = value < 0 ? "-" : "";
   const compact = opts.compact !== false;
 
+  const letter = compact ? compactTier(abs) : null;
   const figure =
-    compact && abs >= 1_000_000
-      ? `${(abs / 1_000_000).toFixed(2)}M`
-      : compact && abs >= 1_000
-        ? `${(abs / 1_000).toFixed(2)}k`
-        : abs === 0
+    letter
+      ? `${(abs / letter.size).toFixed(2)}${letter.letter}`
+      : abs === 0
           ? "0"
           : abs < 0.0001
             ? subscripted(abs)

@@ -264,14 +264,37 @@ export function TradeSheet({
     if (nav.state === "stale") {
       return `${label}'s price is stale, so this curve can't be checked against it right now.`;
     }
-    if (nav.deviation === null || nav.withinBand !== false) return null;
-    const above = nav.deviation > 0;
-    return `This curve is ${Math.abs(nav.deviation * 100).toFixed(1)}% ${above ? "above" : "below"} ${label}'s ${
-      nav.source === "tessera" ? "mark" : "price"
-    }, outside its ${nav.bandBps / 100}% band.${side === "buy" && above ? " A buy here pays more than the reference." : ""}${
-      side === "sell" && !above ? " A sell here gets less than the reference." : ""
-    }`;
-  }, [coin.nav, side]);
+    if (nav.deviation === null) return null;
+    const reference = nav.source === "tessera" ? "mark" : "price";
+    if (nav.withinBand === false) {
+      const above = nav.deviation > 0;
+      return `This curve is ${Math.abs(nav.deviation * 100).toFixed(1)}% ${above ? "above" : "below"} ${label}'s ${reference}, outside its ${
+        nav.bandBps / 100
+      }% band.${side === "buy" && above ? " A buy here pays more than the reference." : ""}${
+        side === "sell" && !above ? " A sell here gets less than the reference." : ""
+      }`;
+    }
+    /*
+     * Inside the band now — but this trade may not be.
+     *
+     * The curve's price after a trade is not in the quote; its average price is
+     * (spot over one minus the curve's impact, fee excluded). A buy's average
+     * is never above where it leaves the price, nor a sell's below, so when
+     * even the average is outside the band the trade certainly is — which is
+     * the moment the band exists for, and it is said before signing.
+     */
+    const impact = quoting ? undefined : quote?.quote.curveImpact;
+    if (impact === undefined || !(impact > 0) || impact >= 1) return null;
+    const average = side === "buy" ? (1 + nav.deviation) / (1 - impact) - 1 : (1 + nav.deviation) * (1 - impact) - 1;
+    if (Math.abs(average) <= nav.bandBps / 10_000) return null;
+    return side === "buy"
+      ? `On average this buy pays ${(average * 100).toFixed(1)}% above ${label}'s ${reference}, outside its ${
+          nav.bandBps / 100
+        }% band — a premium the reference does not support. A smaller buy stays closer to it.`
+      : `On average this sell gets ${(Math.abs(average) * 100).toFixed(1)}% below ${label}'s ${reference}, outside its ${
+          nav.bandBps / 100
+        }% band — less than the reference supports. A smaller sell stays closer to it.`;
+  }, [coin.nav, side, quote, quoting]);
 
   // What this trade takes out of the wallet. For an exact-out buy that is only
   // known once quoted, and the bound that matters is the most it may cost.

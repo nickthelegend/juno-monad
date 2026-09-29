@@ -51,6 +51,7 @@ import {
 } from "../../lib/api";
 import { bookPrice, money, since, sum, tokens, useApi } from "../../lib/useApi";
 import { shareCoin } from "../../lib/social";
+import { bigMoney, count } from "../../lib/markets";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
 
@@ -1161,11 +1162,10 @@ function NavBand({ nav }: { nav: NavReference }) {
         <>
           <Split />
           <Row>
-            <Stat value={String(nav.tessera.holders)} label="T-token holders" />
-            <Stat
-              value={money(nav.tessera.markValuation, "USD")}
-              label="Implied valuation"
-            />
+            {/* The same figures the Pre-IPO list shows, formatted the same way:
+                "13.9K" and "$950B", not "13850" and "$950000.00M". */}
+            <Stat value={count(nav.tessera.holders)} label="T-token holders" />
+            <Stat value={bigMoney(nav.tessera.markValuation)} label="Implied valuation" />
             <Stat value={nav.tessera.sector} label="Sector" />
           </Row>
         </>
