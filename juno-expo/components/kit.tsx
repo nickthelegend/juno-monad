@@ -615,8 +615,12 @@ export function Segmented<T extends string>({
 /* States                                                              */
 /* ------------------------------------------------------------------ */
 
+// `flex: 1` fills a screen; inside a scroll view it is zero tall, and the
+// centred message overflowed upward under the header ("Nothing from people
+// you follow" sat behind the feed's title bar). The minimum gives it room.
 const PlaceholderBox = styled.View`
   flex: 1;
+  min-height: 260px;
   align-items: center;
   justify-content: center;
   padding: ${(p) => p.theme.space(8)}px;

@@ -56,7 +56,7 @@ export default function PostScreen() {
   return (
     <Page edges={["top"]}>
       <Nav>
-        <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+        <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
           <ChevronLeft />
         </Back>
         <Heading>Post</Heading>

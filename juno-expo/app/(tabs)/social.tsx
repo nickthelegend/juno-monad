@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
@@ -15,7 +15,7 @@ import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, type Coin } from "../../lib/api";
 import { invalidateMarkets, loadMarkets } from "../../lib/markets";
 import { useFeedRevision } from "../../lib/refresh";
-import { shareCoin, useViewerOnce } from "../../lib/social";
+import { onAnyFollow, shareCoin, useViewerOnce } from "../../lib/social";
 import { useApi } from "../../lib/useApi";
 import { LiveTape } from "../../components/LiveTape";
 import { useWallet } from "../../lib/wallet";
@@ -84,14 +84,24 @@ export default function SocialScreen() {
     setTimeout(() => setToast(null), 1600);
   }, []);
 
+  // Follows and unfollows made since the list was read, by lower-cased wallet.
+  const [changed, setChanged] = useState<Map<string, boolean>>(() => new Map());
+  useEffect(() => onAnyFollow((target, on) => setChanged((prev) => new Map(prev).set(target.toLowerCase(), on))), []);
+  useEffect(() => setChanged(new Map()), [follows.data]);
+
   const posts = useMemo(() => {
     const all = [...(markets.data?.posts ?? [])].sort(
       (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
     );
     if (scope !== "following") return all;
     const set = follows.data;
-    return set ? all.filter((coin) => set.has(coin.creator.wallet)) : [];
-  }, [markets.data?.posts, scope, follows.data]);
+    if (!set) return [];
+    const followed = new Set([...set].map((wallet) => wallet.toLowerCase()));
+    return all.filter((coin) => {
+      const creator = coin.creator.wallet.toLowerCase();
+      return changed.get(creator) ?? followed.has(creator);
+    });
+  }, [markets.data?.posts, scope, follows.data, changed]);
 
   const reels = useMemo(
     () => (markets.data?.posts ?? []).filter((coin) => coin.format === "reel" && coin.media.kind === "video"),

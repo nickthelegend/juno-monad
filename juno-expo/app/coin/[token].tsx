@@ -39,7 +39,7 @@ import {
   Title,
 } from "../../components/kit";
 import { useRetryingUri } from "../../lib/retry-image";
-import { sameAddress } from "../../lib/address";
+import { sameAddress, toAddress } from "../../lib/address";
 import {
   juno,
   MON_ADDRESS,
@@ -100,6 +100,36 @@ type Tab = (typeof TABS)[number]["id"];
 
 export default function CoinScreen() {
   const { token } = useLocalSearchParams<{ token: string }>();
+  const router = useRouter();
+  const address = toAddress(token);
+  // A path that is not an address names no coin. Said at once, rather than
+  // after four requests the server can only answer with 400s.
+  if (!address) {
+    return (
+      <Page edges={["top"]}>
+        <Nav>
+          <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
+            <ChevronLeft />
+          </Back>
+        </Nav>
+        <NoSuchCoin onBack={() => router.replace("/(tabs)/social" as never)} />
+      </Page>
+    );
+  }
+  return <CoinDetail token={address} />;
+}
+
+function NoSuchCoin({ onBack }: { onBack: () => void }) {
+  return (
+    <Placeholder
+      title="No such coin"
+      detail="Nothing on Juno has this address. It may be on another network, or the link is wrong."
+      action={<Button label="Back to the feed" onPress={onBack} />}
+    />
+  );
+}
+
+function CoinDetail({ token }: { token: string }) {
   const router = useRouter();
   const [sheet, setSheet] = useState<"buy" | "sell" | null>(null);
   const [savingsSheet, setSavingsSheet] = useState<"alert" | "plan" | null>(null);
@@ -218,16 +248,14 @@ export default function CoinScreen() {
   return (
     <Page edges={["top"]}>
       <Nav>
-        <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+        <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
           <ChevronLeft />
         </Back>
         <NavGrow />
-        <WatchToggle
-          saved={savedLocal}
-          wallet={wallet.address}
-          token={token}
-          onChange={setSavedLocal}
-        />
+        {/* Nothing to watch until there is a coin. */}
+        {coin ? (
+          <WatchToggle saved={savedLocal} wallet={wallet.address} token={token} onChange={setSavedLocal} />
+        ) : null}
       </Nav>
 
       {detail.loading ? (
@@ -247,11 +275,7 @@ export default function CoinScreen() {
         </Loading>
       ) : detail.errorStatus === 404 || detail.errorStatus === 400 ? (
         // Not a failure to retry: there is no such coin on this network.
-        <Placeholder
-          title="No such coin"
-          detail="Nothing on Juno has this address. It may be on another network, or the link is wrong."
-          action={<Button label="Back to the feed" onPress={() => router.replace("/(tabs)/social" as never)} />}
-        />
+        <NoSuchCoin onBack={() => router.replace("/(tabs)/social" as never)} />
       ) : detail.error || !coin ? (
         <Placeholder
           title="Could not load this coin"

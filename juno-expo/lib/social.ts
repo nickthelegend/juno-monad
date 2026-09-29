@@ -89,8 +89,23 @@ function readFollow(target: string, viewer: string): Promise<boolean> {
 /** Every mounted follow control, by creator, so one toggle updates all of them. */
 const followListeners = new Map<string, Set<(on: boolean) => void>>();
 
+const anyFollowListeners = new Set<(target: string, on: boolean) => void>();
+
+/**
+ * Every follow and unfollow made in the app, as it happens — for lists that
+ * filter by who you follow. The Following feed kept showing a creator you had
+ * just unfollowed until the next reload.
+ */
+export function onAnyFollow(listener: (target: string, on: boolean) => void): () => void {
+  anyFollowListeners.add(listener);
+  return () => {
+    anyFollowListeners.delete(listener);
+  };
+}
+
 function announceFollow(target: string, on: boolean) {
   followListeners.get(target)?.forEach((listener) => listener(on));
+  anyFollowListeners.forEach((listener) => listener(target, on));
 }
 
 export function useFollow(target: string) {

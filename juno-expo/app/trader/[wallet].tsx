@@ -143,7 +143,7 @@ export default function TraderScreen() {
     return (
       <Page edges={["top"]}>
         <Nav>
-          <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+          <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
             <ChevronLeft />
           </Back>
         </Nav>
@@ -159,7 +159,7 @@ export default function TraderScreen() {
   return (
     <Page edges={["top"]}>
       <Nav>
-        <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button">
+        <Back onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
           <ChevronLeft />
         </Back>
       </Nav>
