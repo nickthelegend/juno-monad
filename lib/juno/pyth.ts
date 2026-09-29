@@ -1,7 +1,7 @@
-import { getAddress, parseAbi, zeroAddress, type Address, type Hex } from "viem";
+import { createPublicClient, getAddress, http, parseAbi, zeroAddress, type Address, type Hex, type PublicClient } from "viem";
 
 import { publicClient } from "./client";
-import { isMainnet } from "./network";
+import { chain, isMainnet, localFork } from "./network";
 import { tryRead, ttlCache } from "./rpc";
 
 /**
@@ -142,9 +142,30 @@ function scaled(value: bigint, expo: number): number {
 }
 
 /** One contract's reading of one feed, or null when it has none. */
+/**
+ * Where Pyth's prices are read from.
+ *
+ * On Monad, the chain the app runs on. On a local fork, the network the fork
+ * was taken from: the fork holds a frozen copy of Pyth's contracts that
+ * nothing pushes to, so its MON/USD is exactly as old as the fork — measured
+ * at eleven hours on 2026-09-29, 1.3% off, and every dollar figure in the app
+ * was converted at it without a word. No Juno contract reads Pyth (the price
+ * is for display and the NAV band), so the live network's price is the real
+ * one and the fork's is a snapshot.
+ */
+let livePyth: PublicClient | null = null;
+function pythClient(): PublicClient {
+  if (!localFork()) return publicClient();
+  livePyth ??= createPublicClient({
+    chain: chain(),
+    transport: http(chain().rpcUrls.default.http[0], { timeout: 10_000, retryCount: 1 }),
+  }) as PublicClient;
+  return livePyth;
+}
+
 async function readContractPrice(contract: Address, id: string): Promise<PythPrice | null> {
   const result = await tryRead(() =>
-    publicClient().readContract({
+    pythClient().readContract({
       address: contract,
       abi: PYTH_ABI,
       functionName: "getPriceUnsafe",

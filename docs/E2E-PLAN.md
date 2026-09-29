@@ -162,11 +162,11 @@ run is measured against; `Status` is filled in as each item is run.
 
 | ID | Item | Correct means | Status |
 |---|---|---|---|
-| J1 | Envio | GraphQL answers; the trades it holds for a coin equal the receipts on the fork | |
-| J2 | Tessera | The marks the app shows equal Tessera's API | |
-| J3 | Pyth | MON/USD from Pyth's contract; equity marks labelled with their age | |
-| J4 | Pinata/IPFS | Uploaded bytes come back identical from the gateway | |
-| J5 | Kuru / Perpl | Reads from the real forked contracts | |
+| J1 | Envio | GraphQL answers; the trades it holds for a coin equal the receipts on the fork | PASS: Envio GraphQL answers; every trade it holds equals the receipts on the fork: DAWN 7/7 curve Trade events, BLOOMK 2 curve + 101 Kuru fills = 103/103 (size, price, side, taker exact), all 11 PairTrade rows = the pair's Swap amounts; nothing on chain missing from the index (.juno/envio-vs-chain.mts, .juno/envio-pairs.mts) |
+| J2 | Tessera | The marks the app shows equal Tessera's API | PASS: see G1 — marks, holders, valuations equal rest-api.tessera.pe token-details |
+| J3 | Pyth | MON/USD from Pyth's contract; equity marks labelled with their age | FAIL→fixed→PASS: MON/USD came from the fork's frozen copy of Pyth — $0.02888393 published 40,165 s (11.2 h) earlier, while live testnet Pyth said $0.02850776 — and every USD figure in the app was converted at it silently. No Juno contract reads Pyth, so on a fork prices are now read from the live network the fork came from: app rate 0.02851315 = testnet upgraded-contract getPriceUnsafe seconds after its push. Equity marks: AAPL/NVDA read from Pyth's original contract, labelled '129d old' / '136d old' (see G2) |
+| J4 | Pinata/IPFS | Uploaded bytes come back identical from the gateway | PASS: a PNG uploaded through /api/juno/upload comes back byte-identical (sha256 7bb35ae6…) from the configured gateway and gateway.pinata.cloud; pinned metadata JSON reads back from Pinata with its name/symbol/description (ipfs.io and dweb.link answered 429 — public rate limits, not ours) |
+| J5 | Kuru / Perpl | Reads from the real forked contracts | PASS: Kuru — BLOOMK's market 0x8E2D…8238 on the fork: bestBidAsk(), s_orders, MarginAccount balances all read from the forked contracts and equal the page; Perpl — account #738 created/withdrawn on the forked exchange; market list from Perpl's live API; the forked exchange's frozen mark is detected and reported (G5) |
 | J6 | Fresh equity marks | Needs `PYTH_API_KEY` | UNTESTED (no key) |
 | J7 | Real testnet lifecycle | Needs MON for the deployer | UNTESTED (testnet) |
 
