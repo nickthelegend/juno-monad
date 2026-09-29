@@ -160,6 +160,7 @@ export function SaveCard({
   onNewPlan,
   onContribute,
   onTogglePlan,
+  onRemovePlan,
 }: {
   coin: Coin;
   saved: SavedState | null;
@@ -169,6 +170,8 @@ export function SaveCard({
   onNewPlan: () => void;
   onContribute: (plan: Omit<Plan, "coin">) => void;
   onTogglePlan: (plan: Omit<Plan, "coin">) => void;
+  /** Paused plans only: a running one is paused first, so removing is never the first tap. */
+  onRemovePlan: (plan: Omit<Plan, "coin">) => void;
 }) {
   const tradable = tradesInApp(coin);
   if (!wallet || !saved) return null;
@@ -231,11 +234,28 @@ export function SaveCard({
                       }`}
                 </Caption>
               </Col>
-              <Tappable onPress={() => onTogglePlan(plan)} to={0.94}>
+              <Tappable
+                onPress={() => onTogglePlan(plan)}
+                to={0.94}
+                accessibilityRole="button"
+                accessibilityLabel={`${plan.active ? "Pause" : "Resume"} ${tokens(plan.amount)} ${coin.quote.symbol} ${plan.cadence}`}
+              >
                 <QuietTap>
                   <QuietText>{plan.active ? "Pause" : "Resume"}</QuietText>
                 </QuietTap>
               </Tappable>
+              {plan.active ? null : (
+                <Tappable
+                  onPress={() => onRemovePlan(plan)}
+                  to={0.94}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${tokens(plan.amount)} ${coin.quote.symbol} ${plan.cadence}`}
+                >
+                  <QuietTap>
+                    <QuietText>Remove</QuietText>
+                  </QuietTap>
+                </Tappable>
+              )}
             </Row>
 
             {pct !== null ? (
@@ -385,7 +405,7 @@ export function AlertSheet({
 
         <Row gap={10}>
           {saved?.alertPrice !== null && saved?.alertPrice !== undefined ? (
-            <Tappable onPress={() => void save(true)} to={0.96}>
+            <Tappable onPress={() => void save(true)} to={0.96} accessibilityRole="button" accessibilityLabel="Remove the alert">
               <QuietTap>
                 <QuietText>Remove</QuietText>
               </QuietTap>

@@ -139,6 +139,7 @@ export const api = {
     request<T>(path, { method: "POST", body: JSON.stringify(body), timeoutMs }),
   patch: <T>(path: string, body: unknown, timeoutMs?: number) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body), timeoutMs }),
+  delete: <T>(path: string, timeoutMs?: number) => request<T>(path, { method: "DELETE", timeoutMs }),
 };
 
 /* ------------------------------------------------------------------ */
@@ -903,6 +904,9 @@ export const juno = {
   setPlanActive: (id: string, active: boolean) =>
     api.patch<{ id: string; active: boolean }>("/api/juno/plans", { id, active }),
 
+  removePlan: (id: string) =>
+    api.delete<{ id: string; deleted: boolean }>(`/api/juno/plans?id=${encodeURIComponent(id)}`),
+
   /**
    * The feed, optionally narrowed to wallets `following` follows.
    *
@@ -1269,4 +1273,10 @@ export const juno = {
 
   /** A MonadVision link to a transaction, a wallet or a token. */
   explorer: (kind: "tx" | "address" | "token", id: string) => `${explorerBase()}/${kind}/${id}`,
+  /**
+   * Whether MonadVision can show what this server made. Not on a local fork:
+   * its transactions, tokens and pairs exist on no public chain, and every
+   * "View the transaction" there opened a page that said "not found".
+   */
+  explorable: () => !configLoaded?.localFork,
 };

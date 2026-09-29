@@ -57,6 +57,21 @@ export function money(
   return currency === "USD" ? `${sign}$${figure}` : `${sign}${figure} ${currency}`;
 }
 
+/**
+ * An amount of money held or raised — not a price.
+ *
+ * `money` writes tiny values the way prices are written, `0.0₅100`, because a
+ * token price of 1e-7 is normal. A sum that small is not: a curve whose buyers
+ * all sold back holds a few wei of MON, and the progress bar read
+ * "$0.0(19)867". Below a hundredth of a cent a sum is dust, and says so.
+ */
+export function sum(value: number | null | undefined, currency = "USD"): string {
+  if (value !== null && value !== undefined && value > 0 && value < 0.0001) {
+    return currency === "USD" ? "<$0.0001" : `<0.0001 ${currency}`;
+  }
+  return money(value, currency);
+}
+
 /** ₀₁₂₃… — index is the digit. */
 const SUBSCRIPTS = "\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089";
 

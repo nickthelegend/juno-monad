@@ -49,7 +49,7 @@ import {
   type Plan,
   type UnsignedTransaction,
 } from "../../lib/api";
-import { bookPrice, money, since, tokens, useApi } from "../../lib/useApi";
+import { bookPrice, money, since, sum, tokens, useApi } from "../../lib/useApi";
 import { shareCoin } from "../../lib/social";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
@@ -447,13 +447,13 @@ export default function CoinScreen() {
                       {coin.kuru.spread !== null ? ` · spread ${(coin.kuru.spread * 100).toFixed(2)}%` : ""}
                     </Caption>
                   ) : null}
-                  {coin.pair ? (
+                  {coin.pair && juno.explorable() ? (
                     <LinkTap onPress={() => Linking.openURL(juno.explorer("address", coin.pair!))}>
                       <LinkText>{onKuru ? "View the Kuru market on MonadVision" : "View the pair on MonadVision"}</LinkText>
                       <ExternalGlyph />
                     </LinkTap>
                   ) : null}
-                  {graduate.hash ? (
+                  {graduate.hash && juno.explorable() ? (
                     <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", graduate.hash!))}>
                       <LinkText>The transaction that graduated it</LinkText>
                       <ExternalGlyph />
@@ -475,7 +475,7 @@ export default function CoinScreen() {
                 </Col>
               ) : (
                 <RaisedRow>
-                  <End>{money(coin.curve.raisedUsd, coin.marketCapCurrency)}</End>
+                  <End>{sum(coin.curve.raisedUsd, coin.marketCapCurrency)}</End>
                   <Track>
                     {/* A floor of 1.5% so a curve 0.02% of the way along still
                         reads as started — but only above zero, where drawing
@@ -488,7 +488,7 @@ export default function CoinScreen() {
                       />
                     ) : null}
                   </Track>
-                  <End>{money(coin.curve.thresholdUsd, coin.marketCapCurrency)}</End>
+                  <End>{sum(coin.curve.thresholdUsd, coin.marketCapCurrency)}</End>
                 </RaisedRow>
               )}
 
@@ -546,6 +546,7 @@ export default function CoinScreen() {
                         setSheet("buy");
                       }}
                       onTogglePlan={(plan) => void togglePlan(plan)}
+                      onRemovePlan={(plan) => void removePlan(plan)}
                     />
                   }
                 />
@@ -653,6 +654,19 @@ export default function CoinScreen() {
     } catch (caught) {
       setSavedLocal(savedLocal);
       setSavedError(caught instanceof Error ? caught.message : "That could not be saved");
+    }
+  }
+
+  /** Remove a paused plan, optimistically, putting it back if the write is refused. */
+  async function removePlan(plan: Omit<Plan, "coin">) {
+    if (!savedLocal) return;
+    setSavedError(null);
+    setSavedLocal({ ...savedLocal, plans: savedLocal.plans.filter((row) => row.id !== plan.id) });
+    try {
+      await juno.removePlan(plan.id);
+    } catch (caught) {
+      setSavedLocal(savedLocal);
+      setSavedError(caught instanceof Error ? caught.message : "That could not be removed");
     }
   }
 
@@ -892,11 +906,13 @@ function DetailsTab({
         />
       </Rows>
 
-      <LinkTap onPress={() => Linking.openURL(juno.explorer("token", coin.address))}>
-        <LinkText>View the token on MonadVision</LinkText>
-        <ExternalGlyph />
-      </LinkTap>
-      {launchTx ? (
+      {juno.explorable() ? (
+        <LinkTap onPress={() => Linking.openURL(juno.explorer("token", coin.address))}>
+          <LinkText>View the token on MonadVision</LinkText>
+          <ExternalGlyph />
+        </LinkTap>
+      ) : null}
+      {launchTx && juno.explorable() ? (
         <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", launchTx))}>
           <LinkText>The transaction that launched it</LinkText>
           <ExternalGlyph />
@@ -945,10 +961,14 @@ function FeesCard({
       </Row>
       {error ? <ErrorLine style={{ marginTop: 10 }}>{error}</ErrorLine> : null}
       {hash ? (
-        <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", hash))}>
-          <LinkText>Claimed — view the transaction</LinkText>
-          <ExternalGlyph />
-        </LinkTap>
+        juno.explorable() ? (
+          <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", hash))}>
+            <LinkText>Claimed — view the transaction</LinkText>
+            <ExternalGlyph />
+          </LinkTap>
+        ) : (
+          <Caption style={{ marginTop: 10 }}>Claimed — tx {hash.slice(0, 8)}…{hash.slice(-6)}</Caption>
+        )
       ) : null}
     </Card>
   );

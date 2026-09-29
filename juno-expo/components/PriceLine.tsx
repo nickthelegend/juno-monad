@@ -278,6 +278,8 @@ export function PriceLine({
             $on={option.id === span}
             onPress={() => setSpan(option.id)}
             accessibilityRole="button"
+            // "1H" read aloud is "one H"; the window's own words are clearer.
+            accessibilityLabel={WINDOW_WORDS[option.id].replace(/^./, (c) => c.toUpperCase())}
             aria-selected={option.id === span}
           >
             <SpanText $on={option.id === span}>{option.label}</SpanText>

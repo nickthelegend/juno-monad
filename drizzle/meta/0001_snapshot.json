@@ -1,0 +1,877 @@
+{
+  "id": "488030fb-97d6-432e-8691-675b3865fd60",
+  "prevId": "d7886cdd-c070-478e-aece-97d96a5e3a8f",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.juno_follows": {
+      "name": "juno_follows",
+      "schema": "",
+      "columns": {
+        "follower_wallet": {
+          "name": "follower_wallet",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_wallet": {
+          "name": "target_wallet",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "juno_follows_target_idx": {
+          "name": "juno_follows_target_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "target_wallet",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_follows_follower_idx": {
+          "name": "juno_follows_follower_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "follower_wallet",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "juno_follows_follower_wallet_target_wallet_network_pk": {
+          "name": "juno_follows_follower_wallet_target_wallet_network_pk",
+          "columns": [
+            "follower_wallet",
+            "target_wallet",
+            "network"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.juno_log_cursor": {
+      "name": "juno_log_cursor",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(64)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "block": {
+          "name": "block",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.juno_plans": {
+      "name": "juno_plans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(32)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "wallet": {
+          "name": "wallet",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cadence": {
+          "name": "cadence",
+          "type": "juno_plan_cadence",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target": {
+          "name": "target",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "contributed": {
+          "name": "contributed",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "fills": {
+          "name": "fills",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "last_filled_at": {
+          "name": "last_filled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "juno_plans_wallet_idx": {
+          "name": "juno_plans_wallet_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "wallet",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_plans_token_idx": {
+          "name": "juno_plans_token_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.juno_pools": {
+      "name": "juno_pools",
+      "schema": "",
+      "columns": {
+        "token": {
+          "name": "token",
+          "type": "varchar(42)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "launchpad": {
+          "name": "launchpad",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pair": {
+          "name": "pair",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quote_token": {
+          "name": "quote_token",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "creator_wallet": {
+          "name": "creator_wallet",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "symbol": {
+          "name": "symbol",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "format": {
+          "name": "format",
+          "type": "juno_coin_format",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'post'"
+        },
+        "curve_preset": {
+          "name": "curve_preset",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "media_url": {
+          "name": "media_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "poster_url": {
+          "name": "poster_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_mime": {
+          "name": "media_mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_width": {
+          "name": "media_width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_height": {
+          "name": "media_height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nav_feed_id": {
+          "name": "nav_feed_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "nav_units_per_token": {
+          "name": "nav_units_per_token",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "create_tx": {
+          "name": "create_tx",
+          "type": "varchar(66)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "create_block": {
+          "name": "create_block",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "listed": {
+          "name": "listed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "juno_pools_network_created_idx": {
+          "name": "juno_pools_network_created_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_pools_creator_idx": {
+          "name": "juno_pools_creator_idx",
+          "columns": [
+            {
+              "expression": "creator_wallet",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.juno_posts": {
+      "name": "juno_posts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(32)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "author_wallet": {
+          "name": "author_wallet",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_url": {
+          "name": "media_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_mime": {
+          "name": "media_mime",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "varchar(32)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "juno_posts_network_created_idx": {
+          "name": "juno_posts_network_created_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_posts_author_idx": {
+          "name": "juno_posts_author_idx",
+          "columns": [
+            {
+              "expression": "author_wallet",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_posts_token_idx": {
+          "name": "juno_posts_token_idx",
+          "columns": [
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_posts_parent_idx": {
+          "name": "juno_posts_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.juno_swaps": {
+      "name": "juno_swaps",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(80)",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tx_hash": {
+          "name": "tx_hash",
+          "type": "varchar(66)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "log_index": {
+          "name": "log_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "side": {
+          "name": "side",
+          "type": "varchar(4)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_amount": {
+          "name": "base_amount",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quote_amount": {
+          "name": "quote_amount",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fee": {
+          "name": "fee",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "price": {
+          "name": "price",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "trader": {
+          "name": "trader",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "block_number": {
+          "name": "block_number",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "block_time": {
+          "name": "block_time",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "venue": {
+          "name": "venue",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "juno_swaps_token_block_idx": {
+          "name": "juno_swaps_token_block_idx",
+          "columns": [
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "block_number",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_swaps_trader_idx": {
+          "name": "juno_swaps_trader_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "trader",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_swaps_tx_log_idx": {
+          "name": "juno_swaps_tx_log_idx",
+          "columns": [
+            {
+              "expression": "tx_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "log_index",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.juno_watchlist": {
+      "name": "juno_watchlist",
+      "schema": "",
+      "columns": {
+        "wallet": {
+          "name": "wallet",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token": {
+          "name": "token",
+          "type": "varchar(42)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "network": {
+          "name": "network",
+          "type": "varchar(16)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "alert_price": {
+          "name": "alert_price",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alert_set_at_price": {
+          "name": "alert_set_at_price",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "juno_watchlist_wallet_idx": {
+          "name": "juno_watchlist_wallet_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "wallet",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "juno_watchlist_token_idx": {
+          "name": "juno_watchlist_token_idx",
+          "columns": [
+            {
+              "expression": "network",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "juno_watchlist_wallet_token_network_pk": {
+          "name": "juno_watchlist_wallet_token_network_pk",
+          "columns": [
+            "wallet",
+            "token",
+            "network"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.juno_coin_format": {
+      "name": "juno_coin_format",
+      "schema": "public",
+      "values": [
+        "post",
+        "reel"
+      ]
+    },
+    "public.juno_plan_cadence": {
+      "name": "juno_plan_cadence",
+      "schema": "public",
+      "values": [
+        "daily",
+        "weekly",
+        "monthly"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

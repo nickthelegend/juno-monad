@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { bookPrice, money, tokens } from "../../juno-expo/lib/format";
+import { bookPrice, money, sum, tokens } from "../../juno-expo/lib/format";
 
 /**
  * The mobile app's number formatter.
@@ -88,5 +88,19 @@ describe("bookPrice", () => {
     expect(bookPrice(0.001039941231)).toBe("0.00104 MON");
     expect(bookPrice(84_333.3, "USD")).toBe("$84,333.3");
     expect(bookPrice(0)).toBe("—");
+  });
+});
+
+describe("sum", () => {
+  it("calls dust dust instead of writing it like a price", () => {
+    expect(sum(8.67e-20)).toBe("<$0.0001");
+    expect(sum(3e-9, "MON")).toBe("<0.0001 MON");
+  });
+
+  it("reads like money otherwise", () => {
+    expect(sum(0)).toBe("$0");
+    expect(sum(0.0039)).toBe("$0.0039");
+    expect(sum(6950)).toBe("$6.95k");
+    expect(sum(null)).toBe("—");
   });
 });

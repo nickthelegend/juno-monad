@@ -53,6 +53,7 @@ export async function rememberSwaps(swaps: PoolSwap[]): Promise<void> {
       trader: swap.trader,
       blockNumber: swap.blockNumber,
       blockTime: new Date(swap.timestamp),
+      venue: swap.venue ?? null,
     }));
   if (rows.length === 0) return;
 
@@ -120,6 +121,7 @@ function toSwap(row: typeof junoSwaps.$inferSelect): PoolSwap {
     trader: row.trader,
     timestamp: row.blockTime.toISOString(),
     blockNumber: row.blockNumber,
+    ...(row.venue === "kuru" || row.venue === "uniswap-v2" ? { venue: row.venue } : {}),
   };
 }
 
@@ -135,11 +137,22 @@ export function compareSwaps(a: PoolSwap, b: PoolSwap): number {
  * agree — a confirmed log does not change.
  */
 export function mergeSwaps(recalled: PoolSwap[], fresh: PoolSwap[]): PoolSwap[] {
+  // Transactions that hold a v2 fill of a coin, by any record's account: a
+  // row stored before fills kept their venue still names the same trade.
+  const onPair = new Set(
+    [...recalled, ...fresh].filter((swap) => swap.venue === "uniswap-v2").map((swap) => pairTx(swap)),
+  );
   const byId = new Map<string, PoolSwap>();
-  for (const swap of recalled) byId.set(swap.id, swap);
-  for (const swap of fresh) byId.set(swap.id, swap);
+  const key = (swap: PoolSwap) => (onPair.has(pairTx(swap)) ? `${pairTx(swap)}:v2` : swap.id);
+  for (const swap of recalled) byId.set(key(swap), swap);
+  for (const swap of fresh) byId.set(key(swap), { ...byId.get(key(swap)), ...swap });
   return [...byId.values()].sort(compareSwaps);
 }
+
+function pairTx(swap: PoolSwap): string {
+  return `${swap.txHash}:${swap.token.toLowerCase()}`;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* The log cursor                                                      */

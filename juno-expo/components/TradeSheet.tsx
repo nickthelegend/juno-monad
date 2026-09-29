@@ -616,10 +616,12 @@ export function TradeSheet({
                 ? ` · ${landedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
                 : ""}
             </Receipt>
-            <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", txHash!))}>
-              <LinkText>View the transaction</LinkText>
-              <ExternalGlyph />
-            </LinkTap>
+            {juno.explorable() ? (
+              <LinkTap onPress={() => Linking.openURL(juno.explorer("tx", txHash!))}>
+                <LinkText>View the transaction</LinkText>
+                <ExternalGlyph />
+              </LinkTap>
+            ) : null}
             <Button label="Done" onPress={onDone} style={{ marginTop: 16, alignSelf: "stretch" }} />
           </Done>
         ) : (

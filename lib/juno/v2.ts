@@ -192,6 +192,9 @@ export async function buildV2SwapCalls(params: {
 }
 
 const syncAbi = parseAbi(["event Sync(uint112 reserve0, uint112 reserve1)"]);
+const pairSwapAbi = parseAbi([
+  "event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)",
+]);
 const pairAbi = parseAbi(["function token0() view returns (address)"]);
 
 /**
@@ -227,11 +230,16 @@ export async function routerSwapsIn(
     const quote = await lookup(token);
     if (!quote) continue;
 
-    const sync = parseEventLogs({
-      abi: syncAbi,
-      eventName: "Sync",
-      logs: receipt.logs.filter((log) => getAddress(log.address) === getAddress(pair) && log.logIndex < event.logIndex),
-    }).pop();
+    const fromPair = receipt.logs.filter(
+      (log) => getAddress(log.address) === getAddress(pair) && log.logIndex < event.logIndex,
+    );
+    const sync = parseEventLogs({ abi: syncAbi, eventName: "Sync", logs: fromPair }).pop();
+    // Named after the pair's own `Swap` log, as the indexer names the same
+    // fill, so the two records of one trade merge into one. Keyed on the
+    // router's `Swapped` log instead, every v2 trade was listed twice and
+    // counted twice in the coin's volume.
+    const pairSwap = parseEventLogs({ abi: pairSwapAbi, eventName: "Swap", logs: fromPair }).pop();
+    const logIndex = pairSwap?.logIndex ?? event.logIndex;
     let price = 0;
     if (sync) {
       const token0 = await withRetry(() =>
@@ -246,9 +254,9 @@ export async function routerSwapsIn(
     const baseAmount = weiToUi(buy ? amountOut : amountIn, 18);
     const quoteAmount = weiToUi(buy ? amountIn : amountOut, quote.decimals);
     swaps.push({
-      id: `${event.transactionHash}:${event.logIndex}`,
+      id: `${event.transactionHash}:${logIndex}`,
       txHash: event.transactionHash,
-      logIndex: event.logIndex,
+      logIndex,
       token,
       side: buy ? "buy" : "sell",
       baseAmount,

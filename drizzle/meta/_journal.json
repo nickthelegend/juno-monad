@@ -8,6 +8,13 @@
       "when": 1790193553154,
       "tag": "0000_juno_monad",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790665364077,
+      "tag": "0001_swap_venue",
+      "breakpoints": true
     }
   ]
 }

@@ -262,7 +262,9 @@ function LimitSheet({
         {placed ? (
           <>
             <Text style={styles.ok}>{status}</Text>
-            <Button label="View the transaction" variant="quiet" onPress={() => Linking.openURL(juno.explorer("tx", placed))} />
+            {juno.explorable() ? (
+              <Button label="View the transaction" variant="quiet" onPress={() => Linking.openURL(juno.explorer("tx", placed))} />
+            ) : null}
             <Button label="Done" variant="lime" tall onPress={onPlaced} />
           </>
         ) : (

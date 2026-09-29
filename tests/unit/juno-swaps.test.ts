@@ -427,6 +427,24 @@ describe("mergeSwaps", () => {
     expect(merged.map((s) => s.id)).toEqual([b.id, c.id, a.id]);
   });
 
+  it("counts a v2 trade once, whichever log each source named it by", () => {
+    // The receipt path named it after the router's `Swapped` log (index 5),
+    // the indexer after the pair's `Swap` log (index 3): one trade.
+    const fromReceipt = { ...swap(2, "sell", 100, 1, 200, 5), venue: "uniswap-v2" as const };
+    const fromIndexer = { ...fromReceipt, id: `${fromReceipt.txHash}:3`, logIndex: 3 };
+    expect(mergeSwaps([fromIndexer], [fromReceipt])).toHaveLength(1);
+    // A row stored before fills kept their venue merges with the indexed fill,
+    // and keeps the venue the indexer knows.
+    const legacy = { ...swap(2, "sell", 100, 1, 200, 5) };
+    const merged = mergeSwaps([fromIndexer], [legacy]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].venue).toBe("uniswap-v2");
+    // Two curve fills in one transaction stay two.
+    const first = swap(2, "buy", 100, 1, 200, 1);
+    const second = { ...first, id: `${first.txHash}:2`, logIndex: 2 };
+    expect(mergeSwaps([first], [second])).toHaveLength(2);
+  });
+
   it("lets the fresh read win on a clash", () => {
     const recalled = swap(2, "buy", 100, 1, 200);
     const fresh = { ...recalled, fee: 0.5 };

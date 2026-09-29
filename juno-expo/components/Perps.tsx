@@ -336,7 +336,9 @@ function OpenSheet({
         {done ? (
           <>
             <Text style={styles.ok}>{status}</Text>
-            <Button label="View the transaction" variant="quiet" onPress={() => Linking.openURL(juno.explorer("tx", done))} />
+            {juno.explorable() ? (
+              <Button label="View the transaction" variant="quiet" onPress={() => Linking.openURL(juno.explorer("tx", done))} />
+            ) : null}
             <Button label="Done" variant="lime" tall onPress={onDone} />
           </>
         ) : funded ? (

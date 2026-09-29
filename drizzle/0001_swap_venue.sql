@@ -1,0 +1,1 @@
+ALTER TABLE "juno_swaps" ADD COLUMN "venue" varchar(16);

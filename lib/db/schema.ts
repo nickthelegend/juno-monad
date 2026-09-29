@@ -185,6 +185,11 @@ export const junoSwaps = pgTable(
     trader: varchar("trader", { length: 42 }).notNull(),
     blockNumber: bigint("block_number", { mode: "number" }).notNull(),
     blockTime: timestamp("block_time", { withTimezone: true }).notNull(),
+    /**
+     * Where the fill happened after graduation: "kuru" or "uniswap-v2". Null
+     * on the curve. Without it a stored v2 fill came back as a curve trade.
+     */
+    venue: varchar("venue", { length: 16 }),
   },
   (table) => [
     index("juno_swaps_token_block_idx").on(table.token, table.blockNumber),

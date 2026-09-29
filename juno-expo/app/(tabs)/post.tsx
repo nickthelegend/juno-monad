@@ -624,10 +624,10 @@ function LaunchLog({ entries }: { entries: LogEntry[] }) {
       {entries.map((entry, index) => (
         <Pressable
           key={`${entry.label}-${index}`}
-          disabled={!entry.link}
+          disabled={!entry.link || !juno.explorable()}
           onPress={() => entry.link && void Linking.openURL(juno.explorer(entry.link, entry.receipt))}
           style={styles.logRow}
-          accessibilityRole={entry.link ? "link" : undefined}
+          accessibilityRole={entry.link && juno.explorable() ? "link" : undefined}
         >
           <Text style={styles.logTick}>✓</Text>
           <View style={{ flex: 1 }}>
