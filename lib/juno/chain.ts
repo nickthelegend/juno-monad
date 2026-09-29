@@ -250,12 +250,10 @@ export async function hydratePool(
    * refused history must not discard a price, a curve and a NAV band that
    * were read successfully a moment earlier.
    */
-  const [history, nav] = options.detailed
-    ? await Promise.all([
-        wantHistory ? listSwapHistory(row.token).catch(() => null) : null,
-        navFor(row, priceUsd, preset).catch(() => null),
-      ]).catch(() => [null, null] as const)
-    : [null, options.nav ? await navFor(row, priceUsd, preset).catch(() => null) : null];
+  const [history, nav] = await Promise.all([
+    wantHistory ? listSwapHistory(row.token).catch(() => null) : null,
+    options.detailed || options.nav ? navFor(row, priceUsd, preset).catch(() => null) : null,
+  ]).catch(() => [null, null] as const);
 
   // Creator fees are a field of the pool itself: the claimable balance, read in
   // the same call as the price.
@@ -553,7 +551,7 @@ export async function globalActivity(
 export async function hydratePools(
   rows: JunoPoolRow[],
   width = 2,
-  options: { nav?: boolean } = {},
+  options: { nav?: boolean; history?: boolean } = {},
 ): Promise<{ coins: Coin[]; missing: number }> {
   const out: Array<Coin | null> = new Array(rows.length).fill(null);
   let cursor = 0;
@@ -561,7 +559,7 @@ export async function hydratePools(
   async function worker() {
     while (cursor < rows.length) {
       const index = cursor++;
-      out[index] = await hydratePool(rows[index], { nav: options.nav }).catch(() => null);
+      out[index] = await hydratePool(rows[index], options).catch(() => null);
     }
   }
 

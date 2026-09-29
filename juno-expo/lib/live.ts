@@ -5,8 +5,8 @@ import { api } from "./api";
 /**
  * Juno's events as Monad commits them, from `GET /api/juno/live`.
  *
- * Monad finalises a block in stages and says so: proposed, then voted about
- * 80 ms later, then finalized about 200 ms after that. The server holds one
+ * Monad finalises a block in stages and says so: proposed, then voted, then
+ * finalized, a few hundred milliseconds apart. The server holds one
  * WebSocket to the chain (`monadNewHeads` / `monadLogs`) and records when each
  * stage arrived; this polls it. A poll works the same on iOS, Android and the
  * web, and a second is quicker than any of the stages people are watching.

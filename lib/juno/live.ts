@@ -11,10 +11,11 @@ import { isMainnet, launchpadAddress } from "./network";
  * Monad reaches consensus on a block in stages, and its WebSocket API says so:
  * `monadNewHeads` delivers each block once per stage with a `commitState`, and
  * `monadLogs` delivers each log tagged with the state of the block it is in.
- * Measured on testnet, a block goes Proposed → Voted in about 80 ms and
- * Voted → Finalized in about 200 more. That is the thing a post's buyers can
- * watch happen: a trade appears the moment its block is proposed and locks in
- * under a third of a second later, with the timings to prove it.
+ * Measured on testnet the gaps move with load — about 80 ms then 200 ms when
+ * this was written, medians of 268 ms and 248 ms over 34 blocks on
+ * 2026-09-29 — so nothing here assumes them. That is the thing a post's
+ * buyers can watch happen: a trade appears the moment its block is proposed
+ * and locks in about half a second later, with the timings to prove it.
  *
  * One connection per server process, opened on first use and kept. Events are
  * held in a small ring — this is a live tape, not history; `lib/juno/swaps.ts`

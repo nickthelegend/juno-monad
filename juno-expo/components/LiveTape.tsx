@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { type Coin } from "../lib/api";
+import { juno, type Coin } from "../lib/api";
 import { shortAddress } from "../lib/names";
 import { useLive } from "../lib/live";
 import { theme } from "../theme";
@@ -20,7 +20,10 @@ import { StageDots } from "./Finality";
  */
 export function LiveTape({ coins }: { coins: Coin[] | null | undefined }) {
   const router = useRouter();
-  const live = useLive({}, { intervalMs: 1_000 });
+  // The server follows Monad's own stream, which a trade on a local fork never
+  // reaches — so on a fork there is nothing to wait for, and no reason to ask
+  // once a second. Same rule as the trade sheet's finality timeline.
+  const live = useLive({}, { intervalMs: 1_000, enabled: !juno.loadedConfig()?.localFork });
   const symbols = useMemo(() => {
     const map = new Map<string, Coin>();
     for (const coin of coins ?? []) map.set(coin.address.toLowerCase(), coin);

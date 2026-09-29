@@ -30,7 +30,9 @@ export async function GET(
     const replies = await listPosts({ parentId: id, limit: 100 });
 
     const row = post.token ? await getPool(post.token) : null;
-    const coin = row ? await hydratePool(row).catch(() => null) : null;
+    // With history, because the card shows the day change and that is read
+    // from trades — without it the change was always "—".
+    const coin = row ? await hydratePool(row, { history: true }).catch(() => null) : null;
 
     const shape = (p: typeof post) => ({
       id: p.id,

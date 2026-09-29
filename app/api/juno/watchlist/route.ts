@@ -26,7 +26,12 @@ export async function GET(request: Request) {
 
     const registry = await listPools(60);
     const wanted = new Set(rows.map((row) => row.token));
-    const { coins, missing } = await hydratePools(registry.filter((row) => wanted.has(row.token)));
+    // With history: each row shows its day change, which is read from trades.
+    const { coins, missing } = await hydratePools(
+      registry.filter((row) => wanted.has(row.token)),
+      2,
+      { history: true },
+    );
     const priced = new Map(coins.map((coin) => [coin.address, coin]));
 
     const items = rows.map((row) => {
