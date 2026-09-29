@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { juno, type Coin } from "../lib/api";
 import { shortAddress } from "../lib/names";
 import { useLive } from "../lib/live";
+import { useApi } from "../lib/useApi";
 import { theme } from "../theme";
 import { StageDots } from "./Finality";
 
@@ -22,8 +23,12 @@ export function LiveTape({ coins }: { coins: Coin[] | null | undefined }) {
   const router = useRouter();
   // The server follows Monad's own stream, which a trade on a local fork never
   // reaches — so on a fork there is nothing to wait for, and no reason to ask
-  // once a second. Same rule as the trade sheet's finality timeline.
-  const live = useLive({}, { intervalMs: 1_000, enabled: !juno.loadedConfig()?.localFork });
+  // once a second. Same rule as the trade sheet's finality timeline. The
+  // config is waited for rather than read once at render: rendered before it
+  // arrived, the tape started polling and only stopped if something happened
+  // to re-render it.
+  const config = useApi(() => juno.config(), []);
+  const live = useLive({}, { intervalMs: 1_000, enabled: config.data ? !config.data.localFork : false });
   const symbols = useMemo(() => {
     const map = new Map<string, Coin>();
     for (const coin of coins ?? []) map.set(coin.address.toLowerCase(), coin);
