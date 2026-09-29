@@ -20,6 +20,14 @@ import { theme } from "../theme";
 export function PerpsPanel() {
   const wallet = useWallet();
   const markets = useApi(() => juno.perps(), []);
+  // "Live" has to mean live after the first read too. Perpl's marks move every
+  // block and the server holds them for five seconds, so ten is the most a
+  // mark on this list is ever behind.
+  useEffect(() => {
+    const timer = setInterval(markets.poll, 10_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const account = useApi(
     () => (wallet.address ? juno.perpAccount(wallet.address) : Promise.resolve(null)),
     [wallet.address],
@@ -165,7 +173,8 @@ function AccountCard({
           <Button label={account.accountId ? "Deposit" : "Open account"} variant="ink" onPress={onDeposit} />
           {account.balance > 0 ? (
             <Button
-              label={busy === "withdraw" ? "Withdrawing…" : "Withdraw"}
+              // One tap takes every free AUSD home, so the label says so.
+              label={busy === "withdraw" ? "Withdrawing…" : "Withdraw all"}
               variant="quiet"
               loading={busy === "withdraw"}
               onPress={() => void run("withdraw", () => juno.perpWithdraw({ owner: wallet.address!, amount: account.balance }))}

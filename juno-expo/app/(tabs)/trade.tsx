@@ -750,7 +750,7 @@ function TraderBoard({
   board,
   onOpen,
 }: {
-  board: ReturnType<typeof useApi<{ partial: boolean; poolsRead: number; traders: Trader[] } | null>>;
+  board: ReturnType<typeof useApi<{ partial: boolean; poolsRead: number; poolsTotal: number; traders: Trader[] } | null>>;
   onOpen: (wallet: string) => void;
 }) {
   if (board.loading) {
@@ -803,6 +803,13 @@ function TraderBoard({
           Ranked from {board.data.poolsRead}{" "}
           {board.data.poolsRead === 1 ? "pool" : "pools"} — some histories would not
           load, so this is not every trade on the network. Pull to retry.
+        </Footnote>
+      ) : board.data && traders.length > 0 ? (
+        // Complete is a claim too, and worth the same line: a board that only
+        // speaks up when it is short leaves "complete" to be guessed.
+        <Footnote>
+          Every trade on all {board.data.poolsTotal} {board.data.poolsTotal === 1 ? "pool" : "pools"}, ranked by
+          profit taken.
         </Footnote>
       ) : null}
 

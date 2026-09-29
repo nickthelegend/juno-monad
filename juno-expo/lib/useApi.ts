@@ -25,6 +25,12 @@ export type AsyncState<T> = {
   loading: boolean;
   refreshing: boolean;
   refresh: () => void;
+  /**
+   * Reload without saying so: no spinner, and a failed read keeps what is on
+   * screen rather than replacing it with an error. For figures that are meant
+   * to stay current on their own — a mark, a funding rate.
+   */
+  poll: () => void;
 };
 
 export function useApi<T>(
@@ -42,19 +48,25 @@ export function useApi<T>(
   const generation = useRef(0);
 
   const run = useCallback(
-    async (isRefresh: boolean) => {
+    async (mode: "load" | "refresh" | "poll") => {
       const mine = ++generation.current;
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
-      setError(null);
-      setErrorStatus(null);
+      if (mode === "refresh") setRefreshing(true);
+      else if (mode === "load") setLoading(true);
+      if (mode !== "poll") {
+        setError(null);
+        setErrorStatus(null);
+      }
 
       try {
         const result = await load();
         if (generation.current !== mine) return;
         setData(result);
+        setError(null);
+        setErrorStatus(null);
       } catch (caught) {
         if (generation.current !== mine) return;
+        // A background read that failed says nothing new about what is shown.
+        if (mode === "poll") return;
         setErrorStatus(caught instanceof ApiError && caught.status > 0 ? caught.status : null);
         setError(
           caught instanceof ApiError
@@ -75,7 +87,7 @@ export function useApi<T>(
   );
 
   useEffect(() => {
-    run(false);
+    run("load");
     return () => {
       // Invalidate anything in flight.
       generation.current += 1;
@@ -83,7 +95,7 @@ export function useApi<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  return { data, error, errorStatus, loading, refreshing, refresh: () => run(true) };
+  return { data, error, errorStatus, loading, refreshing, refresh: () => run("refresh"), poll: () => run("poll") };
 }
 
 /*

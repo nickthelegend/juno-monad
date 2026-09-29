@@ -1,6 +1,6 @@
 import "server-only";
 
-import { envioAllTrades, envioConfigured, envioKuruTrades, envioPairTrades } from "./envio";
+import { envioAllTrades, envioConfigured, envioKuruTradesPage, envioPairTrades } from "./envio";
 import { basisFromSwaps } from "./portfolio";
 import { fetchPoolSnapshot } from "./launchpad";
 import { markPrice } from "./mark";
@@ -119,13 +119,21 @@ export async function leaderboard(poolLimit = 60, width = 2): Promise<Leaderboar
 async function indexedHistories(): Promise<Map<string, SwapHistory> | null> {
   if (!envioConfigured()) return null;
   try {
-    // Every page of a post-graduation venue's trades, oldest first.
-    const everyPage = async (read: typeof envioKuruTrades) => {
+    /*
+     * Every page of a post-graduation venue's trades, oldest first.
+     *
+     * A page is full when it held `limit` *rows*. Kuru's reader merges an
+     * order's fills into one trade, so it reports how many fills it read: a
+     * full page of fills comes back as fewer trades, and stopping on the
+     * shorter list dropped every page after the first — half of one sell went
+     * missing from the board.
+     */
+    const everyPage = async (read: (page: { limit: number; offset: number; oldestFirst: true }) => Promise<{ trades: PoolSwap[]; rows: number }>) => {
       const out: PoolSwap[] = [];
       for (let offset = 0; offset < 10_000; offset += 1_000) {
         const page = await read({ limit: 1_000, offset, oldestFirst: true });
-        out.push(...page);
-        if (page.length < 1_000) break;
+        out.push(...page.trades);
+        if (page.rows < 1_000) break;
       }
       return out;
     };
@@ -133,8 +141,14 @@ async function indexedHistories(): Promise<Map<string, SwapHistory> | null> {
       envioAllTrades(),
       // Merged again across pages: an order that straddles a page boundary
       // arrives as two partial trades.
-      everyPage(envioKuruTrades).then(coalesceFills),
-      everyPage(envioPairTrades).catch(() => [] as PoolSwap[]),
+      everyPage(async (page) => {
+        const { trades, fills } = await envioKuruTradesPage(page);
+        return { trades, rows: fills };
+      }).then(coalesceFills),
+      everyPage(async (page) => {
+        const trades = await envioPairTrades(page);
+        return { trades, rows: trades.length };
+      }).catch(() => [] as PoolSwap[]),
     ]);
     const byToken = new Map<string, SwapHistory>();
     for (const swap of [...curve.swaps, ...kuru, ...pair]) {
