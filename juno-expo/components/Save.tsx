@@ -96,8 +96,8 @@ export function WatchToggle({
   if (!wallet || !saved) return null;
 
   return (
-    <Tappable onPress={() => void toggle()} to={0.92}>
-      <WatchBox $on={on} accessibilityRole="button" accessibilityLabel={on ? "Stop watching" : "Watch"}>
+    <Tappable onPress={() => void toggle()} to={0.92} accessibilityLabel={on ? "Stop watching" : "Watch"}>
+      <WatchBox $on={on}>
         <EyeGlyph on={on} />
         <WatchText $on={on}>{on ? "Watching" : "Watch"}</WatchText>
       </WatchBox>

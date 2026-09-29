@@ -149,7 +149,7 @@ export default function SocialScreen() {
         {/* Whose posts, not what kind. Absent without a wallet, because there
             is no following list to have. */}
         {wallet.address ? (
-          <View style={styles.scope}>
+          <View style={styles.scope} role="tablist">
             {(["everyone", "following"] as const).map((id) => (
               <Pressable
                 key={id}

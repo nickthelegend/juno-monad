@@ -549,8 +549,10 @@ export function Tabs<T extends string>({
   value: T;
   onChange: (id: T) => void;
 }) {
+  // A tab belongs to a tablist; without one a screen reader announces a row
+  // of orphaned tabs with no group to move through.
   return (
-    <TabRow>
+    <TabRow role="tablist">
       {items.map((item) => (
         <TabItem
           key={item.id}
@@ -595,7 +597,7 @@ export function Segmented<T extends string>({
   onChange: (id: T) => void;
 }) {
   return (
-    <SegRow>
+    <SegRow role="tablist">
       {items.map((item) => (
         <Seg
           key={item.id}

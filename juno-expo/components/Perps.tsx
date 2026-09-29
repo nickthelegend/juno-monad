@@ -324,7 +324,7 @@ function OpenSheet({
           style={styles.input}
         />
         <Caption>Leverage</Caption>
-        <View style={styles.chips}>
+        <View style={styles.chips} role="radiogroup" aria-label="Leverage">
           {options.map((option) => (
             <Pressable
               key={option}

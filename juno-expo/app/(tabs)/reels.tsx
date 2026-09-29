@@ -355,6 +355,7 @@ function Reel({
         onLongPress={() => setHeld(true)}
         onPressOut={() => setHeld(false)}
         delayLongPress={220}
+        accessibilityRole="button"
         accessibilityLabel={`${coin.name}. Tap for sound, double tap to like.`}
       />
 
@@ -406,7 +407,7 @@ function Reel({
       {/* Who, and what they said */}
       <View style={[styles.info, { bottom: bottom + 92 }, { pointerEvents: "box-none" }]}>
         <View style={styles.byline}>
-          <Pressable onPress={onOpenCreator} hitSlop={6} style={styles.bylineWho}>
+          <Pressable onPress={onOpenCreator} hitSlop={6} style={styles.bylineWho} accessibilityRole="button">
             <View style={styles.bylineAvatar}>
               <Identicon seed={coin.creator.wallet} size={30} />
             </View>
@@ -417,7 +418,7 @@ function Reel({
           <FollowChip wallet={coin.creator.wallet} />
         </View>
 
-        <Pressable onPress={() => setExpanded((on) => !on)}>
+        <Pressable onPress={() => setExpanded((on) => !on)} accessibilityRole="button" aria-expanded={expanded}>
           <Text style={styles.caption} numberOfLines={expanded ? 6 : 2}>
             <Text style={styles.captionTitle}>{coin.name}</Text>
             {coin.description ? `  ${coin.description}` : ""}
@@ -425,7 +426,7 @@ function Reel({
         </Pressable>
 
         <View style={styles.chips}>
-          <Pressable onPress={onOpenCoin} style={styles.chip}>
+          <Pressable onPress={onOpenCoin} style={styles.chip} accessibilityRole="button">
             <Text style={styles.chipStrong}>${coin.symbol}</Text>
             <Text style={styles.chipText}>{money(coin.priceUsd, coin.marketCapCurrency, { compact: false })}</Text>
           </Pressable>
@@ -469,13 +470,13 @@ function Reel({
             keeps trading here, on its Kuru market or its Uniswap v2 pair. */}
         {!tradesInApp(coin) ? null : (
           <>
-            <Tappable onPress={() => onTrade("sell")} to={0.94}>
-              <View style={styles.sell} accessibilityRole="button" accessibilityLabel={`Sell $${coin.symbol}`}>
+            <Tappable onPress={() => onTrade("sell")} to={0.94} accessibilityLabel={`Sell $${coin.symbol}`}>
+              <View style={styles.sell}>
                 <Text style={styles.sellText}>Sell</Text>
               </View>
             </Tappable>
-            <Tappable onPress={() => onTrade("buy")} to={0.94}>
-              <View style={styles.buy} accessibilityRole="button" accessibilityLabel={`Buy $${coin.symbol}`}>
+            <Tappable onPress={() => onTrade("buy")} to={0.94} accessibilityLabel={`Buy $${coin.symbol}`}>
+              <View style={styles.buy}>
                 <Text style={styles.buyText}>Buy</Text>
               </View>
             </Tappable>

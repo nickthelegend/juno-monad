@@ -574,7 +574,7 @@ export function TradeSheet({
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <Scrim onPress={onClose} />
+      <Scrim onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
 
       <Sheet>
         <Grabber />
@@ -672,6 +672,9 @@ export function TradeSheet({
                     setError(null);
                   }}
                   to={0.95}
+                  // Only a switch on a curve buy; anywhere else it is a label,
+                  // and a label should not take focus.
+                  disabled={!(side === "buy" && !offCurve)}
                   accessibilityRole={side === "buy" && !offCurve ? "button" : undefined}
                   accessibilityLabel={
                     side === "buy" && !offCurve
@@ -698,6 +701,10 @@ export function TradeSheet({
                 <Quick
                   key={preset.label}
                   disabled={preset.amount === null}
+                  // A size is a button to a screen reader too; without the role
+                  // these read as plain text that happened to be tappable.
+                  accessibilityRole="button"
+                  aria-disabled={preset.amount === null}
                   onPress={() =>
                     preset.amount === null
                       ? undefined
@@ -723,7 +730,7 @@ export function TradeSheet({
                  about their holding, and every smaller sale moves it less. */
               sellsAll ? (
                 <Tappable onPress={() => setSize(trimTrailingZeros(holding!), 1)} to={0.98}>
-                  <Depth accessibilityRole="button">
+                  <Depth>
                     <Col gap={2} style={{ flex: 1 }}>
                       <Label style={{ fontWeight: "700" }}>
                         All {tokens(holding!)} {unit} you hold
@@ -740,7 +747,7 @@ export function TradeSheet({
                   onPress={() => setSize(trimTrailingZeros(suggestion.amountIn))}
                   to={0.98}
                 >
-                  <Depth accessibilityRole="button">
+                  <Depth>
                     <Col gap={2} style={{ flex: 1 }}>
                       <Label style={{ fontWeight: "700" }}>
                         {tokens(suggestion.amountIn)} {unit} moves it{" "}

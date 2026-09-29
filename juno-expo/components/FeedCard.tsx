@@ -125,7 +125,9 @@ export function FeedCard({
       </View>
 
       {/* The post */}
-      <Pressable onPress={onMediaPress} accessibilityRole="imagebutton" accessibilityLabel={coin.name}>
+      {/* "imagebutton" is not a role on the web — it was dropped, and the
+          picture read as nothing a screen reader could press. */}
+      <Pressable onPress={onMediaPress} accessibilityRole="button" accessibilityLabel={coin.name}>
         <View style={[styles.media, { aspectRatio: reel ? 4 / 5 : 1 }]}>
           {art ? (
             <Image
@@ -207,8 +209,8 @@ export function FeedCard({
             <Text style={styles.graduatedText}>{coin.curve.graduated ? (coin.venue === "kuru" ? "On Kuru" : "On Uniswap v2") : "Curve full"}</Text>
           </View>
         ) : (
-          <Tappable onPress={onBuy} to={0.94}>
-            <View style={styles.buy} accessibilityRole="button" accessibilityLabel={`Buy $${coin.symbol}`}>
+          <Tappable onPress={onBuy} to={0.94} accessibilityLabel={`Buy $${coin.symbol}`}>
+            <View style={styles.buy}>
               <Text style={styles.buyText}>Buy</Text>
             </View>
           </Tappable>
@@ -248,7 +250,7 @@ export function FeedCard({
       </View>
 
       {/* What it is */}
-      <Pressable onPress={onOpen}>
+      <Pressable onPress={onOpen} accessibilityRole="button">
         <Text style={styles.title} numberOfLines={2}>
           {coin.name} <Text style={styles.ticker}>${coin.symbol}</Text>
         </Text>

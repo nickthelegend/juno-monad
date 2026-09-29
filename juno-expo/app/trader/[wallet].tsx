@@ -423,8 +423,8 @@ function HoldingRow({
 
       {/* Not a whole button: copying is an offer, not the row's purpose. The
           row still goes to the coin, which is what most taps want. */}
-      <Tappable onPress={onCopy} to={0.96}>
-        <CopyTap accessibilityRole="button" accessibilityLabel={`Buy ${position.symbol} yourself`}>
+      <Tappable onPress={onCopy} to={0.96} accessibilityLabel={`Buy ${position.symbol} yourself`}>
+        <CopyTap>
           <CopyText>Buy this yourself</CopyText>
         </CopyTap>
       </Tappable>

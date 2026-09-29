@@ -359,53 +359,57 @@ function CompanyCard({
           const cap = coin?.marketCap ?? market.marketCap;
           const graduated = coin?.curve.graduated ?? market.graduated;
           return (
-            <Tappable key={market.address} onPress={() => onOpen(market.address)} to={0.985}>
-              <View style={styles.market}>
-                <CoinArt uri={coin ? juno.still(coin.media) : null} seed={market.address} size={40} radius={12} />
-                <View style={{ flex: 1, gap: 3 }}>
-                  <Text style={styles.marketName} numberOfLines={1}>
-                    ${market.symbol} <Text style={styles.marketPreset}>{market.curvePreset}</Text>
-                  </Text>
-                  {/* The claim the tracker makes, checked: what one token
-                      implies per share against Tessera's mark, and whether
-                      that sits inside the preset's band. This is the whole
-                      point of a pre-IPO curve, and the card never said it. */}
-                  {coin?.nav && coin.nav.impliedUsd !== null && coin.nav.deviation !== null ? (
-                    <Text
-                      style={[
-                        styles.marketMeta,
-                        { color: coin.nav.withinBand ? theme.colors.pos : theme.colors.neg, fontWeight: "700" },
-                      ]}
-                      numberOfLines={2}
-                    >
-                      Implies {money(coin.nav.impliedUsd, "USD", { compact: false })}/share ·{" "}
-                      {coin.nav.deviation >= 0 ? "+" : ""}
-                      {(coin.nav.deviation * 100).toFixed(2)}% vs mark ·{" "}
-                      {coin.nav.withinBand ? "inside" : "outside"} ±{coin.nav.bandBps / 100}% band
-                    </Text>
-                  ) : null}
-                  <Text style={styles.marketMeta} numberOfLines={1}>
-                    {cap === null ? "—" : money(cap, coin?.marketCapCurrency ?? market.currency ?? "USD")} cap ·{" "}
-                    {graduated
-                      ? "graduated"
-                      : progress === null
-                        ? "progress not read yet"
-                        : `${progressLabel(progress * 100)} to graduation`}
-                  </Text>
-                </View>
-                {graduated ? null : (
-                  <Tappable onPress={() => onTrade(market.address)} to={0.94}>
-                    <View
-                      style={[styles.tradeButton, pricing && !coin ? { opacity: 0.5 } : null]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Trade $${market.symbol}`}
-                    >
-                      <Text style={styles.tradeText}>Trade</Text>
+            // The row opens the coin and its Trade button trades it: two
+            // controls side by side, not one inside the other — a button
+            // nested in a button is invalid on the web and unreachable to a
+            // screen reader.
+            <View key={market.address} style={styles.market}>
+              <View style={{ flex: 1 }}>
+                <Tappable onPress={() => onOpen(market.address)} to={0.985}>
+                  <View style={styles.market}>
+                    <CoinArt uri={coin ? juno.still(coin.media) : null} seed={market.address} size={40} radius={12} />
+                    <View style={{ flex: 1, gap: 3 }}>
+                      <Text style={styles.marketName} numberOfLines={1}>
+                        ${market.symbol} <Text style={styles.marketPreset}>{market.curvePreset}</Text>
+                      </Text>
+                      {/* The claim the tracker makes, checked: what one token
+                          implies per share against Tessera's mark, and whether
+                          that sits inside the preset's band. This is the whole
+                          point of a pre-IPO curve, and the card never said it. */}
+                      {coin?.nav && coin.nav.impliedUsd !== null && coin.nav.deviation !== null ? (
+                        <Text
+                          style={[
+                            styles.marketMeta,
+                            { color: coin.nav.withinBand ? theme.colors.pos : theme.colors.neg, fontWeight: "700" },
+                          ]}
+                          numberOfLines={2}
+                        >
+                          Implies {money(coin.nav.impliedUsd, "USD", { compact: false })}/share ·{" "}
+                          {coin.nav.deviation >= 0 ? "+" : ""}
+                          {(coin.nav.deviation * 100).toFixed(2)}% vs mark ·{" "}
+                          {coin.nav.withinBand ? "inside" : "outside"} ±{coin.nav.bandBps / 100}% band
+                        </Text>
+                      ) : null}
+                      <Text style={styles.marketMeta} numberOfLines={1}>
+                        {cap === null ? "—" : money(cap, coin?.marketCapCurrency ?? market.currency ?? "USD")} cap ·{" "}
+                        {graduated
+                          ? "graduated"
+                          : progress === null
+                            ? "progress not read yet"
+                            : `${progressLabel(progress * 100)} to graduation`}
+                      </Text>
                     </View>
-                  </Tappable>
-                )}
+                  </View>
+                </Tappable>
               </View>
-            </Tappable>
+              {graduated ? null : (
+                <Tappable onPress={() => onTrade(market.address)} to={0.94} accessibilityLabel={`Trade $${market.symbol}`}>
+                  <View style={[styles.tradeButton, pricing && !coin ? { opacity: 0.5 } : null]}>
+                    <Text style={styles.tradeText}>Trade</Text>
+                  </View>
+                </Tappable>
+              )}
+            </View>
           );
         })
       )}
@@ -504,118 +508,122 @@ function MarketCard({
   const nav = coin.nav ?? null;
   const deviation = nav?.deviation ?? null;
 
+  // The head and figures open the coin; the Trade button beside the progress
+  // trades it. Siblings, not nested: see the tracker row above.
   return (
-    <Tappable onPress={onOpen} to={0.985}>
-      <View style={styles.company}>
-        <View style={styles.companyHead}>
-          {stock ? (
-            <StockLogo ticker={ticker ?? coin.symbol} />
-          ) : (
-            <CoinArt uri={juno.still(coin.media)} seed={coin.address} size={48} radius={14} />
-          )}
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.companyName} numberOfLines={1}>
-              {stock ? (listed?.name ?? coin.name) : coin.name}
-            </Text>
-            <Text style={styles.companySector} numberOfLines={1}>
-              {stock
-                ? `${listed?.venue ?? "Listed"} · ${ticker ?? coin.symbol} · Pyth`
-                : (
-                  <>
-                    by <Handle wallet={coin.creator.wallet} /> · {coin.format === "reel" ? "reel" : "post"}
-                  </>
-                )}
-            </Text>
-          </View>
-          <View style={[styles.preBadge, stock ? styles.badgeInk : styles.badgeHeart]}>
-            <Text style={[styles.preBadgeText, stock ? styles.badgeInkText : styles.badgeHeartText]}>
-              {stock ? "LISTED" : coin.format === "reel" ? "REEL" : "MEME"}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.stats}>
-          {stock ? (
-            <>
-              {/* Absent, not zero, when the feed did not answer — or when the
-                  server predates the reference read. */}
-              {/* Said with its age when it is not live. Pyth does not push
-                  equities to Monad, and without a Hermes key the last mark
-                  posted on-chain can be months old — "Pyth price" alone
-                  passed that off as current. */}
-              <Stat
-                label={
-                  nav?.state === "closed"
-                    ? "Last close"
-                    : nav?.state === "stale"
-                      ? `Pyth, ${nav.ageSeconds === null ? "stale" : `${markAge(nav.ageSeconds)} old`}`
-                      : "Pyth price"
-                }
-                value={nav ? money(nav.priceUsd, "USD", { compact: false }) : "—"}
-              />
-              <View style={styles.statRule} />
-              <Stat label="Market cap" value={money(coin.marketCap, coin.marketCapCurrency)} />
-              <View style={styles.statRule} />
-              <Stat
-                label="Curve vs price"
-                value={deviation === null ? "—" : `${deviation >= 0 ? "+" : ""}${(deviation * 100).toFixed(2)}%`}
-                // Against a stale mark the gap is a fact about the past, not a
-                // signal; it is shown uncoloured.
-                tone={deviation === null || nav?.state === "stale" ? undefined : nav?.withinBand ? "pos" : "neg"}
-              />
-            </>
-          ) : (
-            <>
-              <Stat label="Market cap" value={money(coin.marketCap, coin.marketCapCurrency)} />
-              <View style={styles.statRule} />
-              <Stat label="Likes" value={coin.likes === undefined ? "—" : count(coin.likes) || "0"} />
-              <View style={styles.statRule} />
-              <Stat label="Replies" value={coin.commentCount === undefined ? "—" : count(coin.commentCount) || "0"} />
-            </>
-          )}
-        </View>
-
-        <View style={styles.market}>
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={styles.marketName} numberOfLines={1}>
-              ${coin.symbol} <Text style={styles.marketPreset}>{coin.curvePreset}</Text>
-            </Text>
-            <View style={styles.rowCurve}>
-              <View style={styles.rowTrack}>
-                <View
-                  style={[
-                    styles.rowFill,
-                    { width: `${coin.curve.graduated ? 100 : pct > 0 ? Math.max(2, Math.min(100, pct)) : 0}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.marketMeta}>
-                {coin.curve.graduated
-                  ? coin.venue === "kuru"
-                    ? "On Kuru"
-                    : "Graduated"
-                  : coin.curve.complete
-                    ? "Full"
-                    : progressLabel(pct)}
+    <View style={styles.company}>
+      <Tappable onPress={onOpen} to={0.985}>
+        <View style={{ gap: 14 }}>
+          <View style={styles.companyHead}>
+            {stock ? (
+              <StockLogo ticker={ticker ?? coin.symbol} />
+            ) : (
+              <CoinArt uri={juno.still(coin.media)} seed={coin.address} size={48} radius={14} />
+            )}
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.companyName} numberOfLines={1}>
+                {stock ? (listed?.name ?? coin.name) : coin.name}
+              </Text>
+              <Text style={styles.companySector} numberOfLines={1}>
+                {stock
+                  ? `${listed?.venue ?? "Listed"} · ${ticker ?? coin.symbol} · Pyth`
+                  : (
+                    <>
+                      by <Handle wallet={coin.creator.wallet} /> · {coin.format === "reel" ? "reel" : "post"}
+                    </>
+                  )}
+              </Text>
+            </View>
+            <View style={[styles.preBadge, stock ? styles.badgeInk : styles.badgeHeart]}>
+              <Text style={[styles.preBadgeText, stock ? styles.badgeInkText : styles.badgeHeartText]}>
+                {stock ? "LISTED" : coin.format === "reel" ? "REEL" : "MEME"}
               </Text>
             </View>
           </View>
-          {tradesInApp(coin) ? (
-            <Tappable onPress={onTrade} to={0.94}>
-              <View style={styles.tradeButton} accessibilityRole="button" accessibilityLabel={`Trade $${coin.symbol}`}>
-                <Text style={styles.tradeText}>Trade</Text>
-              </View>
-            </Tappable>
-          ) : coin.curve.graduated ? (
-            // A pair this API has no router for: traded outside the app.
-            <Pill label="On Uniswap v2" />
-          ) : (
-            // Full and waiting to graduate: nothing to trade until it does.
-            <Pill label="Curve full" tone="lime" />
-          )}
+
+          <View style={styles.stats}>
+            {stock ? (
+              <>
+                {/* Absent, not zero, when the feed did not answer — or when the
+                    server predates the reference read. */}
+                {/* Said with its age when it is not live. Pyth does not push
+                    equities to Monad, and without a Hermes key the last mark
+                    posted on-chain can be months old — "Pyth price" alone
+                    passed that off as current. */}
+                <Stat
+                  label={
+                    nav?.state === "closed"
+                      ? "Last close"
+                      : nav?.state === "stale"
+                        ? `Pyth, ${nav.ageSeconds === null ? "stale" : `${markAge(nav.ageSeconds)} old`}`
+                        : "Pyth price"
+                  }
+                  value={nav ? money(nav.priceUsd, "USD", { compact: false }) : "—"}
+                />
+                <View style={styles.statRule} />
+                <Stat label="Market cap" value={money(coin.marketCap, coin.marketCapCurrency)} />
+                <View style={styles.statRule} />
+                <Stat
+                  label="Curve vs price"
+                  value={deviation === null ? "—" : `${deviation >= 0 ? "+" : ""}${(deviation * 100).toFixed(2)}%`}
+                  // Against a stale mark the gap is a fact about the past, not a
+                  // signal; it is shown uncoloured.
+                  tone={deviation === null || nav?.state === "stale" ? undefined : nav?.withinBand ? "pos" : "neg"}
+                />
+              </>
+            ) : (
+              <>
+                <Stat label="Market cap" value={money(coin.marketCap, coin.marketCapCurrency)} />
+                <View style={styles.statRule} />
+                <Stat label="Likes" value={coin.likes === undefined ? "—" : count(coin.likes) || "0"} />
+                <View style={styles.statRule} />
+                <Stat label="Replies" value={coin.commentCount === undefined ? "—" : count(coin.commentCount) || "0"} />
+              </>
+            )}
+          </View>
         </View>
+      </Tappable>
+
+      <View style={styles.market}>
+        <View style={{ flex: 1, gap: 6 }}>
+          <Text style={styles.marketName} numberOfLines={1}>
+            ${coin.symbol} <Text style={styles.marketPreset}>{coin.curvePreset}</Text>
+          </Text>
+          <View style={styles.rowCurve}>
+            <View style={styles.rowTrack}>
+              <View
+                style={[
+                  styles.rowFill,
+                  { width: `${coin.curve.graduated ? 100 : pct > 0 ? Math.max(2, Math.min(100, pct)) : 0}%` },
+                ]}
+              />
+            </View>
+            <Text style={styles.marketMeta}>
+              {coin.curve.graduated
+                ? coin.venue === "kuru"
+                  ? "On Kuru"
+                  : "Graduated"
+                : coin.curve.complete
+                  ? "Full"
+                  : progressLabel(pct)}
+            </Text>
+          </View>
+        </View>
+        {tradesInApp(coin) ? (
+          <Tappable onPress={onTrade} to={0.94} accessibilityLabel={`Trade $${coin.symbol}`}>
+            <View style={styles.tradeButton}>
+              <Text style={styles.tradeText}>Trade</Text>
+            </View>
+          </Tappable>
+        ) : coin.curve.graduated ? (
+          // A pair this API has no router for: traded outside the app.
+          <Pill label="On Uniswap v2" />
+        ) : (
+          // Full and waiting to graduate: nothing to trade until it does.
+          <Pill label="Curve full" tone="lime" />
+        )}
       </View>
-    </Tappable>
+    </View>
   );
 }
 

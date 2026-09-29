@@ -387,8 +387,10 @@ function CoinDetail({ token }: { token: string }) {
                     if (outcome === "copied") setCopied(true);
                   }}
                   to={0.86}
+                  hitSlop={8}
+                  accessibilityLabel="Share"
                 >
-                  <IconTap hitSlop={8} accessibilityRole="button" accessibilityLabel="Share">
+                  <IconTap>
                     <ShareGlyph />
                   </IconTap>
                 </Tappable>
@@ -412,8 +414,9 @@ function CoinDetail({ token }: { token: string }) {
                     setCopied(true);
                   }}
                   to={0.95}
+                  accessibilityLabel="Copy the coin address"
                 >
-                  <Chip accessibilityRole="button" accessibilityLabel="Copy the coin address">
+                  <Chip>
                     <CopyGlyph />
                     <ChipText>{copied ? "Copied" : "Copy address"}</ChipText>
                   </Chip>
@@ -595,8 +598,8 @@ function CoinDetail({ token }: { token: string }) {
             {/* The glyph alone. The word beside it was the one label on a bar
                 whose other half says Buy, and it read as a second primary
                 action competing with the one that matters. */}
-            <Tappable onPress={() => setCommentsOpen(true)} to={0.94}>
-              <PostTap accessibilityRole="button" accessibilityLabel="Comment on this coin">
+            <Tappable onPress={() => setCommentsOpen(true)} to={0.94} accessibilityLabel="Comment on this coin">
+              <PostTap>
                 <PostGlyph />
               </PostTap>
             </Tappable>

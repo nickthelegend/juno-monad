@@ -447,11 +447,19 @@ export default function PostScreen() {
             behaves, not just where it starts.
           </Text>
 
-          <View style={styles.presets}>
+          {/* Radios in a group, so a screen reader says which curve is chosen
+              and that the four are one choice; the cards had no role at all. */}
+          <View style={styles.presets} role="radiogroup" aria-label="Curve">
             {PRESETS.map((option) => {
               const on = preset === option.id;
               return (
-                <Pressable key={option.id} onPress={() => setPreset(option.id)}>
+                <Pressable
+                  key={option.id}
+                  onPress={() => setPreset(option.id)}
+                  role="radio"
+                  aria-checked={on}
+                  aria-label={`${option.label}. ${option.blurb}`}
+                >
                   <Card style={[styles.preset, on && styles.presetOn]}>
                     <View style={styles.presetRow}>
                       <View style={styles.presetText}>
@@ -477,7 +485,7 @@ export default function PostScreen() {
               <Text style={styles.sectionLede}>
                 The curve&apos;s reserves move to a venue and stay there for good. Chosen now, fixed at launch.
               </Text>
-              <View style={styles.presets}>
+              <View style={styles.presets} role="radiogroup" aria-label="When it fills">
                 {venues.map((id) => {
                   const on = venue === id;
                   return (
@@ -505,7 +513,7 @@ export default function PostScreen() {
           <Text style={styles.sectionLede}>
             Bought in the launch transaction itself, at the opening price, so nobody can get in ahead of you.
           </Text>
-          <View style={styles.chips}>
+          <View style={styles.chips} role="radiogroup" aria-label="First buy">
             {FIRST_BUYS.map((amount) => {
               const on = firstBuy === amount;
               return (

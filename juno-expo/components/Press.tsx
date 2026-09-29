@@ -61,9 +61,15 @@ export function Tappable({
   to?: number;
 }) {
   const { scale, onPressIn, onPressOut } = usePressScale(to);
+  // Something you tap is a button unless the caller says otherwise. Without a
+  // role, a tappable card or icon was announced as plain text or as nothing,
+  // and could not be found by role at all. A caller that passes a role — even
+  // `undefined`, as the trade sheet's chip does where it is not a switch —
+  // keeps its own.
+  const role = "accessibilityRole" in rest || "role" in rest ? {} : { accessibilityRole: "button" as const };
 
   return (
-    <Pressable onPressIn={onPressIn} onPressOut={onPressOut} {...rest}>
+    <Pressable onPressIn={onPressIn} onPressOut={onPressOut} {...role} {...rest}>
       <Animated.View style={[style, { transform: [{ scale }] }]}>{children}</Animated.View>
     </Pressable>
   );
