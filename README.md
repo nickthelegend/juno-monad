@@ -17,11 +17,27 @@ Culture*: a feed where curation is paid for by the people who benefit from it.
 | | |
 |---|---|
 | **Network** | Monad **testnet** (chain 10143). No real money. |
-| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad`, `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`. Addresses are filled in by [`contracts/deploy.sh`](contracts/deploy.sh); see [DEPLOY.md](DEPLOY.md). |
+| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad`, `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`, `JunoSwapRouter`. Addresses are filled in by [`contracts/deploy.sh`](contracts/deploy.sh); see [DEPLOY.md](DEPLOY.md). |
 | **App** | [`juno-expo/`](juno-expo/) — Expo (iOS, Android, web). |
+| **Download** | [Release v1.1.0](https://github.com/nickthelegend/juno-monad/releases/tag/v1.1.0): the Android APK (arm64) and an iOS Simulator build. Both talk to a Juno API on your own machine until one is hosted — see *Install it*. |
 | **API** | [`app/api/juno/`](app/api/juno/) — the Next.js server the app talks to. [docs/API.md](docs/API.md). |
 | **Indexer** | [`indexer/`](indexer/) — Envio HyperIndex over the launchpad's events. |
 | **Deep dive** | [JUNO.md](JUNO.md) — the curve, the contracts, what is and is not built. |
+
+## Install it
+
+The 1.1.0 builds point at an API on the machine running them, because none is
+hosted yet: set up the stack as *Run it* below says, and start the API on
+port 3100 with `npm run dev -- --port 3100`.
+
+- **Android emulator:** `adb install juno-monad-1.1.0-arm64.apk`. The APK
+  reaches the host at `http://10.0.2.2:3100`; plain HTTP is allowed to that
+  address and loopback only.
+- **iOS Simulator (Mac with Xcode):** unzip `juno-monad-1.1.0-ios-simulator.zip`,
+  then `xcrun simctl install booted Juno.app && xcrun simctl launch booted app.launch.junomonad`.
+- **Web:** `cd juno-expo && EXPO_PUBLIC_API_URL=http://localhost:3100 npx expo start --web`.
+
+Profile → *Get testnet MON* funds a new wallet from Juno's faucet.
 
 ## Sixty seconds in the app
 
