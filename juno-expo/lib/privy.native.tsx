@@ -48,9 +48,9 @@ const PrivyContext = createContext<PrivyState | null>(null);
 
 /**
  * How long Privy may take to come up before the sheet says so. Privy is ready
- * once its hidden wallet page has loaded, usually a second or two. On a
- * simulator short of memory it took minutes, and a page that never loads
- * would leave "Connecting…" on screen forever.
+ * once its hidden wallet page has loaded, usually a second or two. In one
+ * run on the iOS simulator it had not come up after two minutes, and a page
+ * that never loads would leave "Connecting…" on screen forever.
  */
 const STALL_MS = 15_000;
 
