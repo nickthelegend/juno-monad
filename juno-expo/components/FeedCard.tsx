@@ -10,7 +10,7 @@ import { useHandle } from "../lib/names";
 import { HeartGlyph, PlayGlyph, ReelBadgeGlyph, ReplyBubble, ShareGlyph, TriangleGlyph } from "./icons";
 import { Tappable } from "./Press";
 import { juno, type Coin } from "../lib/api";
-import { count, progressLabel } from "../lib/markets";
+import { count, progressLabel, tradesInApp } from "../lib/markets";
 import { useFollow, useLike } from "../lib/social";
 import { money, since } from "../lib/useApi";
 import { theme } from "../theme";
@@ -199,9 +199,10 @@ export function FeedCard({
 
         <View style={{ flex: 1 }} />
 
-        {/* A full curve takes no trades until someone graduates it, so it
-            gets a label rather than a Buy that could only fail. */}
-        {(coin.curve.graduated || coin.curve.complete) && !(coin.curve.graduated && coin.venue === "kuru") ? (
+        {/* A full curve takes no trades until someone graduates it, and a
+            pair with no router is traded elsewhere: each gets a label rather
+            than a Buy that could only fail. */}
+        {!tradesInApp(coin) ? (
           <View style={styles.graduated}>
             <Text style={styles.graduatedText}>{coin.curve.graduated ? (coin.venue === "kuru" ? "On Kuru" : "On Uniswap v2") : "Curve full"}</Text>
           </View>

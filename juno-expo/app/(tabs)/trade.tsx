@@ -29,7 +29,7 @@ import { QuickTrade } from "../../components/QuickTrade";
 import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, type Coin, type TesseraCompany, type Trader } from "../../lib/api";
 import { useLinkedState } from "../../lib/linked";
-import { bigMoney, count, invalidateMarkets, loadMarkets, progressLabel } from "../../lib/markets";
+import { bigMoney, count, invalidateMarkets, loadMarkets, progressLabel, tradesInApp } from "../../lib/markets";
 import { money, useApi } from "../../lib/useApi";
 import { useViewerOnce } from "../../lib/social";
 import { theme } from "../../theme";
@@ -600,17 +600,18 @@ function MarketCard({
               </Text>
             </View>
           </View>
-          {coin.curve.graduated && coin.venue !== "kuru" ? (
-            <Pill label="On Uniswap v2" />
-          ) : coin.curve.complete && !coin.curve.graduated ? (
-            // Full and waiting to graduate: nothing to trade until it does.
-            <Pill label="Curve full" tone="lime" />
-          ) : (
+          {tradesInApp(coin) ? (
             <Tappable onPress={onTrade} to={0.94}>
               <View style={styles.tradeButton} accessibilityRole="button" accessibilityLabel={`Trade $${coin.symbol}`}>
                 <Text style={styles.tradeText}>Trade</Text>
               </View>
             </Tappable>
+          ) : coin.curve.graduated ? (
+            // A pair this API has no router for: traded outside the app.
+            <Pill label="On Uniswap v2" />
+          ) : (
+            // Full and waiting to graduate: nothing to trade until it does.
+            <Pill label="Curve full" tone="lime" />
           )}
         </View>
       </View>

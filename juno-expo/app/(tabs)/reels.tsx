@@ -38,7 +38,7 @@ import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
 import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, type Coin } from "../../lib/api";
-import { count, invalidateMarkets, loadMarkets, progressLabel } from "../../lib/markets";
+import { count, invalidateMarkets, loadMarkets, progressLabel, tradesInApp } from "../../lib/markets";
 import { useReducedMotion, nativeDriver } from "../../lib/motion";
 import { shareCoin, useFollow, useLike, useViewerOnce } from "../../lib/social";
 import { money, useApi } from "../../lib/useApi";
@@ -464,9 +464,9 @@ function Reel({
           </View>
         </Pressable>
         {/* A full curve takes no trades until it graduates; the coin screen,
-            one tap away, is where anyone can send it on. */}
-        {/* A coin that graduated into Kuru keeps trading here, on its market. */}
-        {(coin.curve.graduated || coin.curve.complete) && !(coin.curve.graduated && coin.venue === "kuru") ? null : (
+            one tap away, is where anyone can send it on. A graduated coin
+            keeps trading here, on its Kuru market or its Uniswap v2 pair. */}
+        {!tradesInApp(coin) ? null : (
           <>
             <Tappable onPress={() => onTrade("sell")} to={0.94}>
               <View style={styles.sell} accessibilityRole="button" accessibilityLabel={`Sell $${coin.symbol}`}>

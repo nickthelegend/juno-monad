@@ -115,6 +115,20 @@ async function readMarkets(viewer?: string | null) {
  * as broken at once. Under a hundredth of a percent it says so; under one it
  * keeps two decimals; above that, whole numbers.
  */
+/**
+ * Whether the app can trade a coin right now.
+ *
+ * A full curve takes no trades until someone graduates it. After graduation a
+ * coin trades on its Kuru market, or on its Uniswap v2 pair through Juno's
+ * router when the API has one (`v2Trading` in `/config`); without a router the
+ * pair is traded outside the app.
+ */
+export function tradesInApp(coin: Coin): boolean {
+  if (!coin.curve.graduated) return !coin.curve.complete;
+  if (coin.venue === "kuru") return true;
+  return juno.loadedConfig()?.v2Trading === true;
+}
+
 export function progressLabel(pct: number): string {
   if (pct <= 0) return "0%";
   if (pct < 0.01) return "<0.01%";

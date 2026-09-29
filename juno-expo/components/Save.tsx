@@ -7,6 +7,7 @@ import { BottomSheet } from "./BottomSheet";
 import { Tappable } from "./Press";
 import { Body, Button, Caption, Col, Label, Pill, Progress, Row, Segmented } from "./kit";
 import { juno, type Coin, type Plan } from "../lib/api";
+import { tradesInApp } from "../lib/markets";
 import { money, tokens } from "../lib/useApi";
 import { theme } from "../theme";
 
@@ -169,7 +170,7 @@ export function SaveCard({
   onContribute: (plan: Omit<Plan, "coin">) => void;
   onTogglePlan: (plan: Omit<Plan, "coin">) => void;
 }) {
-  const tradesInApp = !coin.curve.graduated || coin.venue === "kuru";
+  const tradable = tradesInApp(coin);
   if (!wallet || !saved) return null;
 
   const direction = alertDirection(saved, coin.priceUsd);
@@ -260,7 +261,7 @@ export function SaveCard({
 
       {/* A schedule is a promise to buy here. A coin that graduated to its
           Uniswap pair no longer trades in the app, so it is not offered one. */}
-      {tradesInApp ? (
+      {tradable ? (
         <Button
           label={saved.plans.length === 0 ? "Buy this every week" : "Add another schedule"}
           variant="quiet"
