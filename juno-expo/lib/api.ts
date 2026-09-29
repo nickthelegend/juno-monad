@@ -1226,9 +1226,15 @@ export const juno = {
    * a network hiccup.
    */
   balance: (wallet: string, token: string) =>
-    api.get<{ wallet: string; token: string; symbol: string; decimals: number; balance: number | null }>(
-      `/api/juno/tx/balance?wallet=${wallet}&token=${token}`,
-    ),
+    api.get<{
+      wallet: string;
+      token: string;
+      symbol: string;
+      decimals: number;
+      balance: number | null;
+      /** Exact, in the smallest unit, as a decimal string. */
+      raw: string | null;
+    }>(`/api/juno/tx/balance?wallet=${wallet}&token=${token}`),
 
   /** Broadcast one signed transaction and wait for its receipt. */
   submit: (input: { signed: Hex }) =>

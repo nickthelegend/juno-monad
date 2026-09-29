@@ -1,8 +1,8 @@
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Linking,
@@ -21,7 +21,7 @@ import { Button, Card, Pill } from "../../components/kit";
 import { juno, MON_ADDRESS, type Venue } from "../../lib/api";
 import { feedChanged } from "../../lib/refresh";
 import { useTabBarHeight } from "../../lib/tabbar";
-import { useApi } from "../../lib/useApi";
+import { tokens, useApi } from "../../lib/useApi";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
 
@@ -138,6 +138,31 @@ export default function PostScreen() {
     if (media && (media.type === "video") !== (kind === "reel")) setMedia(null);
   }, [kind, media]);
 
+  /*
+   * MON for gas, checked before anything is uploaded or signed.
+   *
+   * A wallet with no MON could press Launch: the video was pinned, the
+   * metadata pinned, the transaction signed — and only then did the node
+   * refuse it for want of gas. The balance is read up front instead (and again
+   * whenever the tab comes back into view, since MON usually arrives from the
+   * profile's faucet in between), and the exact cost is checked again once the
+   * transaction is built. Null means the read failed: that is not zero, and it
+   * does not block.
+   */
+  const monBalance = useApi(
+    () => (wallet.address ? juno.balance(wallet.address, MON_ADDRESS) : Promise.resolve(null)),
+    [wallet.address],
+  );
+  useFocusEffect(
+    useCallback(() => {
+      monBalance.poll();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wallet.address]),
+  );
+  const mon = monBalance.data?.balance ?? null;
+  const testnet = (juno.loadedConfig()?.network ?? "monad-testnet") === "monad-testnet";
+  const unfunded = wallet.address === null || (mon !== null && mon < firstBuy + LAUNCH_GAS_MON);
+
   const symbolOk = /^[A-Z0-9]{2,10}$/.test(symbol.trim().toUpperCase());
   const captionOk = caption.trim().length <= MAX_CAPTION;
   /*
@@ -145,7 +170,7 @@ export default function PostScreen() {
    * a video; a launch without one produced a coin that drew as a placeholder
    * in the feed and — for a reel — never appeared in Reels at all.
    */
-  const canLaunch = !!media && name.trim().length > 0 && symbolOk && captionOk && !busy;
+  const canLaunch = !!media && name.trim().length > 0 && symbolOk && captionOk && !unfunded && !busy;
   const missing = !media
     ? kind === "reel"
       ? "Add a video to launch"
@@ -160,7 +185,13 @@ export default function PostScreen() {
           : "Add a 2–10 character ticker"
         : !captionOk
           ? "Caption is too long"
-          : null;
+          : wallet.address === null
+            ? `Launching needs a wallet with a little MON for gas.${testnet ? " Make one and get testnet MON on your profile." : ""}`
+            : unfunded
+              ? `This needs about ${firstBuy > 0 ? `${firstBuy} MON for the first buy plus ` : ""}${LAUNCH_GAS_MON} MON for gas, and the wallet has ${
+                  mon === null ? "less" : tokens(mon)
+                }.${testnet ? " Get testnet MON on your profile." : ""}`
+              : null;
 
   async function pick() {
     setError(null);
@@ -281,6 +312,22 @@ export default function PostScreen() {
         venue: venues.includes(venue) ? venue : "uniswap-v2",
         firstBuy: firstBuy > 0 ? firstBuy : undefined,
       });
+
+      // The exact cost, now that it is known: every step's gas at its fee
+      // cap, plus the first buy. Said before signing rather than learned from
+      // the node's refusal after it.
+      const cost = built.steps.reduce(
+        (sum, step) => sum + BigInt(step.request.gas) * BigInt(step.request.maxFeePerGas) + BigInt(step.request.value),
+        0n,
+      );
+      const held = await juno.balance(address, MON_ADDRESS).catch(() => null);
+      if (held?.raw && BigInt(held.raw) < cost) {
+        throw new Error(
+          `This launch needs up to ${tokens(Number(cost) / 1e18)} MON with gas, and the wallet has ${tokens(
+            Number(BigInt(held.raw)) / 1e18,
+          )}.${testnet ? " Get testnet MON on your profile." : ""} Nothing was signed.`,
+        );
+      }
 
       const results = await wallet.signAndSubmit(
         built.steps,
@@ -511,6 +558,15 @@ export default function PostScreen() {
 }
 
 const MAX_CAPTION = 280;
+/**
+ * MON a launch is allowed to need for gas, checked before anything is pinned.
+ *
+ * Measured: a launch uses about 2.2M gas, and Monad charges the gas *limit* at
+ * the fee cap — at testnet's 102 gwei on 2026-09-29 that is about 0.22 MON. On
+ * a local fork (1 gwei) it is far less; the exact figure is checked again once
+ * the transaction is built.
+ */
+const LAUNCH_GAS_MON = 0.25;
 /** First-buy sizes offered at launch, in MON. */
 const FIRST_BUYS = [0, 1, 5, 10] as const;
 /** Matches the upload route's own limit, so a doomed upload is refused before it starts. */
