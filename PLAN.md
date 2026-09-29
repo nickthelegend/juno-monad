@@ -155,13 +155,13 @@ PROGRESS**, **NOT STARTED**, **BLOCKED** (reason and unblock step given),
 
 ### Phase 7 — Monad testnet  ·  BLOCKED on MON
 
-- **7.1** `contracts/deploy.sh testnet` (needs about 1.1 MON at 102 gwei).
+- **7.1** `contracts/deploy.sh testnet`. Simulated read-only against live testnet on 29 Sep: completes (launchpad, v2 factory and graduator, Kuru graduator on Kuru's live contracts, swap router), 10.5M gas, about 2.1 MON at 203 gwei.
 - **7.2** Verify on MonadVision/Sourcify; lifecycle proof (launch, buy, sell,
   claim, fill, graduate into Uniswap v2 and into Kuru, trade after each);
   `JUNO.md` on-chain proof section; indexer pointed at the deployment.
 - **7.3** `docs/MAINNET.md`: the mainnet runbook, for the user to run.
 
-Unblock: send ~10 MON to `0x019E55cb3ce46Ed3f439320Fb589833909C5CaaC`
+Unblock: send ~15 MON to `0x019E55cb3ce46Ed3f439320Fb589833909C5CaaC` (deploy ≈ 2.1 at today's gas, demo data ≈ 12, the rest headroom)
 (faucet.monad.xyz, or Alchemy's / QuickNode's faucet). Checked 29 Sep: the
 agents faucet (`agents.devnads.com`) is down (its Railway app returns 404).
 
