@@ -6,7 +6,7 @@ import { faucetAccount } from "@/lib/juno/faucet";
 import { uiToWei, weiToUi } from "@/lib/juno/launchpad";
 import { chain, network, rpcEndpoint } from "@/lib/juno/network";
 import { explainFailure } from "@/lib/juno/tx";
-import { check } from "@/lib/rate-limit";
+import { check, clientIp } from "@/lib/rate-limit";
 import { requireAddress } from "../_lib/guards";
 
 export const runtime = "nodejs";
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
 
     // Per wallet and per network address, so one visitor cannot drain it by
     // minting fresh wallets in a loop.
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = clientIp(request.headers);
     for (const [key, limit, windowMs] of [
       [`faucet:${wallet}`, 3, 10 * 60_000],
       [`faucet-ip:${ip}`, 6, 60 * 60_000],

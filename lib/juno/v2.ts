@@ -65,6 +65,8 @@ export async function quoteV2Trade(params: {
   side: TradeSide;
   /** Quote units on a buy, token units on a sell. */
   amountIn: number;
+  /** The same input in wei, when it is known exactly; wins over `amountIn`. */
+  amountInRaw?: bigint;
   slippageBps?: number;
 }): Promise<TradeQuote> {
   const { snapshot, side, amountIn, slippageBps = 100 } = params;
@@ -72,7 +74,7 @@ export async function quoteV2Trade(params: {
   const { tokenIn, tokenOut } = legs(snapshot, side);
   const inDecimals = side === "buy" ? snapshot.quoteDecimals : snapshot.baseDecimals;
   const outDecimals = side === "buy" ? snapshot.baseDecimals : snapshot.quoteDecimals;
-  const inRaw = uiToWei(amountIn, inDecimals);
+  const inRaw = params.amountInRaw ?? uiToWei(amountIn, inDecimals);
 
   let outRaw: bigint;
   let reserveInRaw: bigint;

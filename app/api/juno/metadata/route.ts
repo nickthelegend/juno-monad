@@ -1,4 +1,5 @@
 import { junoJson, junoOptions } from "@/lib/juno/api";
+import { rateLimit } from "@/lib/rate-limit";
 import { CURVE_PRESETS } from "@/lib/juno/curves";
 import { pinTokenMetadata } from "@/lib/juno/pinata";
 import type { CurvePresetId } from "@/lib/juno/types";
@@ -22,6 +23,9 @@ export async function POST(request: Request) {
   if (!process.env.PINATA_JWT) {
     return junoJson({ error: "Metadata pinning is not configured" }, { status: 503 });
   }
+  // Pins on Juno's Pinata key, for anyone who asks: bounded per address.
+  const limited = rateLimit(request, "metadata");
+  if (limited) return limited;
 
   let body: Record<string, unknown>;
   try {

@@ -1,4 +1,4 @@
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 import "styled-components/native";
 
@@ -112,22 +112,31 @@ export const theme = {
   /**
    * Light surfaces need far less shadow spread than dark ones to read as
    * lifted — a dark theme's 40px blur would look like smoke here.
+   *
+   * The web gets the same shadows as CSS `boxShadow`: React Native Web
+   * deprecates the `shadow*` props and warns on every screen that uses them.
    */
   shadow: {
-    card: {
-      shadowColor: "#2A3326",
-      shadowOpacity: 0.07,
-      shadowRadius: 14,
-      shadowOffset: { width: 0, height: 5 },
-      elevation: 3,
-    },
-    raised: {
-      shadowColor: "#2A3326",
-      shadowOpacity: 0.14,
-      shadowRadius: 22,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 10,
-    },
+    card: Platform.select({
+      web: { boxShadow: "0px 5px 14px rgba(42, 51, 38, 0.07)" },
+      default: {
+        shadowColor: "#2A3326",
+        shadowOpacity: 0.07,
+        shadowRadius: 14,
+        shadowOffset: { width: 0, height: 5 },
+        elevation: 3,
+      },
+    }),
+    raised: Platform.select({
+      web: { boxShadow: "0px 10px 22px rgba(42, 51, 38, 0.14)" },
+      default: {
+        shadowColor: "#2A3326",
+        shadowOpacity: 0.14,
+        shadowRadius: 22,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 10,
+      },
+    }),
   },
 } as const;
 

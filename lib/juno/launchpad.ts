@@ -348,6 +348,8 @@ export async function quoteTrade(params: {
   side: TradeSide;
   /** Input amount in UI units — quote units for a buy, token units for a sell. */
   amountIn: number;
+  /** The same input in wei, when it is known exactly; wins over `amountIn`. */
+  amountInRaw?: bigint;
   slippageBps?: number;
 }): Promise<TradeQuote> {
   const { snapshot, side, amountIn, slippageBps = 100 } = params;
@@ -357,7 +359,7 @@ export async function quoteTrade(params: {
   let amountOutRaw: bigint;
   let usedRaw: bigint;
   let feeRaw: bigint;
-  const inRaw = uiToWei(amountIn, side === "buy" ? quoteDecimals : baseDecimals);
+  const inRaw = params.amountInRaw ?? uiToWei(amountIn, side === "buy" ? quoteDecimals : baseDecimals);
 
   try {
     if (side === "buy") {
@@ -694,9 +696,24 @@ export function buildApproveCall(quote: QuoteToken, launchpad = requireLaunchpad
 
 export function uiToWei(amount: number, decimals: number): bigint {
   if (!Number.isFinite(amount) || amount <= 0) return 0n;
-  // Via a fixed-point string to avoid float error on large amounts.
-  const [whole, frac = ""] = amount.toFixed(Math.min(decimals, 20)).split(".");
+  // Via the shortest decimal that names this number — what the user typed —
+  // not `toFixed`, which prints the float's binary expansion: 0.1 became
+  // 0.100000000000000006 MON, and a 63,140.7-token sell 63,140.699999999997.
+  const [whole, frac = ""] = plainDecimal(amount).split(".");
   return BigInt(`${whole}${frac.padEnd(decimals, "0").slice(0, decimals)}`);
+}
+
+/** `String(n)` without exponent notation: 1e-7 → "0.0000001", 1e21 → "1000…0". */
+function plainDecimal(value: number): string {
+  const text = String(value);
+  const match = /^(\d+)(?:\.(\d+))?e([+-]\d+)$/i.exec(text);
+  if (!match) return text;
+  const [, whole, frac = "", exp] = match;
+  const digits = whole + frac;
+  const point = whole.length + Number(exp);
+  if (point <= 0) return `0.${"0".repeat(-point)}${digits}`;
+  if (point >= digits.length) return digits + "0".repeat(point - digits.length);
+  return `${digits.slice(0, point)}.${digits.slice(point)}`;
 }
 
 export function weiToUi(amount: bigint, decimals: number): number {

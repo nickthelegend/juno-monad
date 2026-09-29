@@ -1,5 +1,6 @@
 
 import { junoJson, junoOptions } from "@/lib/juno/api";
+import { rateLimit } from "@/lib/rate-limit";
 import { rememberContent } from "@/lib/juno/ipfs-cache";
 import { pinFile } from "@/lib/juno/pinata";
 import { videoPoster } from "@/lib/juno/poster";
@@ -17,6 +18,9 @@ export async function POST(request: Request) {
   if (!process.env.PINATA_JWT) {
     return junoJson({ error: "Uploads are not configured" }, { status: 503 });
   }
+  // Pins on Juno's Pinata key, for anyone who asks: bounded per address.
+  const limited = rateLimit(request, "upload");
+  if (limited) return limited;
 
   /**
    * Only what this route reads.

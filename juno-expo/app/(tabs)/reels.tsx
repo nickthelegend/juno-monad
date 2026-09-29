@@ -16,6 +16,7 @@ import {
   View,
   useWindowDimensions,
   type GestureResponderEvent,
+  type TextStyle,
   type ViewToken,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -784,6 +785,16 @@ const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 } as c
 const white = theme.colors.onNight;
 const soft = theme.colors.onNightMuted;
 
+/**
+ * A soft shadow under the rail's counts, so they read over any frame. React
+ * Native Web deprecates `textShadow*` in favour of CSS `textShadow`, which
+ * React Native itself has no type for.
+ */
+const LABEL_SHADOW = Platform.select({
+  web: { textShadow: "0px 0px 6px rgba(0, 0, 0, 0.5)" } as unknown as TextStyle,
+  default: { textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 6 },
+});
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.night },
 
@@ -845,8 +856,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: white,
     fontVariant: ["tabular-nums"],
-    textShadowColor: "rgba(0,0,0,0.5)",
-    textShadowRadius: 6,
+    ...LABEL_SHADOW,
   },
 
   creator: { alignItems: "center", marginBottom: 6 },

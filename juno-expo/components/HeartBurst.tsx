@@ -1,8 +1,23 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 
 import { HeartGlyph } from "./icons";
 import { useReducedMotion, nativeDriver } from "../lib/motion";
+
+/**
+ * The pink glow around the big heart. A native layer shadow follows the
+ * heart's own shape; on the web a `drop-shadow` filter does the same, where a
+ * box shadow would draw a square (and the `shadow*` props are deprecated).
+ */
+const GLOW = Platform.select({
+  web: { filter: "drop-shadow(0px 0px 24px rgba(255, 45, 111, 0.6))" },
+  default: {
+    shadowColor: "#FF2D6F",
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+  },
+});
 
 /**
  * The double-tap heart, where the finger landed.
@@ -78,10 +93,7 @@ export function HeartBurst({ x, y, onDone }: { x: number; y: number; onDone: () 
           top: y - 55,
           opacity,
           transform: [{ translateY: lift }, { scale }, { rotate: `${tilt}deg` }],
-          shadowColor: "#FF2D6F",
-          shadowOpacity: 0.6,
-          shadowRadius: 24,
-          shadowOffset: { width: 0, height: 0 },
+          ...GLOW,
         }}
       >
         <HeartGlyph size={110} color="#FF2D6F" filled stroke={0} />

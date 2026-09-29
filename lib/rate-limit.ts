@@ -1,18 +1,18 @@
 import "server-only";
 
+import { junoJson } from "@/lib/juno/api";
+
 /**
- * Rate limiting for the endpoints where abuse costs real money.
+ * Rate limiting for the endpoints where a stranger's requests cost Juno
+ * something: the faucet (testnet MON) and IPFS pinning (Pinata storage, on the
+ * project's key).
  *
  * Deliberately in-process: a fixed-window counter in a Map, no Redis, no extra
- * infrastructure to run. The tradeoff is honest — each serverless instance keeps
- * its own counter, so the effective limit is `limit × instances` and it resets
- * on cold start. That is a real weakness against a determined distributed
- * attacker, and it still turns "unbounded" into "bounded per instance", which is
- * the difference between one script draining your Replicate credit and one
- * script getting 10 requests in.
- *
- * If this app ever runs at a scale where that gap matters, swap the store for
- * Upstash/Redis behind the same `check()` signature — nothing else changes.
+ * infrastructure to run. Each server instance keeps its own counter, so the
+ * effective limit is `limit × instances` and it resets on restart. That is a
+ * real weakness against a distributed attacker; it still turns "unbounded"
+ * into "bounded per instance". Swap the store for Redis behind the same
+ * `check()` signature if that gap ever matters.
  */
 
 type Window = { count: number; resetAt: number };
@@ -43,22 +43,34 @@ export type RateLimitResult = {
 };
 
 /**
- * Outside production the limits are relaxed by this factor.
+ * The caller's address, as far as it can be known without trusting the caller.
  *
- * The threat model is abuse by strangers, not a developer or an e2e suite
- * hammering their own dev server — throttling those only teaches people to
- * disable the limiter. The *logic* is covered directly in tests/unit/rate-limit,
- * so relaxing here costs no real coverage, and production is unaffected.
+ * `x-forwarded-for` is a list the client can start: whatever it sends arrives
+ * first, and each proxy appends the address it saw. The faucet took the first
+ * entry, so sending a fresh header per request walked around its per-address
+ * limit. What a proxy writes itself is trusted instead — the headers Fly,
+ * Cloudflare and Vercel set, then the last `x-forwarded-for` entry, appended
+ * by the proxy nearest the server. With no proxy at all every header is the
+ * client's, and all of this is best effort; the per-wallet limits still hold.
  */
-function devMultiplier(): number {
-  return process.env.NODE_ENV === "production" ? 1 : 50;
+export function clientIp(headers: Headers): string {
+  for (const name of ["fly-client-ip", "cf-connecting-ip", "x-vercel-forwarded-for"]) {
+    const value = headers.get(name)?.split(",")[0]?.trim();
+    if (value) return value;
+  }
+  const forwarded = headers
+    .get("x-forwarded-for")
+    ?.split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return forwarded?.at(-1) ?? "unknown";
 }
 
 /**
  * Consume one token for `key`.
  *
- * @param key    Caller identity. Prefer a user id over an IP: IPs are shared
- *               (NAT, mobile carriers) and spoofable via forwarded headers.
+ * @param key    Caller identity. Prefer a wallet over an IP: IPs are shared
+ *               (NAT, mobile carriers), and see `clientIp` on spoofing.
  * @param limit  Requests allowed per window.
  * @param windowMs Window length.
  */
@@ -80,34 +92,31 @@ export function check(key: string, limit: number, windowMs: number): RateLimitRe
   return { ok: true, remaining: limit - existing.count, retryAfter };
 }
 
-/** Limits, named by what they protect rather than by number. */
+/** Limits, named by what they protect. Per client address, per window. */
 export const LIMITS = {
-  /** Moves real money out of the platform. */
-  withdraw: { limit: 5, windowMs: 60_000 },
-  /** Moves real money between users. */
-  tip: { limit: 20, windowMs: 60_000 },
-  /** Spends the platform's gas provisioning a wallet. */
-  deposit: { limit: 10, windowMs: 60_000 },
-  /** Each call spends real money at a paid vendor (Replicate). */
-  blurIngest: { limit: 10, windowMs: 60_000 },
-  /** Each token mints a paid ElevenLabs session. */
-  voiceToken: { limit: 10, windowMs: 60_000 },
-  /** Uploads cost storage and CPU (sharp). */
-  upload: { limit: 20, windowMs: 60_000 },
+  /** A photo or video pinned to IPFS on Juno's Pinata key. */
+  upload: { limit: 20, windowMs: 10 * 60_000 },
+  /** Token metadata pinned to IPFS on the same key. */
+  metadata: { limit: 20, windowMs: 10 * 60_000 },
 } as const;
 
 /**
- * 429 with Retry-After, or null when the caller is within limits.
- * Returning a Response (not throwing) keeps call sites a single early return.
+ * 429 with a sentence and Retry-After, or null when the caller is within
+ * limits. Returning a Response (not throwing) keeps call sites a single early
+ * return.
  */
 export function rateLimit(
-  key: string,
-  { limit, windowMs }: { limit: number; windowMs: number },
+  request: Request,
+  name: keyof typeof LIMITS,
 ): Response | null {
-  const result = check(key, limit * devMultiplier(), windowMs);
+  const { limit, windowMs } = LIMITS[name];
+  const result = check(`${name}:${clientIp(request.headers)}`, limit, windowMs);
   if (result.ok) return null;
-  return Response.json(
-    { error: "Too many requests — slow down.", retryAfter: result.retryAfter },
+  const minutes = Math.ceil(result.retryAfter / 60);
+  // junoJson, not Response.json: without its CORS headers the browser hides
+  // the 429 from the app, which could then only say "network error".
+  return junoJson(
+    { error: `Too many uploads from here. Try again in ${minutes} min.`, retryAfter: result.retryAfter },
     { status: 429, headers: { "Retry-After": String(result.retryAfter) } },
   );
 }

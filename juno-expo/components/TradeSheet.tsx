@@ -154,6 +154,19 @@ export function TradeSheet({
   const [side, setSide] = useState<"buy" | "sell">(initialSide);
   const [amount, setAmount] = useState(initialAmount);
   /**
+   * The share of the holding a sell pill chose (0.25 … 1), or null when the
+   * amount was typed. Sent in place of the amount so the server names it
+   * exactly from the chain: the amount shown is rounded, and "100%" sold as
+   * that rounded number left dust behind. Anything that changes the amount
+   * by hand clears it.
+   */
+  const [fraction, setFraction] = useState<number | null>(null);
+  /** Set the amount, and whether it came from a sell pill's share. */
+  const setSize = useCallback((text: string, share: number | null = null) => {
+    setAmount(text);
+    setFraction(share);
+  }, []);
+  /**
    * Buy an exact number of tokens rather than spend an exact amount.
    *
    * The trader names what they want to hold and the curve names the price;
@@ -305,6 +318,13 @@ export function TradeSheet({
   // An amount the wallet cannot cover is refused in words above; quoting it
   // would spend a round trip on a transaction nobody can sign.
   const overBalance = valid && balance !== null && !exactOut && value > balance;
+  /** What the build is asked for: an exact receive, a share of the holding, or an amount. */
+  const sellShare = side === "sell" ? fraction : null;
+  const sizeArgs = exactOut
+    ? { amountOut: value }
+    : sellShare !== null
+      ? { sellFraction: sellShare }
+      : { amountIn: value };
   /** The hint's size is more than this wallet holds to sell. */
   const sellsAll =
     side === "sell" && suggestion !== null && holding !== null && holding > 0 && holding < suggestion.amountIn;
@@ -325,7 +345,7 @@ export function TradeSheet({
           token: coin.address,
           owner: wallet.address!,
           side,
-          ...(exactOut ? { amountOut: value } : { amountIn: value }),
+          ...sizeArgs,
         });
         if (!cancelled) {
           setQuote(built);
@@ -345,7 +365,7 @@ export function TradeSheet({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [amount, valid, value, side, exactOut, coin.address, wallet.address, overBalance]);
+  }, [amount, valid, value, side, exactOut, sellShare, coin.address, wallet.address, overBalance]);
 
   useEffect(() => {
     let cancelled = false;
@@ -380,6 +400,7 @@ export function TradeSheet({
     setError(null);
     setTxHash(null);
     setLandedAt(null);
+    setFraction(null);
     setAmount((current) => {
       if (key === "back") return current.slice(0, -1);
       if (key === ".") return current.includes(".") ? current : current === "" ? "0." : `${current}.`;
@@ -416,7 +437,7 @@ export function TradeSheet({
             token: coin.address,
             owner: address,
             side,
-            ...(exactOut ? { amountOut: value } : { amountIn: value }),
+            ...sizeArgs,
           },
           REQUOTE_MS,
         )
@@ -507,22 +528,23 @@ export function TradeSheet({
    * balance). Disabled while the balance is unknown or smaller than the
    * reserve, for the same reason a sell percentage is.
    */
-  const quickSizes = useMemo(() => {
+  const quickSizes = useMemo((): Array<{ label: string; amount: number | null; share: number | null }> => {
     if (side === "sell") {
-      return QUICK_SELL.map((fraction) => ({
-        label: `${fraction * 100}%`,
+      return QUICK_SELL.map((share) => ({
+        label: `${share * 100}%`,
         // Null when the balance is unknown: a percentage of an unknown number
         // is not a number, and the pill is disabled rather than guessing.
-        amount: balance === null ? null : balance * fraction,
+        amount: balance === null ? null : balance * share,
+        share,
       }));
     }
-    if (exactOut) return QUICK_TOKENS.map((size) => ({ label: tokens(size), amount: size as number | null }));
+    if (exactOut) return QUICK_TOKENS.map((size) => ({ label: tokens(size), amount: size, share: null }));
     const spendable = balance === null ? null : native ? balance - GAS_RESERVE_MON : balance;
-    const max = { label: "Max", amount: spendable !== null && spendable > 0 ? spendable : null };
+    const max = { label: "Max", amount: spendable !== null && spendable > 0 ? spendable : null, share: null };
     if (rate === null || rate <= 0) {
-      return [...QUICK_QUOTE.map((size) => ({ label: `${size} ${coin.quote.symbol}`, amount: size })), max];
+      return [...QUICK_QUOTE.map((size) => ({ label: `${size} ${coin.quote.symbol}`, amount: size, share: null })), max];
     }
-    return [...QUICK_USD.map((dollars) => ({ label: `$${dollars}`, amount: dollars / rate })), max];
+    return [...QUICK_USD.map((dollars) => ({ label: `$${dollars}`, amount: dollars / rate, share: null })), max];
   }, [side, exactOut, balance, rate, native, coin.quote.symbol]);
 
   const done = stage === "done" && txHash !== null;
@@ -539,7 +561,7 @@ export function TradeSheet({
             <SideTap
               $on={side === "buy"}
               $buy
-              onPress={() => setSide("buy")}
+              onPress={() => { setSide("buy"); setFraction(null); }}
               accessibilityRole="button"
               aria-selected={side === "buy"}
             >
@@ -550,7 +572,7 @@ export function TradeSheet({
             <SideTap
               $on={side === "sell"}
               $buy={false}
-              onPress={() => setSide("sell")}
+              onPress={() => { setSide("sell"); setFraction(null); }}
               accessibilityRole="button"
               aria-selected={side === "sell"}
             >
@@ -620,7 +642,7 @@ export function TradeSheet({
                   onPress={() => {
                     if (side !== "buy" || offCurve) return;
                     setExact((on) => !on);
-                    setAmount("");
+                    setSize("");
                     setQuote(null);
                     setError(null);
                   }}
@@ -654,7 +676,7 @@ export function TradeSheet({
                   onPress={() =>
                     preset.amount === null
                       ? undefined
-                      : setAmount(trimTrailingZeros(preset.amount))
+                      : setSize(trimTrailingZeros(preset.amount), preset.share)
                   }
                 >
                   <QuickLabel $off={preset.amount === null}>{preset.label}</QuickLabel>
@@ -675,7 +697,7 @@ export function TradeSheet({
                  the curve would take inside the budget, the useful answer is
                  about their holding, and every smaller sale moves it less. */
               sellsAll ? (
-                <Tappable onPress={() => setAmount(trimTrailingZeros(holding!))} to={0.98}>
+                <Tappable onPress={() => setSize(trimTrailingZeros(holding!), 1)} to={0.98}>
                   <Depth accessibilityRole="button">
                     <Col gap={2} style={{ flex: 1 }}>
                       <Label style={{ fontWeight: "700" }}>
@@ -690,7 +712,7 @@ export function TradeSheet({
                 </Tappable>
               ) : (
                 <Tappable
-                  onPress={() => setAmount(trimTrailingZeros(suggestion.amountIn))}
+                  onPress={() => setSize(trimTrailingZeros(suggestion.amountIn))}
                   to={0.98}
                 >
                   <Depth accessibilityRole="button">
@@ -791,7 +813,7 @@ export function TradeSheet({
                     // A hair over what is left, so fee decay between now and
                     // the block cannot leave the last range unfilled; the
                     // excess is refunded.
-                    setAmount(trimTrailingZeros(quote.quote.amountUsed * 1.0005 + 1e-6))
+                    setSize(trimTrailingZeros(quote.quote.amountUsed * 1.0005 + 1e-6))
                   }
                   accessibilityRole="button"
                   accessibilityLabel="Buy only what's left on the curve"

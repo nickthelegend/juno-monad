@@ -242,16 +242,21 @@ export async function quoteKuruTrade(params: {
   side: TradeSide;
   /** MON on a buy, tokens on a sell. */
   amountIn: number;
+  /** The same input in wei, when it is known exactly; wins over `amountIn`. */
+  amountInRaw?: bigint;
   slippageBps?: number;
 }): Promise<TradeQuote & { book: KuruBook }> {
   const { market, side, amountIn, slippageBps = 100 } = params;
   const book = await readKuruBook(market);
   const { pricePrecision, sizePrecision, takerFeeBps } = book.params;
 
+  const precision = side === "buy" ? pricePrecision : sizePrecision;
+  // An exact wei amount is floored to the book's own precision: a whole
+  // holding rounds down to the market's lot, never up past the balance.
   const sizeArg =
-    side === "buy"
-      ? uiToWei(amountIn, decimalsOf(pricePrecision))
-      : uiToWei(amountIn, decimalsOf(sizePrecision));
+    params.amountInRaw !== undefined
+      ? (params.amountInRaw * precision) / WAD
+      : uiToWei(amountIn, decimalsOf(precision));
   if (sizeArg === 0n) throw new KuruOrderTooSmall();
   const inWei = (sizeArg * WAD) / (side === "buy" ? pricePrecision : sizePrecision);
 

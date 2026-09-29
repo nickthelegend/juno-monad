@@ -218,6 +218,17 @@ export function BottomSheet({
     return () => subscription.remove();
   }, [mounted, dismissable, onClose]);
 
+  // On the web, Escape closes it, as it does any dialog. Only while it is
+  // open and the one in front: a sheet mid-close ignores the key.
+  useEffect(() => {
+    if (!mounted || !visible || Platform.OS !== "web") return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && dismissable) onClose();
+    };
+    globalThis.addEventListener?.("keydown", onKey);
+    return () => globalThis.removeEventListener?.("keydown", onKey);
+  }, [mounted, visible, dismissable, onClose]);
+
   const onLayout = useCallback(
     (event: { nativeEvent: { layout: { height: number } } }) => {
       const measured = event.nativeEvent.layout.height;

@@ -43,6 +43,7 @@ import {
   tradeDeadline,
   venueOf,
   uiToWei,
+  weiToUi,
   type ContractCall,
   type PoolSnapshot,
   type TradeQuote,
@@ -322,9 +323,19 @@ export type SwapBuildRequest = {
    * `amountIn` is ignored when this is set.
    */
   amountOut?: number;
+  /**
+   * On a sell, a share of what the wallet holds (0 < f ≤ 1) instead of an
+   * amount: read from the chain here, so 100% is the whole balance to the wei.
+   * The app's 25/50/75/100% chips send this; a number the phone rounded left
+   * dust behind — "sell everything" kept 0.435 of a token. `amountIn` is
+   * ignored when this is set.
+   */
+  sellFraction?: number;
   /** The wallet that will sign and pay. */
   owner: string;
   slippageBps?: number;
+  /** Set by `buildSwap` from `sellFraction`: the exact input in wei. */
+  amountInRaw?: bigint;
 };
 
 export type SwapBuildResult = {
@@ -348,7 +359,8 @@ export type SwapBuildResult = {
   pair?: Address;
 };
 
-export async function buildSwap(request: SwapBuildRequest): Promise<SwapBuildResult> {
+export async function buildSwap(input: SwapBuildRequest): Promise<SwapBuildResult> {
+  const request = input.sellFraction === undefined ? input : await resolveSellFraction(input);
   const exactOut = request.amountOut !== undefined;
   const size = exactOut ? request.amountOut! : request.amountIn;
   if (!Number.isFinite(size) || size <= 0) {
@@ -387,6 +399,7 @@ export async function buildSwap(request: SwapBuildRequest): Promise<SwapBuildRes
     snapshot,
     side: request.side,
     amountIn: request.amountIn,
+    amountInRaw: request.amountInRaw,
     slippageBps: request.slippageBps ?? 100,
   }).catch((error: unknown) => {
     if (error instanceof InsufficientLiquidityError) {
@@ -461,6 +474,22 @@ async function buildExactOutSwap(
   };
 }
 
+/** A share of the holding, as the exact number of wei it names. */
+async function resolveSellFraction(request: SwapBuildRequest): Promise<SwapBuildRequest> {
+  const fraction = request.sellFraction!;
+  if (request.side !== "sell") throw new CallerError('"sellFraction" is for sells');
+  if (!(fraction > 0 && fraction <= 1)) throw new CallerError('"sellFraction" must be above 0 and at most 1');
+  const owner = requireWallet(request.owner, "owner");
+  const token = requireWallet(request.token, "token");
+  const held = await withRetry(() =>
+    publicClient().readContract({ address: token, abi: junoTokenAbi, functionName: "balanceOf", args: [owner] }),
+  );
+  // Parts per million, so 0.25 is exact and 1 is the whole balance.
+  const raw = fraction === 1 ? held : (held * BigInt(Math.round(fraction * 1_000_000))) / 1_000_000n;
+  if (raw === 0n) throw new CallerError("You hold none of this coin");
+  return { ...request, amountIn: weiToUi(raw, 18), amountInRaw: raw };
+}
+
 /** A graduated coin, against its Uniswap v2 pair. */
 async function buildV2Swap(
   request: SwapBuildRequest,
@@ -471,6 +500,7 @@ async function buildV2Swap(
     snapshot,
     side: request.side,
     amountIn: request.amountIn,
+    amountInRaw: request.amountInRaw,
     slippageBps: request.slippageBps ?? 100,
   }).catch((error: unknown) => {
     if (error instanceof InsufficientLiquidityError) {
@@ -515,6 +545,7 @@ async function buildKuruSwap(
     market,
     side: request.side,
     amountIn: request.amountIn,
+    amountInRaw: request.amountInRaw,
     slippageBps: request.slippageBps ?? 100,
   }).catch((error: unknown) => {
     if (error instanceof KuruOrderTooSmall) throw new CallerError("That amount is too small to trade");

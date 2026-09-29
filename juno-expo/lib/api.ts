@@ -1139,8 +1139,10 @@ export const juno = {
       side: "buy" | "sell";
       /** What to spend (quote on a buy, tokens on a sell)… */
       amountIn?: number;
-      /** …or, on a curve buy, exactly how many tokens to receive. */
+      /** …or, on a curve buy, exactly how many tokens to receive… */
       amountOut?: number;
+      /** …or, on a sell, a share of the holding (0 < f ≤ 1), made exact by the server. */
+      sellFraction?: number;
       slippageBps?: number;
     },
     /** Shorter than the default when the caller has a usable quote to fall back on. */

@@ -153,7 +153,11 @@ export default function PostScreen() {
     : !name.trim()
       ? "Name it to launch"
       : !symbolOk
-        ? "Add a 2–10 character ticker"
+        ? // Said by which rule it breaks: "DAWN!" is within 2–10 characters,
+          // and a hint about length left no clue what was wrong with it.
+          /[^A-Za-z0-9]/.test(symbol.trim())
+          ? "Tickers are letters and digits only"
+          : "Add a 2–10 character ticker"
         : !captionOk
           ? "Caption is too long"
           : null;
