@@ -2,7 +2,7 @@ import { encodeAbiParameters, encodeEventTopics, getAbiItem, type Hex } from "vi
 import { describe, expect, it } from "vitest";
 
 import { junoLaunchpadAbi } from "@/lib/juno/abi";
-import { applyHead, applyLog, emptyLiveState } from "@/lib/juno/live";
+import { applyHead, applyLog, applyMessage, emptyLiveState } from "@/lib/juno/live";
 
 const TOKEN = "0x7370e4f92166B9fF60B9332B0a268297B2120e7d";
 const TRADER = "0x140FED4cE79cd4A6BE114e2650bd73aF895f0DC7";
@@ -62,5 +62,44 @@ describe("live commit states", () => {
     const log = { ...tradeLog("Proposed"), topics: [`0x${"00".repeat(32)}`] as Hex[] };
     expect(applyLog(live, log, 1)).toBeNull();
     expect(live.events).toHaveLength(0);
+  });
+});
+
+describe("a single-node chain (a local fork)", () => {
+  function plainLog(removed = false) {
+    // What anvil sends for `eth_subscribe logs`: no commitState, no blockId.
+    const { blockId: _b, commitState: _c, ...log } = tradeLog("Finalized");
+    return { ...log, blockHash: BLOCK_ID, removed };
+  }
+
+  it("records a mined trade as final, keyed by its block hash", () => {
+    const live = emptyLiveState();
+    applyMessage(live, plainLog(), 3_000, false);
+    expect(live.events).toHaveLength(1);
+    expect(live.events[0].kind).toBe("trade");
+    expect(live.events[0].state).toBe("Finalized");
+    expect(live.events[0].stages).toEqual({ Finalized: 3_000 });
+  });
+
+  it("marks a block final from its plain newHeads message", () => {
+    const live = emptyLiveState();
+    applyMessage(live, { hash: BLOCK_ID, number: "0x3e18737" }, 2_990, false);
+    applyMessage(live, plainLog(), 3_000, false);
+    expect(live.events[0].stages.Finalized).toBe(2_990);
+  });
+
+  it("ignores a log the node took back in a reorg", () => {
+    const live = emptyLiveState();
+    applyMessage(live, plainLog(true), 3_000, false);
+    expect(live.events).toHaveLength(0);
+  });
+
+  it("ignores Monad-shaped messages when unstaged, and plain ones when staged", () => {
+    const staged = emptyLiveState();
+    applyMessage(staged, plainLog(), 3_000, true);
+    expect(staged.events).toHaveLength(0);
+    const plain = emptyLiveState();
+    applyMessage(plain, { hash: BLOCK_ID }, 3_000, false);
+    expect(plain.blocks.size).toBe(0);
   });
 });

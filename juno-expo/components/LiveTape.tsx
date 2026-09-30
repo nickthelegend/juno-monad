@@ -2,10 +2,9 @@ import { useRouter } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { juno, type Coin } from "../lib/api";
+import { type Coin } from "../lib/api";
 import { shortAddress } from "../lib/names";
 import { useLive } from "../lib/live";
-import { useApi } from "../lib/useApi";
 import { theme } from "../theme";
 import { StageDots } from "./Finality";
 
@@ -21,14 +20,9 @@ import { StageDots } from "./Finality";
  */
 export function LiveTape({ coins }: { coins: Coin[] | null | undefined }) {
   const router = useRouter();
-  // The server follows Monad's own stream, which a trade on a local fork never
-  // reaches — so on a fork there is nothing to wait for, and no reason to ask
-  // once a second. Same rule as the trade sheet's finality timeline. The
-  // config is waited for rather than read once at render: rendered before it
-  // arrived, the tape started polling and only stopped if something happened
-  // to re-render it.
-  const config = useApi(() => juno.config(), []);
-  const live = useLive({}, { intervalMs: 1_000, enabled: config.data ? !config.data.localFork : false });
+  // The server follows the chain's own stream — Monad's, or on a local fork
+  // the fork node's — so the tape is live either way.
+  const live = useLive({}, { intervalMs: 1_000 });
   const symbols = useMemo(() => {
     const map = new Map<string, Coin>();
     for (const coin of coins ?? []) map.set(coin.address.toLowerCase(), coin);
@@ -42,7 +36,7 @@ export function LiveTape({ coins }: { coins: Coin[] | null | undefined }) {
     <View style={styles.card}>
       <View style={styles.head}>
         <View style={styles.pulse} />
-        <Text style={styles.title}>Live on Monad</Text>
+        <Text style={styles.title}>{live.staged === false ? "Live on the local fork" : "Live on Monad"}</Text>
       </View>
       {trades.map((event) => {
         const coin = symbols.get(event.token.toLowerCase());
@@ -61,7 +55,7 @@ export function LiveTape({ coins }: { coins: Coin[] | null | undefined }) {
               {` ${base !== null ? compact(base) : ""} ${coin ? `$${coin.symbol}` : shortAddress(event.token)}`}
               <Text style={styles.by}>{` · ${event.trader ? shortAddress(event.trader) : ""}`}</Text>
             </Text>
-            <StageDots event={event} compact />
+            <StageDots event={event} compact staged={live.staged !== false} />
           </Pressable>
         );
       })}

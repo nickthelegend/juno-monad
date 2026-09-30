@@ -3,7 +3,7 @@ import "server-only";
 import { decodeEventLog, getAddress, type Hex } from "viem";
 
 import { junoLaunchpadAbi } from "./abi";
-import { isMainnet, launchpadAddress } from "./network";
+import { isMainnet, launchpadAddress, localFork, rpcEndpoint } from "./network";
 
 /**
  * Juno's events as the chain commits them — proposed, voted, finalized.
@@ -74,12 +74,61 @@ function state(): LiveState {
   return globalThis.__junoLive;
 }
 
-/** Monad's WebSocket endpoint. Override with MONAD_WS_URL for a dedicated one. */
+/**
+ * The WebSocket to follow. Override with MONAD_WS_URL for a dedicated one.
+ *
+ * On a local fork it is the fork's own node: Monad's stream never carries a
+ * trade made on the fork, and the node that mined it does — anvil answers
+ * `eth_subscribe` on the same port as its RPC.
+ */
 export function wsEndpoint(): string {
-  return (
-    process.env.MONAD_WS_URL?.trim() ||
-    (isMainnet() ? "wss://rpc.monad.xyz" : "wss://testnet-rpc.monad.xyz")
-  );
+  const configured = process.env.MONAD_WS_URL?.trim();
+  if (configured) return configured;
+  if (localFork()) return rpcEndpoint().replace(/^http/, "ws");
+  return isMainnet() ? "wss://rpc.monad.xyz" : "wss://testnet-rpc.monad.xyz";
+}
+
+/**
+ * Whether blocks here are committed in stages.
+ *
+ * Monad's are: proposed, voted, finalized, each reported as it happens. A
+ * local fork is one node that mines a block and is done — there is no vote to
+ * wait for, so a trade is final the moment its block exists, and saying
+ * "proposed" or "voted" about it would describe a consensus that never ran.
+ */
+export function stagedCommits(): boolean {
+  return !localFork() || Boolean(process.env.MONAD_WS_URL?.trim());
+}
+
+/**
+ * Fold one subscription message in.
+ *
+ * Staged, the node tags every head and log with its `commitState` and a
+ * `blockId`. Unstaged — a local node's plain `newHeads` / `logs` — neither
+ * field exists: a mined block is final, so its head and its logs are recorded
+ * as Finalized, keyed by the block hash, at the moment they arrive.
+ */
+export function applyMessage(live: LiveState, result: Record<string, unknown>, at: number, staged: boolean): void {
+  if (staged) {
+    if (typeof result.commitState !== "string") return;
+    const commit = result.commitState as CommitState;
+    if (typeof result.transactionHash === "string") {
+      applyLog(live, result as Parameters<typeof applyLog>[1], at);
+    } else if (typeof result.blockId === "string") {
+      applyHead(live, result.blockId, commit, at);
+    }
+    return;
+  }
+  if (typeof result.transactionHash === "string" && typeof result.blockHash === "string") {
+    if (result.removed === true) return;
+    applyLog(
+      live,
+      { ...(result as Parameters<typeof applyLog>[1]), blockId: result.blockHash, commitState: "Finalized" },
+      at,
+    );
+  } else if (typeof result.hash === "string" && typeof result.number === "string") {
+    applyHead(live, result.hash, "Finalized", at);
+  }
 }
 
 function later(a: CommitState, b: CommitState): CommitState {
@@ -192,9 +241,17 @@ export function ensureLive(): void {
     live.connecting = false;
     live.socket = socket;
     live.error = null;
-    socket.send(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_subscribe", params: ["monadNewHeads"] }));
+    const staged = stagedCommits();
     socket.send(
-      JSON.stringify({ jsonrpc: "2.0", id: 2, method: "eth_subscribe", params: ["monadLogs", { address: launchpad }] }),
+      JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_subscribe", params: [staged ? "monadNewHeads" : "newHeads"] }),
+    );
+    socket.send(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "eth_subscribe",
+        params: [staged ? "monadLogs" : "logs", { address: launchpad }],
+      }),
     );
   };
   socket.onmessage = (message) => {
@@ -211,21 +268,17 @@ export function ensureLive(): void {
       return;
     }
     const result = body.params?.result;
-    if (!result || typeof result.commitState !== "string") return;
-    const commit = result.commitState as CommitState;
-    if (typeof result.transactionHash === "string") {
-      applyLog(live, result as Parameters<typeof applyLog>[1], at);
-    } else if (typeof result.blockId === "string") {
-      applyHead(live, result.blockId, commit, at);
-    }
+    if (!result) return;
+    applyMessage(live, result, at, stagedCommits());
   };
   const drop = (reason: string) => {
     live.socket = null;
     live.connecting = false;
     live.error = reason;
   };
-  socket.onerror = () => drop("The Monad WebSocket connection failed.");
-  socket.onclose = () => drop("The Monad WebSocket connection closed; it reopens on the next request.");
+  const node = stagedCommits() ? "The Monad WebSocket" : "The local node's WebSocket";
+  socket.onerror = () => drop(`${node} connection failed.`);
+  socket.onclose = () => drop(`${node} connection closed; it reopens on the next request.`);
 }
 
 export type LiveSnapshot = {
@@ -234,6 +287,11 @@ export type LiveSnapshot = {
   /** Null until the first message; lets the app tell "quiet" from "not listening". */
   lastMessageAt: number | null;
   error: string | null;
+  /**
+   * False on a single-node chain (a local fork): every event is final when
+   * its block is mined, and there are no stages between.
+   */
+  staged: boolean;
   events: Array<Omit<LiveEvent, "stages"> & { stages: Partial<Record<CommitState, number>> }>;
 };
 
@@ -252,6 +310,7 @@ export function liveSnapshot(filter?: { token?: string; txHash?: string }): Live
     endpoint: wsEndpoint().replace(/\/\/([^/]*@)/, "//"),
     lastMessageAt: live.lastMessageAt || null,
     error: live.error,
+    staged: stagedCommits(),
     events,
   };
 }

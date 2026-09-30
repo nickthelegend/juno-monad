@@ -37,6 +37,11 @@ export type LiveSnapshot = {
   endpoint: string;
   lastMessageAt: number | null;
   error: string | null;
+  /**
+   * False on a single-node chain (a local fork): each event is final when its
+   * block is mined, with no stages between. Absent from older servers: staged.
+   */
+  staged?: boolean;
   events: LiveEvent[];
 };
 

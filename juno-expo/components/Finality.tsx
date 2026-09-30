@@ -1,6 +1,5 @@
 import { Text, View, StyleSheet } from "react-native";
 
-import { juno } from "../lib/api";
 import { COMMIT_STAGES, stageOffsets, useLive, type LiveEvent } from "../lib/live";
 import { theme } from "../theme";
 
@@ -11,7 +10,29 @@ import { theme } from "../theme";
  * Not an animation of a pretend pipeline. Every dot is a stage the server saw
  * arrive over Monad's WebSocket, and a dot stays hollow until it has.
  */
-export function StageDots({ event, compact = false }: { event: LiveEvent; compact?: boolean }) {
+export function StageDots({
+  event,
+  compact = false,
+  staged = true,
+}: {
+  event: LiveEvent;
+  compact?: boolean;
+  /** False on a single-node chain: one mark, final when mined. */
+  staged?: boolean;
+}) {
+  if (!staged) {
+    // A local fork has no proposal and no vote: the block is final the moment
+    // it is mined. One filled mark says so; three dots would promise stages
+    // that never happen.
+    return (
+      <View style={styles.row} accessibilityLabel="Mined and final on the local fork">
+        <View style={styles.stage}>
+          <View style={[styles.dot, styles.dotOn]} />
+          {!compact ? <Text style={[styles.label, styles.labelOn]}>Final when mined</Text> : null}
+        </View>
+      </View>
+    );
+  }
   const offsets = stageOffsets(event);
   return (
     <View style={styles.row} accessibilityLabel={`Block ${event.state.toLowerCase()} on Monad`}>
@@ -44,16 +65,25 @@ export function FinalityTimeline({ txHash }: { txHash: string }) {
     {
       intervalMs: 350,
       until: (snapshot) => snapshot.events.some((event) => event.stages.Finalized !== undefined),
-      // The server follows Monad's own stream, so a trade on a local fork
-      // never appears in it; asking would poll for as long as the sheet is
-      // open. On Monad a block is final in about a second, so fifteen seconds
-      // without it means the stream missed it and asking again will not help.
-      enabled: !juno.loadedConfig()?.localFork,
+      // The server follows the chain's own stream: Monad's, or on a local
+      // fork the fork node's. A block is final in about a second either way,
+      // so fifteen seconds without it means the stream missed it and asking
+      // again will not help.
       forMs: 15_000,
     },
   );
   const event = live?.events[0];
   if (!event) return null;
+  if (live?.staged === false) {
+    return (
+      <View style={styles.timeline}>
+        <StageDots event={event} staged={false} />
+        <Text style={styles.caption}>
+          {`Mined in block ${event.blockNumber.toLocaleString("en-US")} — final at once: a local fork is one node, with no vote to wait for.`}
+        </Text>
+      </View>
+    );
+  }
   const finalized = event.stages.Finalized;
   const proposed = event.stages.Proposed;
   return (
