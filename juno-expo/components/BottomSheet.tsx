@@ -82,6 +82,9 @@ export function BottomSheet({
   // Kept separate from `visible` so the closing animation has something to
   // play out against: `visible` goes false first, this follows on settle.
   const [mounted, setMounted] = useState(visible);
+  // Read by the closing curve's callback, which outlives the render it came from.
+  const shown = useRef(visible);
+  shown.current = visible;
 
   /*
    * Distance below resting position, in points. One value, three jobs: the
@@ -157,8 +160,12 @@ export function BottomSheet({
       duration: motion.exit,
       easing: motion.easeOut,
       useNativeDriver: nativeDriver,
-    }).start(({ finished }) => {
-      if (finished) setMounted(false);
+    }).start(() => {
+      // Unmount even when the curve was cut short. Content that changes size
+      // as the sheet leaves (a form resetting) re-measures it, which stops
+      // the curve; a sheet left mounted keeps its invisible scrim over the
+      // screen and swallows every tap. Only a reopen mid-close keeps it.
+      if (!shown.current) setMounted(false);
     });
     onClose();
   }, [onClose, y]);
@@ -281,7 +288,8 @@ export function BottomSheet({
   // page would otherwise fill the card, not the screen. See `Portal`.
   return (
     <Portal>
-    <View style={[StyleSheet.absoluteFill, { pointerEvents: "box-none" }]}>
+    {/* A sheet on its way out takes no touches: the screen under it is live again at once. */}
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: visible ? "box-none" : "none" }]}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: scrim }]}>
         <Pressable
           style={StyleSheet.absoluteFill}
