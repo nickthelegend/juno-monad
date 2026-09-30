@@ -388,8 +388,8 @@ async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promis
     envioPositions(owner),
     envioTrades({ trader: owner, limit: 1_000 }),
     // After a graduation the same position keeps trading, on Kuru or the v2 pair.
-    envioKuruTrades({ trader: owner, limit: 1_000 }).catch(() => []),
-    envioPairTrades({ trader: owner, limit: 1_000 }).catch(() => []),
+    envioKuruTrades({ trader: owner, limit: 1_000 }),
+    envioPairTrades({ trader: owner, limit: 1_000 }),
   ]);
   const trades = [...curveTrades, ...kuruTrades, ...pairTrades];
   const byToken = new Map(rows.map((row) => [row.token, row]));
@@ -400,7 +400,10 @@ async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promis
     if (!row) continue;
     const quoteUsd = await quoteTokenUsdPrice(row.quoteToken).catch(() => null);
     const rate = quoteUsd ?? 1;
-    const snapshot = await fetchPoolSnapshot(row.token, rate, row.launchpad).catch(() => null);
+    // A read that fails throws, and the whole portfolio is walked on-chain
+    // instead, where an unread position marks it partial. Only a pool that is
+    // not on this launchpad (null) is skipped here.
+    const snapshot = await fetchPoolSnapshot(row.token, rate, row.launchpad);
     if (!snapshot) continue;
 
     const price = (await markPrice(snapshot)).price * rate;

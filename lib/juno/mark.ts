@@ -33,21 +33,36 @@ const pairAbi = parseAbi([
 
 const marks = ttlCache<Mark>(5_000);
 
+/**
+ * A read that fails, fails. There is no fallback to the curve's price: that
+ * would value a graduated coin at the moment it left the curve, which is the
+ * wrong number this module exists to avoid, and it would do it silently.
+ * Callers say what they could not read (a coin missing from a list, a
+ * portfolio or leaderboard marked partial).
+ */
 export function markPrice(snapshot: PoolSnapshot): Promise<Mark> {
   if (!snapshot.curve.graduated) return Promise.resolve({ price: snapshot.price, source: "curve" });
-  return marks.get(snapshot.token, () => graduatedMark(snapshot).catch(() => ({ price: snapshot.price, source: "curve" as const })));
+  return marks.get(snapshot.token, () => graduatedMark(snapshot));
+}
+
+/** The same read, uncached: for a caller that just traded and wants the price its trade left. */
+export function freshMarkPrice(snapshot: PoolSnapshot): Promise<Mark> {
+  if (!snapshot.curve.graduated) return Promise.resolve({ price: snapshot.price, source: "curve" });
+  return graduatedMark(snapshot);
 }
 
 async function graduatedMark(snapshot: PoolSnapshot): Promise<Mark> {
   if (snapshot.venue === "kuru") {
     const market = await kuruMarketOf(snapshot.token);
-    if (!market) return { price: snapshot.price, source: "curve" };
+    if (!market) throw new Error(`${snapshot.token} graduated into Kuru, but its market cannot be found`);
     const book = await readKuruBook(market);
-    return book.mid ? { price: book.mid, source: "kuru", book, venue: market } : { price: snapshot.price, source: "curve" };
+    // `mid` is the midpoint, or whichever side exists; null only for an empty book.
+    if (!book.mid) throw new Error(`The Kuru book for ${snapshot.token} is empty: there is no price to mark at`);
+    return { price: book.mid, source: "kuru", book, venue: market };
   }
 
   const pair = snapshot.pool.venue;
-  if (pair === NATIVE) return { price: snapshot.price, source: "curve" };
+  if (pair === NATIVE) throw new Error(`${snapshot.token} graduated but names no pair`);
   const client = publicClient();
   const [[reserve0, reserve1], token0] = await Promise.all([
     withRetry(() => client.readContract({ address: pair, abi: pairAbi, functionName: "getReserves" })),
@@ -56,7 +71,7 @@ async function graduatedMark(snapshot: PoolSnapshot): Promise<Mark> {
   const baseIsToken0 = token0.toLowerCase() === snapshot.token.toLowerCase();
   const baseReserve = baseIsToken0 ? reserve0 : reserve1;
   const quoteReserve = baseIsToken0 ? reserve1 : reserve0;
-  if (baseReserve === 0n) return { price: snapshot.price, source: "curve" };
+  if (baseReserve === 0n) throw new Error(`The pair for ${snapshot.token} holds none of it: there is no price to mark at`);
   const price =
     Number(quoteReserve) / 10 ** snapshot.quoteDecimals / (Number(baseReserve) / 10 ** snapshot.baseDecimals);
   return { price, source: "uniswap-v2", venue: pair };

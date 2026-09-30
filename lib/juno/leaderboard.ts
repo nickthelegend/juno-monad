@@ -209,7 +209,15 @@ async function build(
     while (cursor < rows.length) {
       const row = rows[cursor++];
 
-      const rate = (await quoteTokenUsdPrice(row.quoteToken).catch(() => null)) ?? 1;
+      // Profit is ranked in dollars across MON and USDC coins. Without a dollar
+      // rate this pool's figures cannot join the others' (counting MON as
+      // dollars would rank by the wrong number), so it is left out and the
+      // ranking says it is partial.
+      const rate = await quoteTokenUsdPrice(row.quoteToken).catch(() => null);
+      if (rate === null) {
+        partial = true;
+        continue;
+      }
       const snapshot = await fetchPoolSnapshot(row.token, rate, row.launchpad).catch(() => null);
       if (!snapshot) {
         partial = true;
@@ -224,8 +232,15 @@ async function build(
         continue;
       }
       if (history.partial) partial = true;
+      // A pool whose price cannot be read is left out and the ranking says so,
+      // as for a history that cannot be read.
+      const marked = await markPrice(snapshot).catch(() => null);
+      if (marked === null) {
+        partial = true;
+        continue;
+      }
       poolsRead += 1;
-      const mark = (await markPrice(snapshot)).price;
+      const mark = marked.price;
 
       // One basis per wallet per pool — average cost is a per-asset idea, and
       // pooling two different coins into one basis would produce a number that
