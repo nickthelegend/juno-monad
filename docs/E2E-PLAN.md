@@ -178,7 +178,7 @@ run is measured against; `Status` is filled in as each item is run.
 | K1 | Contracts | `forge test` all pass | PASS: forge test 74 passed, 1 skipped (the env-gated Kuru fork suite), run with KURU_FORK_TEST=true against Monad testnet's Kuru contracts: 7/7 |
 | K2 | App/API | unit tests, three typechecks, production build | PASS: vitest 357 passed (6 skipped = the env-gated integration suite, run with the fork's env: 29/29); tsc clean for root, juno-expo and indexer; from a clean clone of HEAD: next build --webpack exit 0 with no warnings, expo export --platform web exit 0 (only the four third-party export-map warnings from @noble/hashes / multiformats) |
 | K3 | Indexer | `pnpm test` | PASS: indexer pnpm test 10/10; indexer tsc clean |
-| K4 | Stand-ins | No mock, stub or fallback data in shipped code | PASS: shipped code (lib, app, juno-expo app/components/lib, indexer/src, contracts/src) searched for mock/stub/fake/dummy/lorem/sample/hardcoded/TODO/FIXME/not implemented/Math.random/fallback: only comments refusing fakes, retry jitter, an animation tilt, a fixed gas ceiling when estimation is unsupported, failover across real IPFS gateways, address-derived identicons for media-less coins, real Circle USDC and MonadVision constants, and privy.tsx (types base; Metro loads .web/.native). Demo content (demo_* wallets) was made by scripts/juno-demo.ts through the real API — server-built, wallet-signed, submitted on-chain — not mocked rows. Test-only stubs live in tests/stubs (server-only) 5th pass: FAIL→fixed: `markPrice` caught a failed read of a graduated coin's pair or Kuru book and returned the curve's final price — a silent fallback to the wrong number, feeding coin pages, portfolios and the leaderboard. It now fails, and each caller says so (a coin counted in `missing`, a portfolio or ranking marked partial). The indexer portfolio also dropped a position whose snapshot failed and swallowed failed Kuru/pair trade queries; either now falls back to the on-chain walk, which marks what it could not read |
+| K4 | Stand-ins | No mock, stub or fallback data in shipped code | PASS: shipped code (lib, app, juno-expo app/components/lib, indexer/src, contracts/src) searched for mock/stub/fake/dummy/lorem/sample/hardcoded/TODO/FIXME/not implemented/Math.random/fallback: only comments refusing fakes, retry jitter, an animation tilt, a fixed gas ceiling when estimation is unsupported, failover across real IPFS gateways, address-derived identicons for media-less coins, real Circle USDC and MonadVision constants, and privy.tsx (types base; Metro loads .web/.native). Demo content (demo_* wallets) was made by scripts/juno-demo.ts through the real API — server-built, wallet-signed, submitted on-chain — not mocked rows. Test-only stubs live in tests/stubs (server-only) 5th pass: FAIL→fixed: `markPrice` caught a failed read of a graduated coin's pair or Kuru book and returned the curve's final price — a silent fallback to the wrong number, feeding coin pages, portfolios and the leaderboard. It now fails, and each caller says so (a coin counted in `missing`, a portfolio or ranking marked partial). The indexer portfolio also dropped a position whose snapshot failed and swallowed failed Kuru/pair trade queries; either now falls back to the on-chain walk, which marks what it could not read Also: a graduated coin's history swallowed a failed Kuru/pair trade query and still called itself complete (now partial), and the holder list's venue exclusion fell back to the zero address on a failed read, which would list the pair as the top holder (now the list is reported unreadable) |
 
 ## Phase 4 — the whole plan again (2026-09-29)
 
@@ -222,9 +222,9 @@ warning, page error, failed request and 4xx/5xx was recorded for every step.
 
 - **UI, A–H: 60/60 PASS, 0 problems.** D10 (the tape on the local net), G5
   (perps round trip) and C6/D8 (reels) included.
-- **API, I: 88/88 PASS.** **Indexer vs chain, J1** (after J7 too): 27 coins
-  listed = the launchpad's `tokenCount`; all 716 curve and Kuru events equal
-  the receipts; 14/14 pair trades equal the pairs' Swap events.
+- **API, I: 88/88 PASS.** **Indexer vs chain, J1** (after J7 too): 32 coins
+  listed = the launchpad's `tokenCount`; all 896 curve and Kuru events equal
+  the receipts; 18/18 pair trades equal the pairs' Swap events.
 - **J7:** a v2 coin and a Kuru coin taken through their whole lives by the
   operator scripts (`.juno/cli-lifecycle.sh`).
 - **Suites, K:** 357 unit, 29 integration (fork env), tsc ×3, forge 74 + the
@@ -248,6 +248,14 @@ Found and fixed in this pass (each re-run, then the whole plan re-run):
    and fee.
 5. **The live tape on the local net** (D10): it had been switched off on a
    fork; it now follows the local node's own heads and logs.
+6. **Histories and holder lists with a hole in them** (K4): a failed Kuru or
+   pair trade query left a graduated coin's history short while it claimed
+   to be complete, and a failed snapshot read would have listed the pair as
+   the top holder. Both now say they are partial or unreadable.
+
+The last fix was followed by the whole run once more on a fresh production
+build of HEAD: UI 60/60 with 0 problems, API 88/88, J7 (both venues), the
+indexer check above, 357 unit and 29 integration tests.
 
 Not PASS, because the dependency does not exist here: **B8** (a person's
 Privy login) and **J6** (a Pyth API key). Real testnet — the same flows on
