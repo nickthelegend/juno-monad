@@ -123,6 +123,12 @@ export type PoolSnapshot = {
   venue: Venue;
   baseDecimals: number;
   quoteDecimals: number;
+  /**
+   * The token's supply now, in wei: the 10^27 minted less whatever has been
+   * burned — the curve's rounding buffer at graduation, or a holder burning
+   * their own. Market cap is price times this, not times the mint.
+   */
+  totalSupply: bigint;
 };
 
 /** Which venue a pool chose at launch, from the graduator it was given. */
@@ -238,8 +244,17 @@ async function readPoolSnapshot(
   launchpad: Address,
   quoteUsdPrice: number,
 ): Promise<PoolSnapshot | null> {
-  const [pool, segments] = await Promise.all([readPool(token, launchpad), readSegments(launchpad, token)]);
+  const [pool, segments, supply] = await Promise.all([
+    readPool(token, launchpad),
+    readSegments(launchpad, token),
+    // Beside the pool read, not after it. An address with no pool may be no
+    // token at all, so this read's failure only counts once a pool is found.
+    withRetry(() => publicClient().readContract({ address: token, abi: junoTokenAbi, functionName: "totalSupply" })).catch(
+      (error: unknown) => (error instanceof Error ? error : new Error(String(error))),
+    ),
+  ]);
   if (!pool) return null;
+  if (supply instanceof Error) throw supply;
 
   const quote = quoteTokenFor(pool.quote) ?? {
     address: pool.quote,
@@ -275,6 +290,7 @@ async function readPoolSnapshot(
     price: sqrtX96ToPrice(pool.sqrtPriceX96, BASE_DECIMALS, quote.decimals),
     baseDecimals: BASE_DECIMALS,
     quoteDecimals: quote.decimals,
+    totalSupply: supply,
     curve: {
       progress,
       raisedUsd: thresholdUi * progress * quoteUsdPrice,

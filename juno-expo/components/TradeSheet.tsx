@@ -50,7 +50,7 @@ const QUICK_USD = [2, 20, 50];
 const QUICK_QUOTE = [0.1, 0.25, 0.5];
 /** A sell is a fraction of what you hold; absolute sizes mean nothing there. */
 const QUICK_SELL = [0.25, 0.5, 0.75, 1];
-/** Exact-out sizes, in tokens. Every Juno coin has a one-billion supply. */
+/** Exact-out sizes, in tokens. Every Juno coin is minted with a one-billion supply. */
 const QUICK_TOKENS = [100_000, 1_000_000, 10_000_000, 50_000_000];
 
 /**

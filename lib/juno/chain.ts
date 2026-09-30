@@ -51,8 +51,7 @@ import { shortAddress } from "./format";
  * numeric is stored or cached.
  */
 
-/** Total supply the launchpad mints for every token. Mirrors `TOTAL_SUPPLY` there. */
-const TOTAL_SUPPLY = 1_000_000_000;
+/** What the launchpad mints for every token. Mirrors `TOTAL_SUPPLY` there. */
 const TOTAL_SUPPLY_WEI = 10n ** 27n;
 
 function creatorFromWallet(wallet: string): Creator {
@@ -335,9 +334,11 @@ export async function hydratePool(
     launchpad: snapshot.launchpad,
     quote: snapshot.quote,
     quoteUsdRate: quoteUsd,
-    marketCap: priceUsd * TOTAL_SUPPLY,
+    // Price times the supply that exists: graduation burns the curve's 1%
+    // rounding buffer, and a holder may burn their own.
+    marketCap: priceUsd * weiToUi(snapshot.totalSupply, snapshot.baseDecimals),
     marketCapCurrency: quoteUsd === null ? snapshot.quote.symbol : "USD",
-    // Market cap is price times a fixed supply, so its change is the price's.
+    // Supply moves only by a burn, so market cap's change is the price's.
     marketCapChangePct: priceChange,
     // Quote-denominated volume converted into whatever `marketCapCurrency`
     // says this coin is measured in, so the two figures agree.
