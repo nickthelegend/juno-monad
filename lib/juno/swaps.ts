@@ -327,17 +327,23 @@ export async function listSwapHistory(token: string, limit = DEFAULT_LIMIT): Pro
     `${address}:${limit}`,
     async () => {
       if (envioConfigured()) {
+        // A venue whose trades could not be read leaves a history that is
+        // missing them, so it is partial — never "complete" with a hole in it.
+        let venueUnread = false;
         const [fromIndexer, onKuru, onPair] = await Promise.all([
           envioTrades({ token: address, limit }).catch(() => null),
           // After a graduation the coin keeps trading, on its Kuru market or
           // its v2 pair; the indexer follows it there. Empty before then.
           // Kuru is read deeper: its limit counts fills, and one order can be
           // a hundred of them.
-          envioKuruTradesPage({ token: address, limit: limit * KURU_FILLS_PER_TRADE }).catch(() => ({
-            trades: [] as PoolSwap[],
-            fills: 0,
-          })),
-          envioPairTrades({ token: address, limit }).catch(() => [] as PoolSwap[]),
+          envioKuruTradesPage({ token: address, limit: limit * KURU_FILLS_PER_TRADE }).catch(() => {
+            venueUnread = true;
+            return { trades: [] as PoolSwap[], fills: 0 };
+          }),
+          envioPairTrades({ token: address, limit }).catch(() => {
+            venueUnread = true;
+            return [] as PoolSwap[];
+          }),
         ]);
         if (fromIndexer) {
           // The indexer lags the head by a block or two; anything the receipt
@@ -351,6 +357,7 @@ export async function listSwapHistory(token: string, limit = DEFAULT_LIMIT): Pro
            * claiming to be whole.
            */
           const cut =
+            venueUnread ||
             fromIndexer.length >= limit ||
             onKuru.fills >= limit * KURU_FILLS_PER_TRADE ||
             onPair.length >= limit ||

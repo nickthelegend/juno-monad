@@ -93,7 +93,9 @@ export type HolderBook = {
 export async function listPoolHolders(token: string, swaps?: PoolSwap[] | null): Promise<HolderBook | null> {
   // The venue the pool graduates into holds the liquidity, not a person: the
   // Uniswap pair, or for Kuru the MarginAccount that custodies its vault.
-  const venue = (await fetchPoolSnapshot(token).catch(() => null))?.pool.venue ?? zeroAddress;
+  // A failed read fails the list: without the venue, the pair's ~28% of the
+  // supply would be listed as the top holder.
+  const venue = (await fetchPoolSnapshot(token))?.pool.venue ?? zeroAddress;
   if (envioConfigured()) {
     const indexed = await envioHolders(token).catch(() => null);
     // An empty answer while the fills say someone bought means the indexer has
