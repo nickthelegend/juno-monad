@@ -1,8 +1,10 @@
 /**
- * Trade against a live Juno curve on Monad.
+ * Trade a Juno coin on Monad: on its curve, or on its Uniswap v2 pair once it
+ * has graduated.
  *
- * Runs `quoteTrade` → `buildSwapCall` — the path `POST /api/juno/tx/swap`
- * uses — and signs with the local script key instead of a phone.
+ * Runs `quoteTrade` → `buildSwapCall` on the curve, `quoteV2Trade` →
+ * `buildV2SwapCalls` on the pair — the paths `POST /api/juno/tx/swap` uses —
+ * and signs with the local script key instead of a phone.
  *
  *   npm run juno:trade -- --token 0x… --side buy --amount 0.5 --yes
  *   npm run juno:trade -- --token 0x… --side sell --amount all --yes
@@ -24,7 +26,8 @@
  * Next's bundler — see `scripts/lib/cli.ts`.
  */
 
-import { erc20Abi, type Address } from "viem";
+import { erc20Abi, getAddress, type Address } from "viem";
+import type { PrivateKeyAccount } from "viem/accounts";
 
 import { junoLaunchpadAbi, junoTokenAbi } from "../lib/juno/abi";
 import {
@@ -35,11 +38,13 @@ import {
   quoteAllowance,
   quoteTrade,
   tradeDeadline,
+  uiToWei,
   weiToUi,
   type PoolSnapshot,
 } from "../lib/juno/launchpad";
-import { explorer } from "../lib/juno/network";
 import type { TradeSide } from "../lib/juno/types";
+import { freshMarkPrice, markPrice } from "../lib/juno/mark";
+import { buildV2SwapCalls, quoteV2Trade, routerSwapsIn } from "../lib/juno/v2";
 import {
   amount,
   arg,
@@ -47,6 +52,7 @@ import {
   header,
   launchpadEvents,
   line,
+  links,
   numberArg,
   requireBalance,
   resolveToken,
@@ -86,6 +92,80 @@ async function fillAmount(snapshot: PoolSnapshot): Promise<number> {
   return weiToUi(generous, snapshot.quoteDecimals);
 }
 
+/**
+ * A graduated coin trades on its Uniswap v2 pair through Juno's swap router.
+ * A sell (or a USDC buy) approves the router first, as the app does.
+ */
+async function tradeOnPair(snapshot: PoolSnapshot, side: TradeSide, account: PrivateKeyAccount, slippageBps: number) {
+  const { token, quote: quoteToken } = snapshot;
+  // The curve's price froze at its top; the coin's price is the pair's now.
+  const before = (await markPrice(snapshot)).price;
+  line("venue", `Uniswap v2 pair ${snapshot.pool.venue}`);
+  line("pair price", `${before} ${quoteToken.symbol}`);
+
+  let amountIn: number;
+  let amountInRaw: bigint | undefined;
+  if (side === "sell") {
+    const held = await scriptReader().readContract({ address: token, abi: junoTokenAbi, functionName: "balanceOf", args: [account.address] });
+    line("holding", amount(held, snapshot.baseDecimals, "tokens"));
+    const raw = arg("amount", "all")!;
+    if (raw === "all") {
+      amountInRaw = held;
+      amountIn = weiToUi(held, snapshot.baseDecimals);
+    } else {
+      amountIn = Number(raw);
+      if (Number.isFinite(amountIn) && uiToWei(amountIn, snapshot.baseDecimals) > held) throw new Error("That is more than this wallet holds.");
+    }
+  } else {
+    amountIn = Number(arg("amount", "0.1"));
+  }
+  if (!Number.isFinite(amountIn) || amountIn <= 0) throw new Error("Nothing to trade: the amount is zero.");
+
+  const quote = await quoteV2Trade({ snapshot, side, amountIn, amountInRaw, slippageBps });
+  const inSymbol = side === "buy" ? quoteToken.symbol : "tokens";
+  const outSymbol = side === "buy" ? "tokens" : quoteToken.symbol;
+  line("side", side);
+  line("amount in", `${amountIn} ${inSymbol}`);
+  line("expected out", `${quote.amountOut} ${outSymbol}`);
+  line("minimum out", `${quote.minimumAmountOut} ${outSymbol}`);
+  line("fee", `${quote.fee} ${quoteToken.symbol} (the pair's 0.3%)`);
+  line("price impact", `${(quote.priceImpact * 100).toFixed(4)}%`);
+  if (quote.raw.amountOut === 0n) throw new Error("That amount is too small to trade.");
+
+  const spendsMon = side === "buy" && quoteToken.native ? quote.raw.amountIn : 0n;
+  await requireBalance(account.address, GAS_ALLOWANCE + spendsMon, "this trade");
+  if (side === "buy" && !quoteToken.native) {
+    const held = await scriptReader().readContract({ address: quoteToken.address, abi: erc20Abi, functionName: "balanceOf", args: [account.address] });
+    line(quoteToken.symbol, amount(held, quoteToken.decimals, quoteToken.symbol));
+    if (held < quote.raw.amountIn) throw new Error(`Not enough ${quoteToken.symbol} for this buy.`);
+  }
+
+  const calls = await buildV2SwapCalls({ snapshot, owner: account.address as Address, side, quote, deadline: tradeDeadline() });
+  if (!flag("yes")) {
+    console.log(`\nQuote only.${calls.length > 1 ? " Sending will approve the swap router first." : ""} Add --yes to send.`);
+    return;
+  }
+  let receipt = null;
+  for (const call of calls) receipt = await send(account, call);
+
+  const coin = getAddress(token);
+  const fills = await routerSwapsIn(
+    receipt!,
+    async (address) => (getAddress(address) === coin ? { decimals: snapshot.baseDecimals } : null),
+    BigInt(Math.floor(Date.now() / 1000)),
+  );
+  for (const fill of fills) {
+    line("filled", `${fill.side === "buy" ? "bought" : "sold"} ${fill.baseAmount} tokens for ${fill.quoteAmount} ${quoteToken.symbol} on the pair`);
+  }
+  // Read from the pair itself, uncached: the cached mark is the pre-trade one.
+  invalidatePoolSnapshot(token);
+  const after = await fetchPoolSnapshot(token);
+  const reserves = after ? (await freshMarkPrice(after)).price : null;
+  console.log("\nTrade confirmed.\n");
+  line("tx", links.tx(receipt!.transactionHash));
+  line("pair price", `${before} → ${reserves ?? "?"} ${quoteToken.symbol}`);
+}
+
 async function main() {
   const token = await resolveToken();
   const fill = flag("fill");
@@ -103,7 +183,11 @@ async function main() {
   line("token", token);
   line("price", `${snapshot.price} ${quoteToken.symbol}`);
   line("progress", progress(snapshot));
-  if (snapshot.curve.graduated) throw new Error("This coin has graduated — it trades on its AMM pair now.");
+  if (snapshot.curve.graduated) {
+    if (fill) throw new Error("This coin has graduated: its curve is full and closed, so there is nothing to fill.");
+    await tradeOnPair(snapshot, side, account, slippageBps);
+    return;
+  }
   if (snapshot.curve.complete) {
     throw new Error(`The curve is full. Graduate it: npm run juno:graduate -- --token ${token} --yes`);
   }
@@ -197,7 +281,7 @@ async function main() {
   invalidatePoolSnapshot(token);
   const after = await fetchPoolSnapshot(token).catch(() => null);
   console.log("\nTrade confirmed.\n");
-  line("tx", explorer.tx(receipt.transactionHash));
+  line("tx", links.tx(receipt.transactionHash));
   line("progress", `${progress(snapshot)} → ${progress(after)}`);
   line("price", `${snapshot.price} → ${after?.price ?? "?"} ${quoteToken.symbol}`);
   if (completed) {

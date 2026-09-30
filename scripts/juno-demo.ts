@@ -38,9 +38,9 @@ import {
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
-import { arg, run, scriptAccount } from "./lib/cli";
+import { apiBase, arg, run, scriptAccount } from "./lib/cli";
 
-const API = (arg("api") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3100").replace(/\/$/, "");
+const API = (arg("api") ?? apiBase()).replace(/\/$/, "");
 const ROUND = arg("round", "all")!;
 const IPFS = "https://gateway.pinata.cloud/ipfs";
 

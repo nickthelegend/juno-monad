@@ -13,7 +13,7 @@
  *   npm run juno:seed-posts
  *   npm run juno:seed-posts -- --author 0x…
  *
- * Needs the app running (npm run dev), or NEXT_PUBLIC_SITE_URL pointing at a
+ * Needs the API running (npm run dev, :3100), or JUNO_API_URL pointing at a
  * deployment. Posts are attributed to `--author`, else to the script wallet —
  * the same key that launched the demo coins, so the feed's authors are
  * accounts that really did something. Nothing is signed.
@@ -26,9 +26,9 @@
 
 import { getAddress, isAddress } from "viem";
 
-import { arg, line, run, scriptAccount } from "./lib/cli";
+import { apiBase, arg, line, run, scriptAccount } from "./lib/cli";
 
-const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const SITE = apiBase();
 
 /** Written to be true about this project rather than to fill space. */
 const GENERIC: string[] = [
@@ -63,7 +63,7 @@ type PoolRow = { token: string; symbol: string; curvePreset: string };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${SITE}${path}`, init).catch(() => {
-    throw new Error(`Could not reach ${SITE}. Start the app (npm run dev) or set NEXT_PUBLIC_SITE_URL.`);
+    throw new Error(`Could not reach the API at ${SITE}. Start it (npm run dev) or set JUNO_API_URL.`);
   });
   if (!response.ok) {
     const body = await response.text();

@@ -41,10 +41,39 @@ import { generatePrivateKey, privateKeyToAccount, type PrivateKeyAccount } from 
 
 import { junoLaunchpadAbi, junoTokenAbi } from "../../lib/juno/abi";
 import type { ContractCall } from "../../lib/juno/launchpad";
-import { chain, explorer, isMainnet, launchpadAddress, network, rpcEndpoint } from "../../lib/juno/network";
+import { chain, explorer, isMainnet, launchpadAddress, localFork, network, rpcEndpoint } from "../../lib/juno/network";
 import { KEY_PATH, readScriptKey } from "./key";
 
 export const FAUCET_URL = "https://faucet.monad.xyz";
+
+/**
+ * Where the Juno API answers: `JUNO_API_URL`, else the API's dev port.
+ *
+ * Not `NEXT_PUBLIC_SITE_URL`. That is the web app's origin, and on a local
+ * stack the web app (Expo, :3000) and the API (Next, :3100) are two servers —
+ * Expo answers any path, `/api/juno/pools` included, with its page and a 200,
+ * so a script that posted there reported a coin recorded that was not.
+ */
+export function apiBase(): string {
+  return (process.env.JUNO_API_URL?.trim() || "http://localhost:3100").replace(/\/$/, "");
+}
+
+/** The web app's origin, for the coin links a script prints. */
+export function appBase(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3000").replace(/\/$/, "");
+}
+
+/**
+ * Explorer links for what a script prints. On a local fork everything a
+ * script sends or deploys exists only on the fork, so a MonadVision link would
+ * open on nothing: print the bare hash or address and say where it lives.
+ */
+const onFork = (value: string) => `${value} (local fork, not on MonadVision)`;
+export const links = {
+  tx: (hash: string) => (localFork() ? onFork(hash) : explorer.tx(hash)),
+  address: (address: string) => (localFork() ? onFork(address) : explorer.address(address)),
+  token: (address: string) => (localFork() ? onFork(address) : explorer.token(address)),
+};
 
 /* ------------------------------------------------------------------ */
 /* Arguments                                                           */
@@ -184,7 +213,9 @@ const GAS_MARGIN_BPS = 750n;
 
 export async function estimate(account: Address, call: ContractCall): Promise<bigint> {
   const gas = await scriptReader().estimateGas({ account, to: call.to, data: call.data, value: call.value });
-  return gas + (gas * GAS_MARGIN_BPS) / 10_000n;
+  // `extraGas` is gas the estimate cannot see, e.g. a v2 pair's first swap
+  // after graduation (see V2_SWAP_HEADROOM); the API adds it the same way.
+  return gas + (gas * GAS_MARGIN_BPS) / 10_000n + (call.extraGas ?? 0n);
 }
 
 /**
@@ -224,11 +255,11 @@ export async function send(account: PrivateKeyAccount, call: ContractCall): Prom
     .catch((error: unknown) => {
       throw new Error(`${call.label}: ${describeError(error)}`);
     });
-  line("sent", explorer.tx(hash));
+  line("sent", links.tx(hash));
 
   const receipt = await client.waitForTransactionReceipt({ hash, timeout: 90_000 });
   if (receipt.status !== "success") {
-    throw new Error(`${call.label} reverted in block ${receipt.blockNumber}: ${explorer.tx(hash)}`);
+    throw new Error(`${call.label} reverted in block ${receipt.blockNumber}: ${links.tx(hash)}`);
   }
   line("confirmed", `block ${receipt.blockNumber}, gas ${receipt.gasUsed} of ${gas}`);
   return receipt;

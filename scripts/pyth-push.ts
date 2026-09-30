@@ -29,7 +29,6 @@
 
 import { encodeFunctionData, formatUnits, type Address, type Hex } from "viem";
 
-import { explorer } from "../lib/juno/network";
 import {
   PYTH_ABI,
   PYTH_FEEDS,
@@ -44,6 +43,7 @@ import {
   flag,
   header,
   line,
+  links,
   numberArg,
   requireBalance,
   run,
@@ -126,7 +126,7 @@ async function pushOnce(feeds: Feed[], maxAge: number, send_: boolean): Promise<
   const receipt = await send(account, call);
   const after = await onChainAges(contract, due);
   console.log("");
-  line("tx", explorer.tx(receipt.transactionHash));
+  line("tx", links.tx(receipt.transactionHash));
   for (const feed of due) line(feed.name, `${age(before.get(feed.id))} → ${age(after.get(feed.id))}`);
 }
 
@@ -143,7 +143,7 @@ async function main() {
 
   const account = scriptAccount();
   header(account.address);
-  line("pyth", explorer.address(pythWriteContract()));
+  line("pyth", links.address(pythWriteContract()));
 
   if (!every) {
     await pushOnce(feeds, maxAge, send_);

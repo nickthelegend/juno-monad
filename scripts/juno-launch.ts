@@ -40,12 +40,14 @@ import {
   quoteAllowance,
   uiToWei,
 } from "../lib/juno/launchpad";
-import { explorer, requireLaunchpad } from "../lib/juno/network";
+import { requireLaunchpad } from "../lib/juno/network";
 import { pinTokenMetadata } from "../lib/juno/pinata";
 import { quoteTokenUsdPrice } from "../lib/juno/pyth";
 import type { CurvePresetId } from "../lib/juno/types";
 import {
   amount,
+  apiBase,
+  appBase,
   arg,
   describeError,
   estimate,
@@ -53,6 +55,7 @@ import {
   header,
   launchpadEvents,
   line,
+  links,
   numberArg,
   requireBalance,
   run,
@@ -204,28 +207,28 @@ async function main() {
 
   const launched = launchpadEvents(receipt, launchpad).find((event) => event.eventName === "Launched");
   if (!launched || launched.eventName !== "Launched") {
-    throw new Error(`The transaction confirmed but emitted no Launched event: ${explorer.tx(receipt.transactionHash)}`);
+    throw new Error(`The transaction confirmed but emitted no Launched event: ${links.tx(receipt.transactionHash)}`);
   }
   const token = launched.args.token as Address;
   const pair = launched.args.venue === zeroAddress ? null : (launched.args.venue as Address);
   if (token !== plan.token) console.warn(`Note: deployed at ${token}, not the predicted ${plan.token}.`);
 
   console.log("\nLaunched.\n");
-  line("tx", explorer.tx(receipt.transactionHash));
-  line("token", explorer.token(token));
-  line("launchpad", explorer.address(launchpad));
-  if (pair) line("AMM pair", explorer.address(pair));
+  line("tx", links.tx(receipt.transactionHash));
+  line("token", links.token(token));
+  line("launchpad", links.address(launchpad));
+  if (pair) line("AMM pair", links.address(pair));
   line("raises", amount(launched.args.migrationQuoteThreshold, quote.decimals, quote.symbol));
   if (uri) line("metadata", uri);
 
   // Record it so the app lists it. The same endpoint the phone calls after its
   // own submit; the server re-reads the pool and the transaction before writing.
-  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const api = apiBase();
   const num = (key: string) => {
     const value = Number(arg(key));
     return Number.isFinite(value) && value > 0 ? value : undefined;
   };
-  const record = await fetch(`${site}/api/juno/pools`, {
+  const record = await fetch(`${api}/api/juno/pools`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
@@ -245,12 +248,20 @@ async function main() {
       createTx: receipt.transactionHash,
     }),
   }).catch(() => null);
+  // Only the API's own answer counts: a 201 whose row is this coin.
+  const body = record ? await record.text() : "";
+  let recorded: string | undefined;
+  try {
+    recorded = (JSON.parse(body) as { pool?: { token?: string } }).pool?.token;
+  } catch {
+    recorded = undefined;
+  }
   if (!record) {
-    line("indexed", `no — could not reach ${site} (is the app running?). The coin is live on-chain regardless.`);
-  } else if (!record.ok) {
-    line("indexed", `no — ${record.status} ${(await record.text()).slice(0, 200)}`);
+    line("indexed", `no — could not reach the API at ${api} (is it running? set JUNO_API_URL). The coin is live on-chain regardless.`);
+  } else if (record.status !== 201 || !recorded || recorded.toLowerCase() !== token.toLowerCase()) {
+    line("indexed", `no — ${api} answered ${record.status} ${body.slice(0, 200)}`);
   } else {
-    line("indexed", `yes (${record.status}) — ${site}/coin/${token}`);
+    line("indexed", `yes (${record.status}) — ${appBase()}/coin/${token}`);
   }
 }
 

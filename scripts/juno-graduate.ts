@@ -15,13 +15,13 @@
  */
 
 import { buildGraduateCall, fetchPoolSnapshot, invalidatePoolSnapshot } from "../lib/juno/launchpad";
-import { explorer } from "../lib/juno/network";
 import {
   amount,
   flag,
   header,
   launchpadEvents,
   line,
+  links,
   requireBalance,
   resolveToken,
   run,
@@ -46,7 +46,7 @@ async function main() {
   line("reserves", `${amount(pool.quoteReserve, quote.decimals, quote.symbol)} / ${amount(pool.baseReserve, 18, "tokens")}`);
 
   if (pool.graduated) {
-    console.log(`\nAlready graduated. It trades on ${explorer.address(pool.venue)}.`);
+    console.log(`\nAlready graduated. It trades on ${links.address(pool.venue)}.`);
     return;
   }
   if (!pool.complete) {
@@ -65,9 +65,9 @@ async function main() {
 
   invalidatePoolSnapshot(token);
   console.log("\nGraduated.\n");
-  line("tx", explorer.tx(receipt.transactionHash));
+  line("tx", links.tx(receipt.transactionHash));
   if (graduated && graduated.eventName === "Graduated") {
-    line("pair", explorer.address(graduated.args.venue));
+    line("pair", links.address(graduated.args.venue));
     line("seeded", `${amount(graduated.args.baseAmount, 18, "tokens")} + ${amount(graduated.args.quoteAmount, quote.decimals, quote.symbol)}`);
     line("LP minted", graduated.args.liquidity.toString());
     line("burned", amount(graduated.args.burned, 18, "tokens"));

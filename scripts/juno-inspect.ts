@@ -19,15 +19,16 @@ import { junoLaunchpadAbi, junoTokenAbi } from "../lib/juno/abi";
 import { CURVE_PRESETS } from "../lib/juno/curves";
 import { feeSchedule, tokenomics } from "../lib/juno/economics";
 import { InsufficientLiquidityError, fetchPoolSnapshot, quoteTrade } from "../lib/juno/launchpad";
-import { explorer, requireLaunchpad } from "../lib/juno/network";
+import { requireLaunchpad } from "../lib/juno/network";
 import { quoteTokenUsdPrice } from "../lib/juno/pyth";
-import { amount, arg, flag, header, line, numberArg, resolveToken, run, scriptReader } from "./lib/cli";
+import { V2_FEE } from "../lib/juno/v2";
+import { amount, appBase, arg, flag, header, line, links, numberArg, resolveToken, run, scriptReader } from "./lib/cli";
 
 async function list(count: number) {
   const launchpad = requireLaunchpad();
   const reader = scriptReader();
   const total = await reader.readContract({ address: launchpad, abi: junoLaunchpadAbi, functionName: "tokenCount" });
-  line("launchpad", explorer.address(launchpad));
+  line("launchpad", links.address(launchpad));
   line("coins", total.toString());
   const first = total > BigInt(count) ? total - BigInt(count) : 0n;
   for (let i = total - 1n; i >= first && i >= 0n; i--) {
@@ -45,6 +46,13 @@ async function list(count: number) {
     console.log(`  #${i}  ${token}  $${symbol.padEnd(10)} ${(snapshot?.quote.symbol ?? "?").padEnd(5)} ${state}`);
     if (i === 0n) break;
   }
+}
+
+/** Four significant figures and never exponent notation: a coin can cost $0.0000009994. */
+function dollars(value: number): string {
+  if (!(value > 0)) return `$${value}`;
+  const decimals = Math.min(20, Math.max(2, 3 - Math.floor(Math.log10(value))));
+  return `$${value.toFixed(decimals)}`;
 }
 
 async function main() {
@@ -71,15 +79,22 @@ async function main() {
   line("launched", new Date(pool.launchedAt * 1000).toISOString());
   line("preset", `${snapshot.preset} — ${CURVE_PRESETS[snapshot.preset].label}`);
   line("quote", `${quote.symbol} (${quote.address}), ${quote.decimals} decimals`);
-  line("price", `${snapshot.price} ${quote.symbol}${usd ? ` ($${snapshot.price * usd})` : ""}`);
+  line("price", `${snapshot.price} ${quote.symbol}${usd ? ` (${dollars(snapshot.price * usd)})` : ""}`);
   line("progress", `${(snapshot.curve.progress * 100).toFixed(4)}%`);
-  line("raised", `${amount(pool.quoteReserve, quote.decimals, quote.symbol)} of ${amount(pool.migrationQuoteThreshold, quote.decimals, quote.symbol)}`);
+  if (pool.graduated) {
+    // Graduation moved the curve's reserve into the pair, so it reads 0 now.
+    line("raised", `${amount(pool.migrationQuoteThreshold, quote.decimals, quote.symbol)}, all of it, moved into the pair at graduation`);
+  } else {
+    line("raised", `${amount(pool.quoteReserve, quote.decimals, quote.symbol)} of ${amount(pool.migrationQuoteThreshold, quote.decimals, quote.symbol)}`);
+  }
   if (usd) line("raised (USD)", `$${snapshot.curve.raisedUsd.toFixed(2)} of $${snapshot.curve.thresholdUsd.toFixed(2)}`);
   line("state", pool.graduated ? "graduated" : pool.complete ? "curve full — ready to graduate" : "trading on the curve");
   line("pair", pool.venue);
 
   const fees = feeSchedule(pool);
-  if (fees) {
+  if (pool.graduated) {
+    line("fee now", `${V2_FEE * 100}%, the pair's own; the curve's schedule ended at graduation`);
+  } else if (fees) {
     line("fee now", `${(fees.currentBps / 100).toFixed(3)}% (${fees.startBps / 100}% → ${fees.endBps / 100}%, period ${fees.period}/${fees.totalPeriods})`);
   }
   line("creator fees", `${amount(pool.creatorFees, quote.decimals, quote.symbol)} claimable, ${amount(pool.creatorFeesClaimed, quote.decimals, quote.symbol)} claimed`);
@@ -112,11 +127,9 @@ async function main() {
   }
 
   console.log("");
-  line("token", explorer.token(token));
-  line("launchpad", explorer.address(snapshot.launchpad));
-  if (arg("site") ?? process.env.NEXT_PUBLIC_SITE_URL) {
-    line("app", `${(arg("site") ?? process.env.NEXT_PUBLIC_SITE_URL)!.replace(/\/$/, "")}/coin/${token}`);
-  }
+  line("token", links.token(token));
+  line("launchpad", links.address(snapshot.launchpad));
+  line("app", `${(arg("site") ?? appBase()).replace(/\/$/, "")}/coin/${token}`);
 }
 
 run(main);

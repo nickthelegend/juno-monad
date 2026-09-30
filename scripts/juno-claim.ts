@@ -16,7 +16,6 @@
 import { getAddress, isAddress } from "viem";
 
 import { buildClaimCreatorFeesCall, fetchCreatorFees, fetchPoolSnapshot, invalidatePoolSnapshot } from "../lib/juno/launchpad";
-import { explorer } from "../lib/juno/network";
 import {
   amount,
   arg,
@@ -24,6 +23,7 @@ import {
   header,
   launchpadEvents,
   line,
+  links,
   requireBalance,
   resolveToken,
   run,
@@ -71,7 +71,7 @@ async function main() {
   invalidatePoolSnapshot(token);
   const after = await fetchCreatorFees(token).catch(() => null);
   console.log("\nClaimed.\n");
-  line("tx", explorer.tx(receipt.transactionHash));
+  line("tx", links.tx(receipt.transactionHash));
   if (claimed && claimed.eventName === "CreatorFeesClaimed") {
     line("paid", `${amount(claimed.args.amount, quote.decimals, quote.symbol)} to ${claimed.args.to}`);
   }
