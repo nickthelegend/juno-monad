@@ -42,11 +42,13 @@ async function main() {
   line("progress", `${(snapshot.curve.progress * 100).toFixed(4)}%`);
   line("complete", pool.complete);
   line("graduated", pool.graduated);
-  line("pair", pool.venue);
+  const kuru = snapshot.venue === "kuru";
+  // Before graduation a Kuru coin names Kuru's MarginAccount, where it is locked; its market opens at graduation.
+  line(kuru ? "locked to" : "pair", links.address(pool.venue));
   line("reserves", `${amount(pool.quoteReserve, quote.decimals, quote.symbol)} / ${amount(pool.baseReserve, 18, "tokens")}`);
 
   if (pool.graduated) {
-    console.log(`\nAlready graduated. It trades on ${links.address(pool.venue)}.`);
+    console.log(`\nAlready graduated. It trades on ${kuru ? "its Kuru market" : links.address(pool.venue)}.`);
     return;
   }
   if (!pool.complete) {
@@ -67,9 +69,10 @@ async function main() {
   console.log("\nGraduated.\n");
   line("tx", links.tx(receipt.transactionHash));
   if (graduated && graduated.eventName === "Graduated") {
-    line("pair", links.address(graduated.args.venue));
+    line(kuru ? "Kuru market" : "pair", links.address(graduated.args.venue));
     line("seeded", `${amount(graduated.args.baseAmount, 18, "tokens")} + ${amount(graduated.args.quoteAmount, quote.decimals, quote.symbol)}`);
-    line("LP minted", graduated.args.liquidity.toString());
+    // Locked for good either way: LP tokens to the dead address, or Kuru vault shares.
+    line(kuru ? "vault shares" : "LP minted", graduated.args.liquidity.toString());
     line("burned", amount(graduated.args.burned, 18, "tokens"));
   }
 }

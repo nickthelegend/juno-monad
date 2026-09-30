@@ -19,6 +19,7 @@ import { junoLaunchpadAbi, junoTokenAbi } from "../lib/juno/abi";
 import { CURVE_PRESETS } from "../lib/juno/curves";
 import { feeSchedule, tokenomics } from "../lib/juno/economics";
 import { InsufficientLiquidityError, fetchPoolSnapshot, quoteTrade } from "../lib/juno/launchpad";
+import { markPrice } from "../lib/juno/mark";
 import { requireLaunchpad } from "../lib/juno/network";
 import { quoteTokenUsdPrice } from "../lib/juno/pyth";
 import { V2_FEE } from "../lib/juno/v2";
@@ -79,20 +80,25 @@ async function main() {
   line("launched", new Date(pool.launchedAt * 1000).toISOString());
   line("preset", `${snapshot.preset} — ${CURVE_PRESETS[snapshot.preset].label}`);
   line("quote", `${quote.symbol} (${quote.address}), ${quote.decimals} decimals`);
-  line("price", `${snapshot.price} ${quote.symbol}${usd ? ` (${dollars(snapshot.price * usd)})` : ""}`);
+  // After graduation the curve's price is frozen at its top; the price is the venue's.
+  const mark = await markPrice(snapshot);
+  const where = mark.source === "curve" ? "" : mark.source === "kuru" ? " on Kuru" : " on its v2 pair";
+  line("price", `${mark.price} ${quote.symbol}${usd ? ` (${dollars(mark.price * usd)})` : ""}${where}`);
   line("progress", `${(snapshot.curve.progress * 100).toFixed(4)}%`);
   if (pool.graduated) {
     // Graduation moved the curve's reserve into the pair, so it reads 0 now.
-    line("raised", `${amount(pool.migrationQuoteThreshold, quote.decimals, quote.symbol)}, all of it, moved into the pair at graduation`);
+    line("raised", `${amount(pool.migrationQuoteThreshold, quote.decimals, quote.symbol)}, all of it, moved into ${snapshot.venue === "kuru" ? "its Kuru market's vault" : "the pair"} at graduation`);
   } else {
     line("raised", `${amount(pool.quoteReserve, quote.decimals, quote.symbol)} of ${amount(pool.migrationQuoteThreshold, quote.decimals, quote.symbol)}`);
   }
   if (usd) line("raised (USD)", `$${snapshot.curve.raisedUsd.toFixed(2)} of $${snapshot.curve.thresholdUsd.toFixed(2)}`);
   line("state", pool.graduated ? "graduated" : pool.complete ? "curve full — ready to graduate" : "trading on the curve");
-  line("pair", pool.venue);
+  line(snapshot.venue === "kuru" ? (pool.graduated ? "Kuru market" : "locked to") : "pair", links.address(mark.venue ?? pool.venue));
 
   const fees = feeSchedule(pool);
-  if (pool.graduated) {
+  if (pool.graduated && mark.book) {
+    line("fee now", `${mark.book.params.takerFeeBps / 100}% Kuru taker fee; the curve's schedule ended at graduation`);
+  } else if (pool.graduated) {
     line("fee now", `${V2_FEE * 100}%, the pair's own; the curve's schedule ended at graduation`);
   } else if (fees) {
     line("fee now", `${(fees.currentBps / 100).toFixed(3)}% (${fees.startBps / 100}% → ${fees.endBps / 100}%, period ${fees.period}/${fees.totalPeriods})`);

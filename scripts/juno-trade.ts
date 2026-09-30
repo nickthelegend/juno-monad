@@ -1,10 +1,11 @@
 /**
- * Trade a Juno coin on Monad: on its curve, or on its Uniswap v2 pair once it
- * has graduated.
+ * Trade a Juno coin on Monad: on its curve, or once it has graduated, on the
+ * venue it graduated to — its Uniswap v2 pair or its Kuru market.
  *
  * Runs `quoteTrade` → `buildSwapCall` on the curve, `quoteV2Trade` →
- * `buildV2SwapCalls` on the pair — the paths `POST /api/juno/tx/swap` uses —
- * and signs with the local script key instead of a phone.
+ * `buildV2SwapCalls` on the pair, `quoteKuruTrade` → `buildKuruOrder` on Kuru
+ * — the paths the API uses — and signs with the local script key instead of
+ * a phone.
  *
  *   npm run juno:trade -- --token 0x… --side buy --amount 0.5 --yes
  *   npm run juno:trade -- --token 0x… --side sell --amount all --yes
@@ -43,6 +44,7 @@ import {
   type PoolSnapshot,
 } from "../lib/juno/launchpad";
 import type { TradeSide } from "../lib/juno/types";
+import { buildKuruOrder, kuruMarketOf, quoteKuruTrade } from "../lib/juno/kuru";
 import { freshMarkPrice, markPrice } from "../lib/juno/mark";
 import { buildV2SwapCalls, quoteV2Trade, routerSwapsIn } from "../lib/juno/v2";
 import {
@@ -93,15 +95,18 @@ async function fillAmount(snapshot: PoolSnapshot): Promise<number> {
 }
 
 /**
- * A graduated coin trades on its Uniswap v2 pair through Juno's swap router.
- * A sell (or a USDC buy) approves the router first, as the app does.
+ * A graduated coin trades where it graduated to: its Uniswap v2 pair through
+ * Juno's swap router, or its Kuru market as an immediate order. A sell (or a
+ * USDC buy) approves first, as the app does.
  */
 async function tradeOnPair(snapshot: PoolSnapshot, side: TradeSide, account: PrivateKeyAccount, slippageBps: number) {
   const { token, quote: quoteToken } = snapshot;
-  // The curve's price froze at its top; the coin's price is the pair's now.
+  const kuruMarket = snapshot.venue === "kuru" ? await kuruMarketOf(token) : null;
+  if (snapshot.venue === "kuru" && !kuruMarket) throw new Error("This coin graduated into Kuru, but its market cannot be found.");
+  // The curve's price froze at its top; the coin's price is its venue's now.
   const before = (await markPrice(snapshot)).price;
-  line("venue", `Uniswap v2 pair ${snapshot.pool.venue}`);
-  line("pair price", `${before} ${quoteToken.symbol}`);
+  line("venue", kuruMarket ? `Kuru market ${kuruMarket}` : `Uniswap v2 pair ${snapshot.pool.venue}`);
+  line("venue price", `${before} ${quoteToken.symbol}`);
 
   let amountIn: number;
   let amountInRaw: bigint | undefined;
@@ -121,14 +126,16 @@ async function tradeOnPair(snapshot: PoolSnapshot, side: TradeSide, account: Pri
   }
   if (!Number.isFinite(amountIn) || amountIn <= 0) throw new Error("Nothing to trade: the amount is zero.");
 
-  const quote = await quoteV2Trade({ snapshot, side, amountIn, amountInRaw, slippageBps });
+  const quote = kuruMarket
+    ? await quoteKuruTrade({ market: kuruMarket, side, amountIn, amountInRaw, slippageBps })
+    : await quoteV2Trade({ snapshot, side, amountIn, amountInRaw, slippageBps });
   const inSymbol = side === "buy" ? quoteToken.symbol : "tokens";
   const outSymbol = side === "buy" ? "tokens" : quoteToken.symbol;
   line("side", side);
   line("amount in", `${amountIn} ${inSymbol}`);
   line("expected out", `${quote.amountOut} ${outSymbol}`);
   line("minimum out", `${quote.minimumAmountOut} ${outSymbol}`);
-  line("fee", `${quote.fee} ${quoteToken.symbol} (the pair's 0.3%)`);
+  line("fee", `${quote.fee} ${quoteToken.symbol} (${kuruMarket ? "Kuru's taker fee" : "the pair's 0.3%"})`);
   line("price impact", `${(quote.priceImpact * 100).toFixed(4)}%`);
   if (quote.raw.amountOut === 0n) throw new Error("That amount is too small to trade.");
 
@@ -140,30 +147,40 @@ async function tradeOnPair(snapshot: PoolSnapshot, side: TradeSide, account: Pri
     if (held < quote.raw.amountIn) throw new Error(`Not enough ${quoteToken.symbol} for this buy.`);
   }
 
-  const calls = await buildV2SwapCalls({ snapshot, owner: account.address as Address, side, quote, deadline: tradeDeadline() });
+  const owner = account.address as Address;
+  const calls = kuruMarket
+    ? await buildKuruOrder({ market: kuruMarket, token, owner, side, quote })
+    : await buildV2SwapCalls({ snapshot, owner, side, quote, deadline: tradeDeadline() });
   if (!flag("yes")) {
-    console.log(`\nQuote only.${calls.length > 1 ? " Sending will approve the swap router first." : ""} Add --yes to send.`);
+    console.log(`\nQuote only.${calls.length > 1 ? " Sending will approve first." : ""} Add --yes to send.`);
     return;
   }
+  const held = () => scriptReader().readContract({ address: token, abi: junoTokenAbi, functionName: "balanceOf", args: [owner] });
+  const heldBefore = await held();
   let receipt = null;
   for (const call of calls) receipt = await send(account, call);
 
-  const coin = getAddress(token);
-  const fills = await routerSwapsIn(
-    receipt!,
-    async (address) => (getAddress(address) === coin ? { decimals: snapshot.baseDecimals } : null),
-    BigInt(Math.floor(Date.now() / 1000)),
-  );
-  for (const fill of fills) {
-    line("filled", `${fill.side === "buy" ? "bought" : "sold"} ${fill.baseAmount} tokens for ${fill.quoteAmount} ${quoteToken.symbol} on the pair`);
+  if (kuruMarket) {
+    const moved = (await held()) - heldBefore;
+    line("filled", `${moved >= 0n ? "bought" : "sold"} ${amount(moved >= 0n ? moved : -moved, snapshot.baseDecimals, "tokens")} on Kuru`);
+  } else {
+    const coin = getAddress(token);
+    const fills = await routerSwapsIn(
+      receipt!,
+      async (address) => (getAddress(address) === coin ? { decimals: snapshot.baseDecimals } : null),
+      BigInt(Math.floor(Date.now() / 1000)),
+    );
+    for (const fill of fills) {
+      line("filled", `${fill.side === "buy" ? "bought" : "sold"} ${fill.baseAmount} tokens for ${fill.quoteAmount} ${quoteToken.symbol} on the pair`);
+    }
   }
-  // Read from the pair itself, uncached: the cached mark is the pre-trade one.
+  // Read from the venue itself, uncached: the cached mark is the pre-trade one.
   invalidatePoolSnapshot(token);
   const after = await fetchPoolSnapshot(token);
   const reserves = after ? (await freshMarkPrice(after)).price : null;
   console.log("\nTrade confirmed.\n");
   line("tx", links.tx(receipt!.transactionHash));
-  line("pair price", `${before} → ${reserves ?? "?"} ${quoteToken.symbol}`);
+  line("venue price", `${before} → ${reserves ?? "?"} ${quoteToken.symbol}`);
 }
 
 async function main() {
