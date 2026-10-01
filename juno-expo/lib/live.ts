@@ -30,6 +30,8 @@ export type LiveEvent = {
   state: CommitState;
   /** Unix ms each stage arrived at the server. */
   stages: Partial<Record<CommitState, number>>;
+  /** The coin's symbol when this app lists it; null for an unlisted coin. */
+  symbol?: string | null;
 };
 
 export type LiveSnapshot = {

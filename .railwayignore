@@ -1,0 +1,35 @@
+# What `railway up` uploads for the API service: the Next.js server at the
+# repo root, its lib/, app/, drizzle/ migrations and package files. Railway
+# installs and builds on its own.
+
+# Build and dependency output
+node_modules
+.next
+out
+dist
+*.tsbuildinfo
+
+# Separate projects with their own dependencies and hosts: the Expo app
+# (Vercel), the Envio indexer (Envio Cloud), the contracts (already deployed).
+juno-expo
+indexer
+contracts
+
+# Local-only state and tooling
+.git
+.github
+.claude
+.juno
+.vercel
+*.tmp.mjs
+*.log
+.DS_Store
+
+# Not needed to serve the API
+tests
+docs
+
+# Secrets live in Railway's variables, never in the upload.
+.env
+.env.local
+.env.*.local

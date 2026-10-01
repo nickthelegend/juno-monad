@@ -52,7 +52,7 @@ export function LiveTape({ coins }: { coins: Coin[] | null | undefined }) {
               <Text style={event.side === "buy" ? styles.buy : styles.sell}>
                 {event.side === "buy" ? "Bought" : "Sold"}
               </Text>
-              {` ${base !== null ? compact(base) : ""} ${coin ? `$${coin.symbol}` : shortAddress(event.token)}`}
+              {` ${base !== null ? compact(base) : ""} ${coin ? `$${coin.symbol}` : event.symbol ? `$${event.symbol}` : shortAddress(event.token)}`}
               <Text style={styles.by}>{` · ${event.trader ? shortAddress(event.trader) : ""}`}</Text>
             </Text>
             <StageDots event={event} compact staged={live.staged !== false} />
