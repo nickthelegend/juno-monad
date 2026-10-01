@@ -1,0 +1,20 @@
+{
+  "chainId": 10143,
+  "deployBlock": 67263771,
+  "deployer": "0x019E55cb3ce46Ed3f439320Fb589833909C5CaaC",
+  "graduator": "0x6924937d7DDDD7D1c931Dc7a9779bD32F807FeAA",
+  "kuruGraduator": "0xBeFD5740896D157A3E9821939e5ba213BEf50F99",
+  "kuruMarginAccount": "0xd029C2D98ff85D8F64799017fE00a59B1159CE02",
+  "kuruRouter": "0x7EFbE105Ca7415dE98F96622173458ac1c054630",
+  "launchpad": "0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81",
+  "network": "testnet",
+  "owner": "0x019E55cb3ce46Ed3f439320Fb589833909C5CaaC",
+  "ownershipPending": false,
+  "protocolShareBps": 2000,
+  "swapRouter": "0x648c6E84F779Cf20730Db26d49B7B950ca256366",
+  "uniswapV2Factory": "0xA81f5D4884d56B7F648bCAb6e6fcdc8b8f54fb81",
+  "uniswapV2FactoryDeployed": true,
+  "uniswapV2PairInitCodeHash": "0xb72c7390be34147206eb030378efdb8bbaf0e6062690b743ac58d6920e1577d4",
+  "usdc": "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+  "wmon": "0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541"
+}
