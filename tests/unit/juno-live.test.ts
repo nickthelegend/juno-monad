@@ -1,7 +1,7 @@
 import { encodeAbiParameters, encodeEventTopics, getAbiItem, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
 
-import { junoLaunchpadAbi } from "@/lib/juno/abi";
+import { junoLaunchpadAbi, junoSwapRouterAbi } from "@/lib/juno/abi";
 import { applyHead, applyLog, applyMessage, emptyLiveState } from "@/lib/juno/live";
 
 const TOKEN = "0x7370e4f92166B9fF60B9332B0a268297B2120e7d";
@@ -103,3 +103,53 @@ describe("a single-node chain (a local fork)", () => {
     expect(plain.blocks.size).toBe(0);
   });
 });
+
+describe("a graduated coin's trades, from the router", () => {
+  const PAIR = "0x9bC7Bc6f3B7e09D85BA91F1Ee14fAC8a8f01C8B4";
+  const MON = "0x0000000000000000000000000000000000000000";
+  function swapLog(tokenIn: string, tokenOut: string, amountIn: bigint, amountOut: bigint, to: string) {
+    const event = getAbiItem({ abi: junoSwapRouterAbi, name: "Swapped" });
+    return {
+      address: "0x648c6E84F779Cf20730Db26d49B7B950ca256366",
+      topics: encodeEventTopics({ abi: junoSwapRouterAbi, eventName: "Swapped", args: { pair: PAIR, trader: TRADER } }) as Hex[],
+      data: encodeAbiParameters(
+        event.inputs.filter((input) => !input.indexed),
+        [tokenIn, tokenOut, amountIn, amountOut, to],
+      ),
+      transactionHash: TX,
+      logIndex: "0x4",
+      blockNumber: "0x4026ab3",
+      blockId: BLOCK_ID,
+      commitState: "Voted" as const,
+    };
+  }
+
+  it("reads MON in as a buy of the coin, for whoever receives it", () => {
+    const live = emptyLiveState();
+    const recipient = "0x1111111111111111111111111111111111111111";
+    const event = applyLog(live, swapLog(MON, TOKEN, 10n ** 16n, 4_683_643n * 10n ** 18n, recipient), 5_000);
+    expect(event).toMatchObject({
+      kind: "trade",
+      token: TOKEN,
+      side: "buy",
+      trader: recipient,
+      baseAmount: String(4_683_643n * 10n ** 18n),
+      quoteAmount: String(10n ** 16n),
+      state: "Voted",
+    });
+    expect(event?.stages.Voted).toBe(5_000);
+  });
+
+  it("reads the coin in, MON out, as a sell by the trader", () => {
+    const live = emptyLiveState();
+    const event = applyLog(live, swapLog(TOKEN, MON, 10n ** 26n, 28n * 10n ** 16n, TRADER), 6_000);
+    expect(event).toMatchObject({ side: "sell", token: TOKEN, trader: TRADER, baseAmount: String(10n ** 26n) });
+  });
+
+  it("ignores a swap with no quote token on either side", () => {
+    const live = emptyLiveState();
+    expect(applyLog(live, swapLog(TOKEN, PAIR, 1n, 1n, TRADER), 1)).toBeNull();
+    expect(live.events).toHaveLength(0);
+  });
+});
+

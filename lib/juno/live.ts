@@ -2,8 +2,9 @@ import "server-only";
 
 import { decodeEventLog, getAddress, type Hex } from "viem";
 
-import { junoLaunchpadAbi } from "./abi";
-import { isMainnet, launchpadAddress, localFork, rpcEndpoint } from "./network";
+import { junoLaunchpadAbi, junoSwapRouterAbi } from "./abi";
+import { quoteTokenFor } from "./launchpad";
+import { isMainnet, launchpadAddress, localFork, rpcEndpoint, swapRouterAddress } from "./network";
 
 /**
  * Juno's events as the chain commits them — proposed, voted, finalized.
@@ -170,7 +171,8 @@ export function applyLog(
   try {
     decoded = decodeEventLog({ abi: junoLaunchpadAbi, data: log.data, topics: log.topics as [Hex, ...Hex[]] });
   } catch {
-    return null;
+    // After graduation a coin trades on its v2 pair through Juno's router.
+    return applyRouterSwap(live, log, at);
   }
   const kind =
     decoded.eventName === "Trade"
@@ -217,6 +219,47 @@ export function applyLog(
 }
 
 /**
+ * A graduated coin's trade, from the router's `Swapped`. The quote side is the
+ * known quote token — MON, or USDC — so MON (or USDC) in is a buy of the
+ * other token, and out is a sell. As in `routerSwapsIn`, the trader is whose
+ * position changed: the buyer's recipient, or the seller.
+ */
+function applyRouterSwap(live: LiveState, log: Parameters<typeof applyLog>[1], at: number): LiveEvent | null {
+  let decoded;
+  try {
+    decoded = decodeEventLog({ abi: junoSwapRouterAbi, eventName: "Swapped", data: log.data, topics: log.topics as [Hex, ...Hex[]] });
+  } catch {
+    return null;
+  }
+  const { trader, tokenIn, tokenOut, amountIn, amountOut, to } = decoded.args;
+  const buy = quoteTokenFor(tokenIn) !== null;
+  if (!buy && quoteTokenFor(tokenOut) === null) return null;
+  const id = `${log.transactionHash}:${Number(log.logIndex)}`;
+  let event = live.events.find((existing) => existing.id === id) as (LiveEvent & { blockId?: string }) | undefined;
+  if (!event) {
+    event = {
+      id,
+      kind: "trade",
+      token: getAddress(buy ? tokenOut : tokenIn),
+      txHash: log.transactionHash,
+      blockNumber: Number(log.blockNumber),
+      state: log.commitState,
+      stages: { ...(live.blocks.get(log.blockId) ?? {}) },
+      blockId: log.blockId,
+      side: buy ? "buy" : "sell",
+      trader: getAddress(buy ? to : trader),
+      baseAmount: String(buy ? amountOut : amountIn),
+      quoteAmount: String(buy ? amountIn : amountOut),
+    } as LiveEvent & { blockId: string };
+    live.events.unshift(event);
+    if (live.events.length > MAX_EVENTS) live.events.length = MAX_EVENTS;
+  }
+  event.stages[log.commitState] ??= at;
+  event.state = later(event.state, log.commitState);
+  return event;
+}
+
+/**
  * Open the subscription if it is not open. Safe to call on every request:
  * it returns at once, and a dropped socket is reopened on the next call.
  */
@@ -245,13 +288,19 @@ export function ensureLive(): void {
     socket.send(
       JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_subscribe", params: [staged ? "monadNewHeads" : "newHeads"] }),
     );
-    socket.send(
-      JSON.stringify({
-        jsonrpc: "2.0",
-        id: 2,
-        method: "eth_subscribe",
-        params: [staged ? "monadLogs" : "logs", { address: launchpad }],
-      }),
+    // The launchpad's events, and the router's: a graduated coin trades there.
+    // Two subscriptions rather than an address list, which not every node's
+    // log filter takes.
+    const router = swapRouterAddress();
+    [launchpad, ...(router ? [router] : [])].forEach((address, index) =>
+      socket.send(
+        JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2 + index,
+          method: "eth_subscribe",
+          params: [staged ? "monadLogs" : "logs", { address }],
+        }),
+      ),
     );
   };
   socket.onmessage = (message) => {

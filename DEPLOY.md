@@ -1,5 +1,44 @@
 # Deploying Juno on Monad
 
+## Live on Monad testnet (deployed 2026-10-01)
+
+| | Where | URL / address |
+|---|---|---|
+| **Contracts** | Monad testnet (10143), verified on MonadVision | `JunoLaunchpad` [`0xa8b0…5c81`](https://testnet.monadvision.com/address/0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81) from block 67,263,771 — full list in `contracts/deployments/10143.json` |
+| **API** | Railway project `juno-monad`, service `juno-api` (+ `Postgres`, `MongoDB`) | https://juno-api-production-04ea.up.railway.app |
+| **Log-tail cron** | Railway service `juno-index-cron`, every 5 min | `GET /api/juno/index` over the private network |
+| **App** (Expo web) | Vercel project `juno-monad-app` | https://juno-monad-app.vercel.app |
+| **Indexer** | Envio Cloud — not connected yet | see step 2 |
+
+**Redeploying the API** is an upload, as for the Solana app — Railway is not
+connected to the repo. `.railwayignore` keeps the upload to the API itself and
+never sends an `.env` file. Migrations run as the service's pre-deploy step.
+
+```bash
+railway up --service juno-api --detach
+```
+
+**Redeploying the app** bakes the API URL in at export time:
+
+```bash
+cd juno-expo
+EXPO_PUBLIC_API_URL=https://juno-api-production-04ea.up.railway.app \
+EXPO_PUBLIC_APP_URL=https://juno-monad-app.vercel.app npm run export:web
+cd dist
+npx vercel link --yes --project juno-monad-app --scope nicolas-projects-f497bb7f
+npx vercel deploy --prod --yes
+```
+
+Secrets are set on Railway by hand, never from this repo: `PINATA_JWT`
+(uploads — launches with a photo or video need it) and `PRIVY_APP_SECRET`
+(Privy sign-in on the server). `JUNO_KEY_SECRET` was generated on deploy.
+Privy's dashboard must list `https://juno-monad-app.vercel.app` as an allowed
+origin, or the web app's Privy iframe is refused. The faucet key the server
+sealed (`GET /api/juno/faucet`) needs more than 10 MON — Monad's reserve on
+accounts that send value — before "Get testnet MON" can pay out.
+
+---
+
 Four pieces, deployed in this order. Testnet (chain 10143) throughout; mainnet
 is the same steps with `mainnet` and funded keys.
 
