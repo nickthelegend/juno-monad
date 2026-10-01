@@ -102,6 +102,10 @@ chains:
     rpc:
       - url: ${ENVIO_MONAD_TESTNET_RPC_URL:-https://testnet-rpc.monad.xyz}
         for: ${ENVIO_TESTNET_RPC_FOR:-fallback}
+        # The public endpoint refuses eth_getLogs over 100 blocks. Starting
+        # above that only buys a retry per range; a dedicated RPC can raise it.
+        initial_block_interval: ${ENVIO_TESTNET_RPC_BLOCK_INTERVAL:-100}
+        interval_ceiling: ${ENVIO_TESTNET_RPC_BLOCK_INTERVAL:-100}
     contracts:
       - name: JunoLaunchpad
         # Placeholder until the launchpad is deployed: nothing emits from it,

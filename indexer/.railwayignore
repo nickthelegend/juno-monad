@@ -1,0 +1,12 @@
+# What `railway up indexer --path-as-root` uploads for the envio-indexer
+# service: config, schema, handlers and the lockfile. Railway installs and
+# runs `envio codegen` itself.
+node_modules
+generated
+.envio
+test
+*.log
+.DS_Store
+# Settings live in Railway's variables, never in the upload.
+.env
+.env.*
