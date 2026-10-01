@@ -79,7 +79,10 @@ export function tokenAmount(value: number): string {
 /** `0.0083` — quote-side input echo, trimmed but never in exponent form. */
 export function quoteAmount(value: number, decimals = 4): string {
   if (!Number.isFinite(value) || value === 0) return "0";
-  if (Math.abs(value) < 10 ** -decimals) return `<${10 ** -decimals}`;
+  // 1 / 10^n, not 10^-n: some V8 builds (Node 22's among them) evaluate
+  // `10 ** -4` to 0.00009999999999999999, and that is what would be printed.
+  const floor = 1 / 10 ** decimals;
+  if (Math.abs(value) < floor) return `<${floor.toFixed(decimals)}`;
   return trimZeros(value.toFixed(decimals));
 }
 

@@ -61,6 +61,9 @@ describe("quoteAmount", () => {
     expect(quoteAmount(0.0083)).toBe("0.0083");
     expect(quoteAmount(0.00000001)).toBe("<0.0001");
     expect(quoteAmount(0)).toBe("0");
+    // Below the floor at any precision: still digits, never "1e-8".
+    expect(quoteAmount(1e-12, 8)).toBe("<0.00000001");
+    expect(quoteAmount(0.0000123, 6)).toBe("0.000012");
   });
 });
 
