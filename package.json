@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "description": "Juno \u2014 every post is a market. A social app on Monad where each post launches its own bonding-curve token.",
+  "description": "Juno — every post is a market. A social app on Monad where each post launches its own bonding-curve token.",
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
@@ -57,6 +57,7 @@
     "@types/react-dom": "^19",
     "dotenv-cli": "^11.0.0",
     "drizzle-kit": "^0.31.10",
+    "esbuild": "^0.28.2",
     "tsx": "^4.22.4",
     "typescript": "^5",
     "vitest": "^4.1.10"
