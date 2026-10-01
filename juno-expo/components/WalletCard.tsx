@@ -1,5 +1,5 @@
 import * as Clipboard from "expo-clipboard";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Tappable } from "./Press";
@@ -47,6 +47,18 @@ export function WalletCard({ address }: { address: string }) {
     await juno.config().catch(() => null);
     return juno.balance(address, juno.quoteToken("USDC").address);
   }, [address]);
+  // The balances keep themselves current: MON from Monad's faucet in another
+  // tab, or a trade elsewhere, shows here without a reload. Silent reads, so a
+  // failed one leaves the figure that is on screen.
+  const polls = useRef({ mon: mon.poll, usdc: usdc.poll });
+  polls.current = { mon: mon.poll, usdc: usdc.poll };
+  useEffect(() => {
+    const id = setInterval(() => {
+      polls.current.mon();
+      polls.current.usdc();
+    }, 10_000);
+    return () => clearInterval(id);
+  }, [address]);
   const [copied, setCopied] = useState(false);
   const [funding, setFunding] = useState(false);
   const [message, setMessage] = useState<{ tone: "pos" | "neg"; text: string; url?: string } | null>(null);
@@ -68,10 +80,11 @@ export function WalletCard({ address }: { address: string }) {
       setMessage({ tone: "pos", text: `${result.amount} ${result.symbol} received.` });
       mon.refresh();
     } catch (error) {
-      const text = error instanceof Error ? error.message : "The faucet did not answer.";
+      const text = (error instanceof Error ? error.message : "The faucet did not answer.").trim().replace(/[.!]?$/, ".");
       setMessage({
         tone: "neg",
-        text: `${text.trim().replace(/[.!]?$/, ".")} Monad's own faucet works too.`,
+        // The server's answer may already send people to Monad's faucet.
+        text: text.includes("faucet.monad.xyz") ? text : `${text} Monad's own faucet works too.`,
         url: MONAD_FAUCET,
       });
     } finally {

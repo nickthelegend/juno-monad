@@ -195,8 +195,8 @@ export async function POST(request: Request) {
           {
             error:
               balance === 0n
-                ? `Juno's faucet is empty. Get testnet MON at ${PUBLIC_FAUCET} with your address, then pull to refresh.`
-                : `Juno's faucet is running low. Get testnet MON at ${PUBLIC_FAUCET} with your address, then pull to refresh.`,
+                ? `Juno's faucet is empty. Get testnet MON at ${PUBLIC_FAUCET} with your address; your balance here updates by itself.`
+                : `Juno's faucet is running low. Get testnet MON at ${PUBLIC_FAUCET} with your address; your balance here updates by itself.`,
             faucetUrl: PUBLIC_FAUCET,
             // So an operator reading the response knows what to fund.
             faucetAddress: account.address,
