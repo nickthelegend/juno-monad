@@ -261,3 +261,45 @@ Not PASS, because the dependency does not exist here: **B8** (a person's
 Privy login) and **J6** (a Pyth API key). Real testnet — the same flows on
 the deployed contracts — comes with the deployment.
 
+## Phase 6 — deployed: real Monad testnet, hosted (2026-10-01)
+
+Contracts deployed to Monad testnet and verified on MonadVision (all five,
+through Sourcify); the API on Railway (`juno-api` + Postgres + MongoDB + a
+5-minute log-tail cron), the web app on Vercel. Every link below is real.
+
+- **J7 on real testnet: PASS.** `$GENESIS`
+  ([0x1409…6360](https://testnet.monadvision.com/token/0x14092A529e2e5EB4DECB4a1828f6aFa72e026360))
+  launched by the operator scripts with a 0.1 MON first buy and recorded by
+  the hosted API (201); bought 0.2 MON, sold 1M, creator fees claimed; filled
+  (303.6M for 0.787 MON) and
+  [graduated](https://testnet.monadvision.com/tx/0x799309cc168b1b1ea248d04fb9b9c6b90972fc7090bf42765a1cf52dc0907ed4)
+  into its v2 pair (280.5M + 1.0098 MON seeded, 10M burned); bought and sold
+  on the pair through Juno's router; fees claimed again. The hosted API's
+  price for it equals the pair's reserves to the last digit (2.1015416e-9
+  MON), cap ÷ price = 990M = `totalSupply`, the holder book equals
+  `balanceOf`, and after the log-tail sync its four curve trades are listed.
+- **D10 on real Monad: PASS.** In the hosted app the tape reads "Live on
+  Monad"; a buy went Voted → Finalized on screen. The server's stream: per
+  block Proposed → Voted 130–285 ms → Finalized ~300–565 ms → Verified
+  ~0.9–1.4 s. FAIL→fixed: (1) a graduated coin's trades never reached the tape
+  — it followed only the launchpad; it now also follows the router's
+  `Swapped` (3 unit tests), and a 0.01 MON pair buy appeared as "$GENESIS buy
+  4,565,530" through all four stages; (2) a coin with no post in the feed was
+  named by its address; `/live` now carries each listed coin's symbol.
+- **CI on GitHub: FAIL→fixed→PASS.** The repo's first pushes failed on
+  install: the root lockfile deduped vite 8's esbuild peer onto 0.25.12
+  (invalid; npm 10 refuses it), and the Expo lockfile carries an
+  optional-peer conflict (TypeScript 6 vs @solana/kit's ^5). Then one unit
+  test failed on Node 22 only: V8 there evaluates `10 ** -4` to
+  0.00009999999999999999, so a tiny amount printed as
+  "<0.00009999999999999999". All three fixed at the cause and reproduced in a
+  node:22 container; CI is green (contracts, indexer, app, Expo).
+
+Open, and only the owner can close them: Privy must allow
+`https://juno-monad-app.vercel.app` (until then its iframe is refused and the
+hosted console shows it); `PINATA_JWT` and `PRIVY_APP_SECRET` on Railway; the
+hosted faucet key needs more than 10 MON (Monad's reserve on accounts that
+send value); Envio Cloud needs the repo connected — until then the API serves
+history from receipts and the log tail, which do not see pair trades made
+outside the app.
+
