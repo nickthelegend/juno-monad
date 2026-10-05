@@ -56,3 +56,18 @@ The local-net plan's items, run on the hosted app. Definitions are as in
 Results are recorded below as the run goes.
 
 ## Results
+
+### 5 Oct — sponsor features, run in the hosted app on real testnet
+
+All in the hosted app (built-in browser pane and headless Google Chrome),
+real Monad testnet, console and network clean unless said.
+
+| Item | Result |
+|---|---|
+| AUSD from Agora's faucet (new) | PASS. Perps card → "Get 10,000 test AUSD" → `requestFunds` signed by the wallet → "10,000 AUSD arrived from Agora's faucet"; `balanceOf` = 10,000.000000 on chain. The faucet's rules are checked before signing: during its one-minute global cooldown the server answers "Agora's faucet sends once every 60 seconds across everyone. Try again in N seconds." |
+| G5 Perps on **real** Perpl testnet | PASS. Open account 150 AUSD → 2x BTC long 20 AUSD filled **0.00046 BTC at $85,937.80** against Perpl's live book → Done → Close → Withdraw all: 9,999.977918 AUSD back on chain (0.022 AUSD fees + spread). "View the transaction" opens MonadVision. FAIL→fixed on the way: the risk view kept a closed position until its next read; the faucet's success line outlived later actions; volatility printed as "+27%". |
+| Perpl risk view (new) | PASS. Perps → Risk with the position open: "BTC long · 2.0x on equity · −46.0% to liquidation · $39.53 notional · equity $19.77 · margin 12.5× maintenance · funding −$0.0265/day · a 10% move against it: −$3.95"; per market funding a year (BTC +24.4%), the last day's 33 payments drawn as bars and their cost to a $1,000 long, premium to the oracle, realised volatility (BTC 27%), 24h range. |
+| Kuru segment (new) | PASS (empty state). Trade → Kuru explains the markets Juno opens on Kuru and says none exist yet on this deployment — true until a Kuru-venue coin graduates on hosted testnet (needs MON). |
+| Mera passkey account (new) | PASS — `.juno/mera-e2e.mjs`, Chrome's virtual authenticator with PRF: create = **1 passkey use**; only `{address, credentialId}` stored; first transaction (Agora faucet, signed by the session) **landed in 1.6 s with 0 prompts** (nonce 1, 10,000 AUSD on chain); a name claim in the session 0 prompts; End session → locked → next signature **exactly 1 prompt**, session reopened; **stateless test**: storage cleared → "Sign in with my passkey" → the **same address**. Note: the session is in memory by design, so a full page reload locks it (the next signature asks once). |
+| Web copy | FAIL→fixed: "pull to refresh/retry" on the web in six places (faucet message, Trade, Social, Profile, Perps); the web now says the balance updates by itself or to reload the page. The wallet balance re-reads every 10 s (0.6 MON sent from outside appeared without a reload). |
+

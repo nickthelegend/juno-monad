@@ -54,6 +54,16 @@ rough chance of winning it; credits count low.
 | **Hunyuan** ($2k credits) | T3 | None. | Only if Track 3. | S | Low | — |
 | **Kimi** (credits) | All | No LLM step. | Must be load-bearing, not a chat widget. | M | Low | Skip |
 
+## Status after the 5 Oct build
+
+| Bounty | Now |
+|---|---|
+| Kuru New Markets / Consumer | Trade → **Kuru** lists the markets Juno opens on Kuru; write-ups and Kuru's required fields in `METROPOLIS.md`. A Kuru coin on hosted testnet needs MON. |
+| Perpl Risk Tool | **Built**: Perps → Risk, live from Perpl's public API. |
+| Agora Mobile Trading | **Mera sign-in, AUSD and a Perpl trade all work in the web app**, on a phone browser too; tested on real testnet (`E2E-HOSTED.md`). Native Mera (iOS/Android) still needs the passkey domain in the app builds. |
+| Mera UX | **Built** on the web: one ceremony, 15-minute signing sessions with a countdown and End session, re-prompt on expiry, stateless sign-in. |
+| Mera Many Keys | Not yet. |
+
 ## What gets built now (no owner action needed)
 
 1. **AUSD faucet in the Perps tab** (Agora's faucet, `requestFunds`) — every
