@@ -5,64 +5,56 @@ Monad's Metropolis hackathon: online, **1 Sep – 13 Oct 2026** (deadline 13 Oct
 <https://monad.xyz/developers/hackathons/metropolis> · apply at
 <https://hackathon.monad.xyz>.
 
-## The track: 03 — Social, Attention & Culture
+## The track: 01 — Onchain Finance & Trading (decided 5 Oct)
 
-> Open social graphs, programmable incentives, and fast settlement can change
-> how communities create and capture value.
+Juno enters **Track 01**. The full reasoning, bounty by bounty, is in
+[`SPONSOR-GAP.md`](SPONSOR-GAP.md); in short, a project's track decides which
+bounties stack on it, and Track 03 unlocks only Tencent's $2k of cloud
+credits, while Track 01 opens Kuru's two $5k bounties, Perpl's $3k risk-tool
+bounty, MetaMask's $2.5k plugin bounty and Agora's $10k mobile trading
+bounty — and Juno already does most of what those ask. Track 03 remains the
+better *fit* on paper ("every post is a market" is close to one of its own
+examples), but fit is a fifth of one score.
 
-Juno is close to a literal reading of two of the track's own examples:
+The pitch for Track 01: **a creator launchpad whose coins graduate into real
+on-chain order books.** Every post is a bonding curve; the ones that choose
+Kuru open their own Kuru market when the curve fills, seeded from the raise
+and locked; perps on Perpl and pre-IPO trackers marked against Tessera sit
+beside them, all signed by one wallet.
 
-- *"A feed where curation is paid for by the people who benefit from it"* — a
-  buy **is** a curation signal, and the poster is paid for it in trading fees.
-- *"Markets on cultural outcomes rather than financial ones"* — every post and
-  reel is its own market.
+**Prize:** $30,000, split between three teams ($10k each). Grand Champion
+($25k) is picked across all tracks. **Scoring (every track):** Product
+Quality, Technical Excellence, Monad Integration, Track Fit, Innovation —
+20% each. Bounties: requirements 40%, technical 30%, Monad integration 20%,
+innovation 10%.
 
-The official rules define Track 03 as projects whose "core user value is social
-connection, cultural participation, or community, even where financial
-mechanics are involved" — which is Juno's pitch exactly. Track 01 (*Onchain
-Finance & Trading*) is the alternative; see *Why not Track 01* below.
+## Bounties to claim, and the evidence for each
 
-**Prize:** $30,000, split evenly between three teams ($10k each). A Grand
-Champion ($25k) is picked across all tracks.
+| Bounty | Prize | Lock | Juno's evidence |
+|---|---|---|---|
+| **Kuru — Bring New Assets and Markets to Kuru** | $5k | T1 | `KuruGraduator` opens a Kuru market per graduated coin (v1 testnet `Router.deployProxy`, the permissionless path) and deposits the curve's raise and reserved supply into the market's vault, locked — issuance (curve), liquidity (vault), settlement (the book), onboarding (the feed). Trade tab → **Kuru** lists every market Juno opened. Proven: `docs/E2E-PLAN.md` F1–F4 and J7 (a Kuru coin launched, filled, graduated and traded through the operator scripts). |
+| **Kuru — Next Consumer Trading App** | $5k | T1 | Graduated Kuru coins trade through the book from the app: market buys and sells, limit orders, cancel, withdraw (`lib/juno/kuru.ts`). Required fields below. |
+| **Perpl — Analytics / Risk Tool** | 3 × $1k | T1 | Perps → **Risk**: per market funding now and annualised, the last day's payments and their cost to a $1,000 long, premium to the oracle, realised volatility, 24h range; per position leverage on equity, distance to liquidation, margin against maintenance, funding per day, a 10% adverse move. Live from Perpl's public API (`GET /api/juno/perps/risk`). |
+| **Agora — Best Mobile Trading App** | $10k | T1 | Built: a mobile app (Expo iOS/Android) holding AUSD (Agora's faucet in-app, 10,000 per request) and trading Perpl perps with it. **Missing: Mera passkey sign-in**, which the bounty requires. |
+| **Envio — Best Use** | $1k + hosting | All | HyperIndex v3 over the launchpad, tokens, Kuru graduator and markets, and v2 pairs (registered as they appear); derived entities for positions with average cost, pool stats, holder counts, open Kuru orders. Self-hosted on Railway; drives history, holders, portfolios and the leaderboard. |
+| **Privy** | $5k | All | Embedded wallet (web, iOS, Android) signs every launch, trade and claim. Gas sponsorship would add a second Privy feature — a dashboard setting for the owner. |
 
-**Scoring (every track):** Product Quality, Technical Excellence, Monad
-Integration, Track Fit, Innovation — 20% each.
+### Kuru's required fields (consumer-app bounty)
 
-## Sponsor bounties that stack on Track 03
-
-Bounties are **locked to your primary track** on the platform: only "all
-tracks" bounties, and Track 03's own, can be added. Bounties are judged on
-following the bounty's requirements (40%), technical work (30%), Monad
-integration (20%) and innovation (10%).
-
-| Bounty | Prize | What it asks | Juno | Status in this repo |
-|---|---|---|---|---|
-| **Envio** — Best Use of Envio | $1,000 (+ Envio Cloud hosting for winners) | Indexer drives a core feature; public config/schema/handlers; a frontend using the data | Trade history, charts, portfolios and the leaderboard need an indexer on Monad (public `eth_getLogs` is capped at 100 blocks) | **Built**: `indexer/` + `lib/juno/envio.ts` |
-| **Privy** | $5,000 (single) | "Beyond authentication — login-only integrations will not qualify." Show what Privy powers; bonus for several features | Embedded wallet signs launches and trades; funding; gas sponsorship | **Built** on the web (`lib/privy.web.tsx`) and on iOS/Android (`lib/privy.native.tsx`): the embedded wallet signs every launch, trade and claim the server builds. Pending: a login by a real account, and the Monad bundle id allowed in the Privy dashboard. Funding and gas sponsorship not started |
-| **Nansen** | $5,000 pool | A product powered by Nansen data "that goes beyond exposing raw data" | "Smart money is buying this reel" on the feed and coin page | Not started |
-| **Chainlink CRE** | $3,000 | A real CRE workflow connecting a chain to an external API (CLI simulation or live) | A workflow that fetches Tessera / equity marks and writes them to Monad for the NAV band | Not started |
-| **Aurora Intents** | $5,000 (2.5k/1.5k/1k) | A working, not mocked, integration of Swap API / Intents Deposits / Connect; funds arriving from another chain and used in the app | Fund a Juno wallet from any chain | Not started |
-| **Alchemy** | $1,000 credits | Use at least one Alchemy service in a working app | Alchemy as the dedicated `MONAD_RPC_URL` (1,000-block `getLogs`) | Config only — set `MONAD_RPC_URL` |
-| **Hunyuan** (Tencent) | $2,000 credits — **Social track only** | Multimodal / interactive features | Captions, covers or moderation for reels | Not started |
-| **Mera** — Best Mera-Powered UX | $2,500 | Mera (Category Labs' passkey library) is the whole account layer; one passkey prompt; survives a "stateless test" on a second device | Replaces the device key with a recoverable passkey account | Not started — conflicts with Privy; pick one |
-| **Monad Foundation** — Best Community Team Project | $5,000 | Team belongs to a listed community-supporter group | Only if someone on the team is a member | — |
-
-A realistic stack for Track 03: **Envio + Privy + Nansen + Alchemy (+ CRE or
-Hunyuan)** on top of the track prize.
-
-### Why not Track 01
-
-Track 01 unlocks the two Kuru bounties ($5k "Build the Next Consumer Trading App
-on Kuru", $5k "Bring New Assets and Markets to Kuru"). Juno now graduates into
-Kuru when the creator chooses it — each filled post opens its own Kuru market —
-and trades graduated coins on it (`KuruGraduator`, `lib/juno/kuru.ts`), so the
-"new assets and markets" fit is literal. Kuru's prizes are only claimable from
-Track 01, though, so building it does not decide the track. Two costs: the rules define Track 01's
-primary user as "a trader, protocol, or financial product builder", which is a
-weaker fit than Track 03's; and Kuru market creation on **mainnet** is owner-only
-(simulated `Router.deployProxy` reverts `Unauthorized()`), open only on testnet.
-Agora's $10k "Best Mobile Trading App" is also Track 01 and requires Mera login,
-an AUSD balance **and** a trade through Perpl.
+- **Target users.** People who already spend their attention on posts and
+  reels and want a stake in what they like: they buy the post, and when
+  enough of them do, it becomes a real Kuru market they can keep trading.
+  Creators, who are paid trading fees on their own posts.
+- **Evidence of demand.** Creator coins and bonding-curve launches are among
+  the most used consumer crypto products (Zora, pump.fun); Juno's twist is
+  that a successful post does not end on an AMM curve but on an order book
+  with locked two-sided liquidity. On testnet: every flow is live at
+  https://juno-monad-app.vercel.app, with $GENESIS taken through its whole
+  life on chain.
+- **Retention plan.** The feed is the loop: new posts every visit, a live
+  tape of trades as Monad commits them, price alerts and weekly buy plans
+  (saved, paused and resumed from the profile), and creators who keep posting
+  because each post pays them.
 
 ## Rules that matter for this repo
 
@@ -83,10 +75,10 @@ From the official rules (v3):
 
 ## Submission checklist
 
-- [ ] Deploy the contracts to Monad testnet (`contracts/deploy.sh testnet`) and
+- [x] Deploy the contracts to Monad testnet (`contracts/deploy.sh testnet`) and
       verify them on MonadVision.
-- [ ] Deploy the API and the app's web build; set `JUNO_APP_URL`.
-- [ ] Run a full lifecycle on testnet — launch, trade, fill, graduate, claim —
+- [x] Deploy the API and the app's web build; set `JUNO_APP_URL`.
+- [x] Run a full lifecycle on testnet — launch, trade, fill, graduate, claim —
       and put the transaction links in JUNO.md's *On-chain proof*.
 - [ ] Technical demo video, **≤ 3 minutes** (YouTube/Loom/Vimeo), showing the
       product running and Monad transactions.
@@ -96,5 +88,5 @@ From the official rules (v3):
       contract addresses, and a line on *why Monad* (sub-second finality makes
       buying mid-scroll feel instant; one-transaction launches; cheap enough to
       price a single post).
-- [ ] Pick Track 03 as primary; add Envio (and whichever other bounties are
-      built) on the platform before the deadline.
+- [ ] Pick **Track 01** as primary; add Kuru ×2, Perpl Risk, Envio, Privy (and
+      Agora if Mera ships) on the platform before the deadline.
