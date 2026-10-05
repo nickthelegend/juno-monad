@@ -184,7 +184,7 @@ read fails the app says so — it does not print a zero it never measured.
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
   subgraph Phone["Juno app (Expo: iOS, Android, web)"]
     UI[Feed · Reels · Trade · Create · Profile]
     W["Wallet: Mera passkey, device key or Privy embedded wallet"]
