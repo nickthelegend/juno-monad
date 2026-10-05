@@ -59,6 +59,7 @@ import {
   kuruTokenOf,
   quoteKuruTrade,
 } from "./kuru";
+import { rememberKuruOrders } from "./kuru-orders";
 import { chainId, launchpadAddress, requireLaunchpad, swapRouterAddress } from "./network";
 import {
   PerpRejected,
@@ -921,6 +922,9 @@ async function describeReceipt(receipt: TransactionReceipt, from: Address): Prom
       touched.add(token);
     }
   }
+
+  // Orders it rested on a Kuru book, so the orders list works without an indexer.
+  await rememberKuruOrders(receipt, from).catch(() => 0);
 
   // The price, curve and history all just moved. Drop them so the next read
   // is live rather than a few seconds stale.

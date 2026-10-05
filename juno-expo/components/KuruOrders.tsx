@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BottomSheet } from "./BottomSheet";
-import { Button, Caption, Label, Mono, Pill, Segmented } from "./kit";
+import { Button, Caption, Label, Mono, Pill, Segmented, RETRY_HINT } from "./kit";
 import { juno, type Coin, type KuruOrder } from "../lib/api";
 import { bookPrice, money, tokens, useApi } from "../lib/useApi";
 import { useWallet } from "../lib/wallet";
@@ -16,7 +16,8 @@ import { theme } from "../theme";
  * land there too — not in the wallet. So this card shows that balance plainly
  * and offers to withdraw it, rather than letting a filled order look like it
  * vanished. Every number is read from the chain at the time of the read: the
- * indexer names the orders, the book says what is left of each.
+ * indexer (or, without one, the receipts Juno recorded) names the orders;
+ * the book says what is left of each.
  */
 export function KuruOrdersCard({ coin, onChanged }: { coin: Coin; onChanged: () => void }) {
   const wallet = useWallet();
@@ -62,7 +63,7 @@ export function KuruOrdersCard({ coin, onChanged }: { coin: Coin; onChanged: () 
       {state.loading ? (
         <Caption>Reading the book…</Caption>
       ) : orders === null ? (
-        <Caption>Your resting orders show here when the indexer is connected.</Caption>
+        <Caption>{`Your resting orders could not be read just now. ${RETRY_HINT}`}</Caption>
       ) : orders.length === 0 ? (
         <Caption>No resting orders. A limit order waits on the book at your price.</Caption>
       ) : (
