@@ -1,4 +1,12 @@
-import { createPasskeyWithPrfOutput, getPasskeyPrfOutput, isMeraError, createSecp256k1SigningSession } from "@category-labs/mera";
+import {
+  createPasskeyWithPrfOutput,
+  createSecp256k1SigningSession,
+  createSecretVaultWithExistingPasskey,
+  decryptSecretVaultWithPasskey,
+  getPasskeyPrfOutput,
+  isMeraError,
+  parseSecretVault,
+} from "@category-labs/mera";
 import { toViemAccount } from "@category-labs/mera/viem";
 import { HDKey } from "@scure/bip32";
 import { entropyToMnemonic, mnemonicToSeedSync } from "@scure/bip39";
@@ -175,6 +183,40 @@ export async function unlockMeraAccount(expected?: Address | null): Promise<Addr
     throw new Error("That passkey belongs to a different Juno account. Pick the one you signed in with.");
   }
   return address;
+}
+
+/* ------------------------------------------------------------------ */
+/* One passkey, more keys: secrets sealed under their own PRF salts    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Encrypt bytes to this account's passkey (one prompt). Mera picks a fresh
+ * random PRF salt for every vault, so each secret has its own key and none of
+ * them is the wallet's. Returns the vault as JSON text — ciphertext, nonce,
+ * salt and the passkey's id; nothing in it opens without the passkey.
+ */
+export async function sealSecret(secret: Uint8Array): Promise<string> {
+  const stored = readStored();
+  if (!stored) throw new Error("Make or unlock a passkey account first.");
+  try {
+    const vault = await createSecretVaultWithExistingPasskey({
+      rpId: relyingPartyId(),
+      credential: { credentialId: stored.credentialId },
+      secret,
+    });
+    return JSON.stringify(vault);
+  } catch (error) {
+    throw explain(error);
+  }
+}
+
+/** Open a vault sealed by `sealSecret`: one prompt, on any device that has the passkey. */
+export async function openSecret(vaultJson: string): Promise<Uint8Array> {
+  try {
+    return await decryptSecretVaultWithPasskey({ rpId: relyingPartyId(), vault: parseSecretVault(vaultJson) });
+  } catch (error) {
+    throw explain(error);
+  }
 }
 
 /** The open session's account, unlocking first when it has ended. */

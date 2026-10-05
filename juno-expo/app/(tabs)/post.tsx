@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { CurvePreview } from "../../components/CurvePreview";
+import { SealedDrafts } from "../../components/SealedDrafts";
 import { Button, Card, Pill } from "../../components/kit";
 import { juno, MON_ADDRESS, type Venue } from "../../lib/api";
 import { feedChanged } from "../../lib/refresh";
@@ -400,6 +401,17 @@ export default function PostScreen() {
           </Text>
 
           <MediaPicker kind={kind} media={media} onPick={pick} disabled={busy} />
+
+          {wallet.mode === "mera" && wallet.address ? (
+            <SealedDrafts
+              current={{ kind, name, symbol, caption }}
+              onOpen={(draft) => {
+                setName(draft.name);
+                setSymbol(draft.symbol);
+                setCaption(draft.caption);
+              }}
+            />
+          ) : null}
 
           <Card style={styles.form}>
             <Field label="Name">

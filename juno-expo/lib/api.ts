@@ -140,6 +140,9 @@ export const api = {
   patch: <T>(path: string, body: unknown, timeoutMs?: number) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body), timeoutMs }),
   delete: <T>(path: string, timeoutMs?: number) => request<T>(path, { method: "DELETE", timeoutMs }),
+  /** A DELETE whose request is signed, so its proof travels in the body rather than the URL. */
+  del: <T>(path: string, body: unknown, timeoutMs?: number) =>
+    request<T>(path, { method: "DELETE", body: JSON.stringify(body), timeoutMs }),
 };
 
 /* ------------------------------------------------------------------ */
