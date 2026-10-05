@@ -40,10 +40,11 @@ npm run demo:local
 This forks Monad testnet with anvil, so Juno's deployed contracts, Kuru,
 Perpl, Agora's AUSD, Pyth and Chainlink's feeds are all there. It makes a
 fresh Postgres and Mongo, builds the API for production, and seeds the demo
-content through the API as real signed transactions: twelve coins, trades,
-comments, and one coin graduated into Uniswap v2 and one into Kuru. Then it
-serves the web app at <http://localhost:8183>. It takes about ten minutes the
-first time and needs no keys.
+content through the API as real signed transactions: fourteen coins with
+trades and comments, one of them graduated into Uniswap v2 and one into Kuru.
+Then it serves the web app at <http://localhost:8183>. It needs no keys. A
+run on 6 Oct took 3½ minutes, and every screen then passed
+`tests/e2e/walk.mjs` (43/43).
 
 It needs Foundry, Node 22+, PostgreSQL 16 (running) and MongoDB 7 on PATH.
 `npm run demo:local -- stop` stops everything it started. The script is

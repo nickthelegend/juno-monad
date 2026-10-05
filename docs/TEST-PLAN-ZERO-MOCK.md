@@ -129,6 +129,7 @@ are from this run. Items S, P, X and T are new.
 | K4 | No mock, stub or fallback data in shipped code | PASS: the grep over `lib`, `app`, the Expo app, the plugin, the CRE workflow and `scripts` finds only comments that say "never fake", the contract parity fixtures' generator, the Privy types module (not loaded at runtime), and Chainlink's MockKeystoneForwarder by name |
 | K5 | Plugin tests, CRE workflow tests, WASM build | PASS: plugin 20, CRE 7, the workflow compiles to WASM |
 | K6 | Slither, secret scan, nothing secret tracked | PASS: Slither 0 medium or high; no key, JWT, mnemonic or `.env` file tracked |
+| K7 | `npm run demo:local` from a clean state: fork, fresh databases, production API, seed, web app; `stop` frees every port | PASS: exit 0 in 3½ minutes; 14 coins seeded through the API (one graduated into Uniswap v2, one into Kuru); `tests/e2e/walk.mjs` against it 43/43; `stop` left nothing listening |
 
 ### T. Monad testnet (on hold)
 
