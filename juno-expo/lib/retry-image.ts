@@ -14,6 +14,7 @@ export function useRetryingUri(uri: string | null | undefined, attempts = 3) {
   const [attempt, setAttempt] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new uri starts the retries over
   useEffect(() => {
     setAttempt(0);
     return () => {

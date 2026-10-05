@@ -59,8 +59,11 @@ export default class JunoAsk extends PluginCommand<Result> {
         io,
         maxSpend: maxSpend ? Number(maxSpend) : 5,
         dryRun: Boolean(dryRun),
-        executor: async () =>
-          (executor ??= (await this.ctx.walletExecutor(io, this.pluginCommandId, { emitStepNotices: true })) as unknown as Executor),
+        executor: async () => {
+          // Asked for once, on the first trade: a dry run or a read-only plan never touches the wallet.
+          if (!executor) executor = (await this.ctx.walletExecutor(io, this.pluginCommandId, { emitStepNotices: true })) as unknown as Executor;
+          return executor;
+        },
       }),
       onStep: (step) => io.progress(`${step.tool}${step.ok ? "" : " (refused)"}`),
     });

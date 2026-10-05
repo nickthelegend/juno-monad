@@ -26,7 +26,7 @@ import { publicClient } from "./client";
 import { BASE_DECIMALS, buildPresetParams, presetFromIndex, type BuildPresetOptions, type CurveParams } from "./curves";
 import { sqrtX96ToPrice, type RawSegment } from "./curve-math";
 import { NATIVE, isMainnet, kuruGraduatorAddress, launchpadAddress, requireLaunchpad } from "./network";
-import { ttlCache, withRetry } from "./rpc";
+import { withRetry } from "./rpc";
 import type { CurvePresetId, CurveState, QuoteToken, TradeSide, Venue } from "./types";
 
 /* ------------------------------------------------------------------ */

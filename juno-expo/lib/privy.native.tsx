@@ -149,7 +149,7 @@ function Bridge({ children }: { children: ReactNode }) {
     if (!isReady) return;
     const waiting = readyWaiters.current;
     readyWaiters.current = [];
-    waiting.forEach((resolve) => resolve());
+    for (const resolve of waiting) resolve();
   }, [isReady]);
 
   const [stalled, setStalled] = useState(false);

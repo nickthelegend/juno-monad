@@ -128,7 +128,6 @@ export function Candles({
         {/* Hairline grid with the price axis on the right, as a trader reads it. */}
         {[0, 0.25, 0.5, 0.75, 1].map((f) => {
           const gy = PRICE_H * f;
-          const price = scale.high - (scale.high - scale.low) * f;
           return (
             <Line
               key={`g${f}`}

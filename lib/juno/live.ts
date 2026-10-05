@@ -1,6 +1,6 @@
 import "server-only";
 
-import { decodeEventLog, getAddress, type Hex } from "viem";
+import { decodeEventLog, getAddress, type DecodeEventLogReturnType, type Hex } from "viem";
 
 import { junoLaunchpadAbi, junoSwapRouterAbi } from "./abi";
 import { quoteTokenFor } from "./launchpad";
@@ -167,7 +167,7 @@ export function applyLog(
   },
   at: number,
 ): LiveEvent | null {
-  let decoded;
+  let decoded: DecodeEventLogReturnType<typeof junoLaunchpadAbi>;
   try {
     decoded = decodeEventLog({ abi: junoLaunchpadAbi, data: log.data, topics: log.topics as [Hex, ...Hex[]] });
   } catch {
@@ -225,7 +225,7 @@ export function applyLog(
  * position changed: the buyer's recipient, or the seller.
  */
 function applyRouterSwap(live: LiveState, log: Parameters<typeof applyLog>[1], at: number): LiveEvent | null {
-  let decoded;
+  let decoded: DecodeEventLogReturnType<typeof junoSwapRouterAbi, "Swapped">;
   try {
     decoded = decodeEventLog({ abi: junoSwapRouterAbi, eventName: "Swapped", data: log.data, topics: log.topics as [Hex, ...Hex[]] });
   } catch {
@@ -292,7 +292,7 @@ export function ensureLive(): void {
     // Two subscriptions rather than an address list, which not every node's
     // log filter takes.
     const router = swapRouterAddress();
-    [launchpad, ...(router ? [router] : [])].forEach((address, index) =>
+    [launchpad, ...(router ? [router] : [])].forEach((address, index) => {
       socket.send(
         JSON.stringify({
           jsonrpc: "2.0",
@@ -300,8 +300,8 @@ export function ensureLive(): void {
           method: "eth_subscribe",
           params: [staged ? "monadLogs" : "logs", { address }],
         }),
-      ),
-    );
+      );
+    });
   };
   socket.onmessage = (message) => {
     const at = Date.now();

@@ -1,4 +1,4 @@
-import { BaseError, encodeFunctionData, getAddress, maxUint256, parseAbi, type Address } from "viem";
+import { BaseError, encodeFunctionData, getAddress, maxUint256, parseAbi, type Address, type ReadContractReturnType } from "viem";
 
 import { junoTokenAbi } from "./abi";
 import { publicClient } from "./client";
@@ -256,7 +256,7 @@ export async function perpAccount(owner: Address): Promise<PerpAccount> {
   ]);
   const base = { owner, walletAusd: Number(walletRaw) / CNS, minimumOpen: Number(minimumRaw) / CNS, ausdFaucet: ausdFaucetAddress() !== null };
 
-  let info;
+  let info: ReadContractReturnType<typeof perplExchangeAbi, "getAccountByAddr">;
   try {
     info = await client.readContract({ address: exchange, abi: perplExchangeAbi, functionName: "getAccountByAddr", args: [owner] });
   } catch (error) {
@@ -591,7 +591,7 @@ async function perplJson<T>(path: string, attempts = 4): Promise<T> {
  */
 export async function perpMarketRisk(nowMs = Date.now(), symbols?: readonly string[]): Promise<MarketRisk[]> {
   // A bot watching two markets reads two markets' history, not all of them.
-  const key = symbols && symbols.length ? [...symbols].sort().join(",") : "*";
+  const key = symbols?.length ? [...symbols].sort().join(",") : "*";
   const hit = riskCache.get(key);
   if (hit && nowMs - hit.at < 60_000) return hit.value;
   const markets = (await perpMarkets()).filter((m) => key === "*" || symbols!.includes(m.symbol));

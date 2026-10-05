@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Tabs, usePathname, useRouter } from "expo-router";
-import { Animated, Platform, StyleSheet } from "react-native";
+import { Animated, StyleSheet } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import styled from "styled-components/native";
 

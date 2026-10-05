@@ -1,0 +1,29 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "files": {
+    "includes": [
+      "lib/**/*.ts",
+      "app/**/*.ts",
+      "scripts/**/*.ts",
+      "juno-expo/app/**/*.tsx",
+      "juno-expo/components/**/*.tsx",
+      "juno-expo/lib/**/*.ts",
+      "juno-expo/lib/**/*.tsx",
+      "mm-plugin-juno/src/**/*.ts",
+      "cre/juno-nav/*.ts"
+    ]
+  },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off",
+        "useExponentiationOperator": "off",
+        "useTemplate": "off"
+      }
+    }
+  }
+}

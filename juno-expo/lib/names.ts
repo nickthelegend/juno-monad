@@ -45,7 +45,9 @@ function flush() {
 
 function publish(wallet: string, name: string | null) {
   known.set(wallet, name);
-  listeners.get(wallet)?.forEach((listener) => listener(name));
+  listeners.get(wallet)?.forEach((listener) => {
+    listener(name);
+  });
 }
 
 function request(wallet: string) {
@@ -62,7 +64,9 @@ function request(wallet: string) {
 
 function publishIdentity(wallet: string, identity: Identity | null) {
   knownIdentities.set(wallet, identity);
-  identityListeners.get(wallet)?.forEach((listener) => listener(identity));
+  identityListeners.get(wallet)?.forEach((listener) => {
+    listener(identity);
+  });
 }
 
 /** After a Privy verification, so the badge appears without a reload. */

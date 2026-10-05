@@ -45,6 +45,7 @@ import { shareCoin, useFollow, useLike, useViewerOnce } from "../../lib/social";
 import { money, useApi } from "../../lib/useApi";
 import { useTabBarHeight } from "../../lib/tabbar";
 import { theme } from "../../theme";
+import { useSvgId } from "../../components/svg-id";
 
 /**
  * Reels: every video is a coin, one per screen.
@@ -593,21 +594,23 @@ function ReelVideo({
 
 /** Top and bottom scrims, so white type reads on any frame. */
 function Shade({ height }: { height: number }) {
+  const topId = useSvgId("top");
+  const bottomId = useSvgId("bottom");
   return (
     <Svg style={[StyleSheet.absoluteFill, { pointerEvents: "none" }]} width="100%" height={height}>
       <Defs>
-        <LinearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient id={topId} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#000" stopOpacity={0.55} />
           <Stop offset="1" stopColor="#000" stopOpacity={0} />
         </LinearGradient>
-        <LinearGradient id="bottom" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient id={bottomId} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#000" stopOpacity={0} />
           <Stop offset="0.55" stopColor="#000" stopOpacity={0.45} />
           <Stop offset="1" stopColor="#000" stopOpacity={0.9} />
         </LinearGradient>
       </Defs>
-      <Rect x="0" y="0" width="100%" height={140} fill="url(#top)" />
-      <Rect x="0" y={height * 0.45} width="100%" height={height * 0.55} fill="url(#bottom)" />
+      <Rect x="0" y="0" width="100%" height={140} fill={`url(#${topId})`} />
+      <Rect x="0" y={height * 0.45} width="100%" height={height * 0.55} fill={`url(#${bottomId})`} />
     </Svg>
   );
 }

@@ -76,6 +76,7 @@ export function useLive(
   const interval = options.intervalMs ?? 1_000;
   const forMs = options.forMs ?? Infinity;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the filter is two strings; re-subscribe only when they change
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
@@ -94,8 +95,6 @@ export function useLive(
       alive = false;
       if (timer) clearTimeout(timer);
     };
-    // The filter is two strings; re-subscribe only when they change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter.token, filter.tx, interval, enabled, forMs]);
 
   return snapshot;

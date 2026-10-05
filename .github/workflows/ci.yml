@@ -76,6 +76,10 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit -p .
 
+      - name: Lint
+        # Biome over the API, the app, the scripts, the plugin and the CRE workflow (biome.json).
+        run: npm run lint
+
       - name: Unit tests
         # Pure logic: no network, no database, no keys.
         run: npx vitest run tests/unit

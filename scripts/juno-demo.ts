@@ -128,7 +128,7 @@ function saveProgress(config: Config, progress: Progress) {
   writeFileSync(path.join(walletDir(config), "progress.json"), JSON.stringify(progress, null, 2));
 }
 
-async function balance(config: Config, rpc: string, address: Hex): Promise<bigint> {
+async function balance(rpc: string, address: Hex): Promise<bigint> {
   const response = await fetch(rpc, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -140,7 +140,7 @@ async function balance(config: Config, rpc: string, address: Hex): Promise<bigin
 /** Top each demo wallet up to `target` MON. */
 async function fund(config: Config, rpc: string, accounts: PrivateKeyAccount[], target: bigint) {
   for (const account of accounts) {
-    const held = await balance(config, rpc, account.address);
+    const held = await balance(rpc, account.address);
     if (held >= target) continue;
     if (config.localFork) {
       await fetch(rpc, {

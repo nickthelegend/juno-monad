@@ -252,7 +252,7 @@ export async function POST(request: Request) {
         );
       }
 
-      let receipt;
+      let receipt: Awaited<ReturnType<typeof client.waitForTransactionReceipt>>;
       try {
         receipt = await client.waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
       } catch {

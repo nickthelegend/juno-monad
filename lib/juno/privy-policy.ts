@@ -1,4 +1,4 @@
-import { decodeFunctionData, formatEther, getAddress, isAddress, toHex, type Abi, type AbiFunction, type Address, type Hex } from "viem";
+import { decodeFunctionData, formatEther, getAddress, isAddress, toHex, type Abi, type AbiFunction, type Address, type DecodeFunctionDataReturnType, type Hex } from "viem";
 
 import { junoLaunchpadAbi, junoSwapRouterAbi, junoTokenAbi } from "./abi";
 
@@ -173,7 +173,7 @@ function holds(condition: PolicyCondition, request: PolicyRequest, nowSec: numbe
     return compare(BigInt(request.chainId), condition.operator, condition.value);
   }
   const [fn, arg] = condition.field.split(".");
-  let decoded;
+  let decoded: DecodeFunctionDataReturnType<AbiFunction[]>;
   try {
     decoded = decodeFunctionData({ abi: condition.abi, data: request.data });
   } catch {

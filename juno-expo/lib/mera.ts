@@ -205,7 +205,7 @@ export async function createMeraAccount(): Promise<Address> {
  * cleared, because the account is derived from the passkey alone.
  */
 export async function unlockMeraAccount(expected?: Address | null): Promise<Address> {
-  let result;
+  let result: Awaited<ReturnType<typeof getPasskeyPrfOutput>>;
   try {
     result = await getPasskeyPrfOutput({ rpId: relyingPartyId(), webAuthnClient });
   } catch (error) {

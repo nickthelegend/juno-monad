@@ -5,6 +5,7 @@ import styled from "styled-components/native";
 import { Caption } from "./kit";
 import { svgHit } from "./svgHit";
 import { theme } from "../theme";
+import { useSvgId } from "./svg-id";
 
 /**
  * Value over time, with the volume underneath it.
@@ -87,6 +88,7 @@ export function AreaChart({
    */
   emptyLabel?: string;
 }) {
+  const areaFillId = useSvgId("areaFill");
   const [active, setActive] = useState<number | null>(null);
 
   const shape = useMemo(() => {
@@ -135,7 +137,7 @@ export function AreaChart({
   const line = scaled.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   const area = `${PAD.left},${PAD.top + PLOT_H} ${line} ${last.x.toFixed(1)},${PAD.top + PLOT_H}`;
   const band = PLOT_W / scaled.length;
-  const maxBar = bars && bars.length ? Math.max(...bars, 1) : 1;
+  const maxBar = bars?.length ? Math.max(...bars, 1) : 1;
 
   return (
     <Wrap>
@@ -146,7 +148,7 @@ export function AreaChart({
 
       <Svg viewBox={`0 0 ${W} ${H + BAR_H}`} width="100%" style={{ aspectRatio: W / (H + BAR_H) }}>
         <Defs>
-          <LinearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+          <LinearGradient id={areaFillId} x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0%" stopColor={stroke} stopOpacity={0.28} />
             <Stop offset="100%" stopColor={stroke} stopOpacity={0.02} />
           </LinearGradient>
@@ -165,7 +167,7 @@ export function AreaChart({
           />
         ))}
 
-        <Path d={`M${area.replace(/ /g, " L")}`} fill="url(#areaFill)" />
+        <Path d={`M${area.replace(/ /g, " L")}`} fill={`url(#${areaFillId})`} />
         <Path
           d={`M${line.replace(/ /g, " L")}`}
           fill="none"
@@ -205,6 +207,7 @@ export function AreaChart({
               const h = Math.max(1, (v / maxBar) * (BAR_H - 6));
               return (
                 <Rect
+                  // biome-ignore lint/suspicious/noArrayIndexKey: one bar per point, in position order
                   key={`bar-${i}`}
                   x={PAD.left + i * band + band * 0.25}
                   y={H + (BAR_H - 6) - h}
@@ -219,8 +222,9 @@ export function AreaChart({
 
         {/* Hit bands, each far wider than its dot. */}
         <G>
-          {scaled.map((p, i) => (
+          {scaled.map((_p, i) => (
             <Rect
+              // biome-ignore lint/suspicious/noArrayIndexKey: one hit band per point, in position order
               key={`hit-${i}`}
               x={PAD.left + i * band}
               y={0}

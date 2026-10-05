@@ -2,6 +2,7 @@ import { Image, View } from "react-native";
 import Svg, { Circle, Defs, G, Line, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
 import { theme } from "../theme";
+import { useSvgId } from "./svg-id";
 
 const colors = theme.colors;
 
@@ -26,6 +27,7 @@ const colors = theme.colors;
  * connecting lines are drawn *to* the centre rather than between the people.
  */
 export function OnboardingArt({ size = 280 }: { size?: number }) {
+  const coreId = useSvgId("core");
   const people = [
     { x: 140, y: 34, r: 24, fill: theme.colors.lime },
     { x: 232, y: 86, r: 20, fill: "#8B5CF6" },
@@ -37,7 +39,7 @@ export function OnboardingArt({ size = 280 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 280 260">
       <Defs>
-        <LinearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+        <LinearGradient id={coreId} x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0%" stopColor={theme.colors.lime} />
           <Stop offset="100%" stopColor="#0E9F6E" />
         </LinearGradient>
@@ -59,7 +61,7 @@ export function OnboardingArt({ size = 280 }: { size?: number }) {
       </G>
 
       {/* The market itself: a rising book. */}
-      <Circle cx={140} cy={128} r={54} fill="url(#core)" />
+      <Circle cx={140} cy={128} r={54} fill={`url(#${coreId})`} />
       <G>
         {[0, 1, 2, 3].map((i) => (
           <Rect
@@ -99,10 +101,11 @@ export function OnboardingArt({ size = 280 }: { size?: number }) {
  * stack reads as "what you hold" and stays honest when that is nothing.
  */
 export function PortfolioArt({ size = 130 }: { size?: number }) {
+  const coinTopId = useSvgId("coinTop");
   return (
     <Svg width={size} height={size} viewBox="0 0 160 160">
       <Defs>
-        <LinearGradient id="coinTop" x1="0" y1="0" x2="1" y2="1">
+        <LinearGradient id={coinTopId} x1="0" y1="0" x2="1" y2="1">
           <Stop offset="0%" stopColor="#F7EE73" />
           <Stop offset="100%" stopColor="#E6D21C" />
         </LinearGradient>

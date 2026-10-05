@@ -422,7 +422,7 @@ export async function runDuePlans(): Promise<PlanRunReport[]> {
         if (failed) continue;
         const claim = `${plan.id}@${plan.lastFilledAt ?? plan.createdAt}`;
         const base = { network: networkKey(), wallet: doc.wallet, kind: "plan" as const, planId: plan.id };
-        let id;
+        let id: Awaited<ReturnType<typeof log.insertOne>>["insertedId"];
         try {
           ({ insertedId: id } = await log.insertOne({ ...base, claim, label: "Buying", hash: null, via: "privy", sponsored: false, error: null, at: new Date() }));
         } catch {

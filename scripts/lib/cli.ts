@@ -309,7 +309,7 @@ function customError(error: unknown): string | null {
   }
   if (!found.decoded) return null;
   const { errorName, args } = found.decoded;
-  return args && args.length ? `${errorName}(${args.map(String).join(", ")})` : errorName;
+  return args?.length ? `${errorName}(${args.map(String).join(", ")})` : errorName;
 }
 
 /**

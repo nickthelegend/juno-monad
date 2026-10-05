@@ -219,7 +219,9 @@ async function heldBalances(wallet: Address, rows: JunoPoolRow[]): Promise<Map<s
   );
   if (!results) return null;
   const held = new Map<string, number>();
-  rows.forEach((row, index) => held.set(row.token, Number(results[index] as bigint) / 1e18));
+  rows.forEach((row, index) => {
+    held.set(row.token, Number(results[index] as bigint) / 1e18);
+  });
   return held;
 }
 

@@ -2,7 +2,7 @@ import { useRouter } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { type Coin } from "../lib/api";
+import type { Coin } from "../lib/api";
 import { shortAddress } from "../lib/names";
 import { useLive } from "../lib/live";
 import { theme } from "../theme";

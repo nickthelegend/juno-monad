@@ -5,6 +5,7 @@ import styled from "styled-components/native";
 
 import { Caption } from "./kit";
 import { theme } from "../theme";
+import { useSvgId } from "./svg-id";
 
 /**
  * The price, as one line, at the top of the screen.
@@ -91,6 +92,7 @@ export function PriceLine({
   partial?: boolean;
   height?: number;
 }) {
+  const priceFadeId = useSvgId("priceFade");
   const [span, setSpan] = useState<Span>("1D");
   const [width, setWidth] = useState(0);
   // Where the finger is, as an index into the drawn series. Null when nobody
@@ -164,6 +166,7 @@ export function PriceLine({
    * scrubbing along time, and a vertical component would make the readout jump
    * to a different moment because the line happened to bend nearer the thumb.
    */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `locate` reads `geometry`; rebuilding on `geometry` keeps the scrub aligned (below)
   const pan = useMemo(
     () =>
       PanResponder.create({
@@ -218,13 +221,13 @@ export function PriceLine({
         {geometry ? (
           <Svg width={width} height={height}>
             <Defs>
-              <LinearGradient id="priceFade" x1="0" y1="0" x2="0" y2="1">
+              <LinearGradient id={priceFadeId} x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor={stroke} stopOpacity={0.16} />
                 <Stop offset="1" stopColor={stroke} stopOpacity={0} />
               </LinearGradient>
             </Defs>
 
-            <Path d={geometry.area} fill="url(#priceFade)" />
+            <Path d={geometry.area} fill={`url(#${priceFadeId})`} />
             <Path
               d={geometry.d}
               stroke={stroke}

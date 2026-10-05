@@ -69,6 +69,7 @@ export function HeartBurst({ x, y, onDone }: { x: number; y: number; onDone: () 
             const fade = t.interpolate({ inputRange: [0.1, 0.2, 0.55, 0.7], outputRange: [0, 1, 1, 0], extrapolate: "clamp" });
             return (
               <Animated.View
+                // biome-ignore lint/suspicious/noArrayIndexKey: SPARKS is a fixed list; its order never changes
                 key={i}
                 style={{
                   position: "absolute",

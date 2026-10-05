@@ -155,11 +155,11 @@ export default function PostScreen() {
     () => (wallet.address ? juno.balance(wallet.address, MON_ADDRESS) : Promise.resolve(null)),
     [wallet.address],
   );
+  const pollBalance = monBalance.poll;
   useFocusEffect(
     useCallback(() => {
-      monBalance.poll();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [wallet.address]),
+      pollBalance();
+    }, [pollBalance]),
   );
   const mon = monBalance.data?.balance ?? null;
   const testnet = (juno.loadedConfig()?.network ?? "monad-testnet") === "monad-testnet";

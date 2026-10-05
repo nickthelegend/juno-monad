@@ -352,6 +352,7 @@ export function TradeSheet({
   const sellsAll =
     side === "sell" && suggestion !== null && holding !== null && holding > 0 && holding < suggestion.amountIn;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `sizeArgs` is rebuilt every render from `value`, `exactOut` and `sellShare`, which are listed
   useEffect(() => {
     if (!valid || !wallet.address || overBalance) {
       setQuote(null);

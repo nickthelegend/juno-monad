@@ -1,4 +1,4 @@
-import { getPost, listPosts, replyCounts } from "@/lib/juno/posts";
+import { getPost, listPosts } from "@/lib/juno/posts";
 import { getPool } from "@/lib/juno/registry";
 import { hydratePool } from "@/lib/juno/chain";
 import { identicon } from "@/lib/juno/identicon";

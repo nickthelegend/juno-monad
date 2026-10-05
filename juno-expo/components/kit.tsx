@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { ActivityIndicator, Animated, Platform, Pressable, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import styled, { css } from "styled-components/native";

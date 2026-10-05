@@ -115,7 +115,7 @@ function Bridge({ children }: { children: ReactNode }) {
     if (!privy.ready) return;
     const waiting = readyWaiters.current;
     readyWaiters.current = [];
-    waiting.forEach((resolve) => resolve());
+    for (const resolve of waiting) resolve();
   }, [privy.ready]);
 
   const { login } = useLogin({

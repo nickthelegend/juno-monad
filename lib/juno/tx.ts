@@ -619,7 +619,7 @@ export async function buildLaunch(request: LaunchBuildRequest): Promise<LaunchBu
       ? await defaultCapsIn(quote.address, preset)
       : null;
 
-  let plan;
+  let plan: Awaited<ReturnType<typeof planLaunch>>;
   try {
     plan = await planLaunch({
       creator,
@@ -732,7 +732,7 @@ const RECEIPT_TIMEOUT_MS = 30_000;
 export async function submitSigned(params: { signed: Hex }): Promise<SubmitResult> {
   const client = publicClient();
 
-  let parsed;
+  let parsed: ReturnType<typeof parseTransaction>;
   let from: Address;
   try {
     parsed = parseTransaction(params.signed);

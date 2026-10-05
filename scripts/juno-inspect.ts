@@ -13,7 +13,7 @@
  * Next's bundler — see `scripts/lib/cli.ts`.
  */
 
-import { type Address } from "viem";
+import type { Address } from "viem";
 
 import { junoLaunchpadAbi, junoTokenAbi } from "../lib/juno/abi";
 import { CURVE_PRESETS } from "../lib/juno/curves";

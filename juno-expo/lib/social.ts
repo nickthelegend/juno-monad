@@ -25,6 +25,7 @@ export function useLike(coin: Pick<Coin, "address" | "likes" | "viewerLiked">) {
   const inFlight = useRef(false);
 
   // The list re-reads on refresh; the server's answer wins over a stale local one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a different coin re-syncs even when its counts match the last one's
   useEffect(() => {
     setLiked(!!coin.viewerLiked);
     setLikes(coin.likes ?? null);
@@ -104,8 +105,8 @@ export function onAnyFollow(listener: (target: string, on: boolean) => void): ()
 }
 
 function announceFollow(target: string, on: boolean) {
-  followListeners.get(target)?.forEach((listener) => listener(on));
-  anyFollowListeners.forEach((listener) => listener(target, on));
+  for (const listener of followListeners.get(target) ?? []) listener(on);
+  for (const listener of anyFollowListeners) listener(target, on);
 }
 
 export function useFollow(target: string) {

@@ -19,6 +19,7 @@ import { bigMoney, count, invalidateMarkets, loadMarkets, progressLabel, tradesI
 import { money, useApi } from "../../lib/useApi";
 import { useViewerOnce } from "../../lib/social";
 import { theme } from "../../theme";
+import { useSvgId } from "../../components/svg-id";
 
 type Sort = "preipo" | "stocks" | "memes" | "kuru" | "perps" | "traders";
 
@@ -312,16 +313,17 @@ function Intro({
   title?: string;
   body?: string;
 }) {
+  const introGlowId = useSvgId("introGlow");
   return (
     <View style={styles.intro}>
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
         <Defs>
-          <LinearGradient id="introGlow" x1="0" y1="0" x2="1" y2="1">
+          <LinearGradient id={introGlowId} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={theme.colors.lime} stopOpacity={0.22} />
             <Stop offset="0.6" stopColor={theme.colors.lime} stopOpacity={0} />
           </LinearGradient>
         </Defs>
-        <Rect width="100%" height="100%" fill="url(#introGlow)" />
+        <Rect width="100%" height="100%" fill={`url(#${introGlowId})`} />
       </Svg>
       <View style={styles.introPill}>
         <View style={styles.introDot} />

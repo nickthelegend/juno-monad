@@ -2,7 +2,8 @@
 // import, and keeps whatever it found. See `./polyfills`.
 import "./polyfills";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import type { TransactionSerializableEIP1559 } from "viem";
@@ -367,7 +368,9 @@ export function WalletProvider({
         onStep?.({ index: 0, total, label: steps[0].label, phase: "submitting" });
         try {
           const results = await sponsored(steps);
-          results.forEach((result, index) => onLanded?.(result, { index, total, label: steps[index].label }));
+          results.forEach((result, index) => {
+            onLanded?.(result, { index, total, label: steps[index].label });
+          });
           return results;
         } catch (caught) {
           if (!autopilotUnavailable(caught)) throw caught;

@@ -87,6 +87,7 @@ export default function SocialScreen() {
   // Follows and unfollows made since the list was read, by lower-cased wallet.
   const [changed, setChanged] = useState<Map<string, boolean>>(() => new Map());
   useEffect(() => onAnyFollow((target, on) => setChanged((prev) => new Map(prev).set(target.toLowerCase(), on))), []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a fresh read of the follows list supersedes the local changes
   useEffect(() => setChanged(new Map()), [follows.data]);
 
   const posts = useMemo(() => {

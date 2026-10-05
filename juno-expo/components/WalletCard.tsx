@@ -52,6 +52,7 @@ export function WalletCard({ address }: { address: string }) {
   // failed one leaves the figure that is on screen.
   const polls = useRef({ mon: mon.poll, usdc: usdc.poll });
   polls.current = { mon: mon.poll, usdc: usdc.poll };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the polls are read through a ref; a new address restarts the timer
   useEffect(() => {
     const id = setInterval(() => {
       polls.current.mon();

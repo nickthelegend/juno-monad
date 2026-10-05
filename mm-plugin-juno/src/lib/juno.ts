@@ -156,7 +156,7 @@ export async function submitSteps(
   const landed: Landed[] = [];
   for (const [index, step] of steps.entries()) {
     const intent = steps.length > 1 ? `${options.intent} (step ${index + 1} of ${steps.length}: ${step.label})` : options.intent;
-    let result;
+    let result: Awaited<ReturnType<Executor>>;
     try {
       result = await executor(
         {

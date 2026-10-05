@@ -23,11 +23,11 @@ export function PerpsPanel() {
   // "Live" has to mean live after the first read too. Perpl's marks move every
   // block and the server holds them for five seconds, so ten is the most a
   // mark on this list is ever behind.
+  const pollMarkets = markets.poll;
   useEffect(() => {
-    const timer = setInterval(markets.poll, 10_000);
+    const timer = setInterval(pollMarkets, 10_000);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pollMarkets]);
   const account = useApi(
     () => (wallet.address ? juno.perpAccount(wallet.address) : Promise.resolve(null)),
     [wallet.address],
@@ -119,11 +119,11 @@ const VIEWS = [
  */
 function RiskPanel({ owner, stamp }: { owner: string | null; stamp: string }) {
   const risk = useApi(() => juno.perpRisk(owner), [owner, stamp]);
+  const pollRisk = risk.poll;
   useEffect(() => {
-    const timer = setInterval(risk.poll, 15_000);
+    const timer = setInterval(pollRisk, 15_000);
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owner]);
+  }, [pollRisk]);
 
   if (risk.loading && !risk.data) return <Skeleton h={220} round={theme.radius.lg} />;
   if (!risk.data) {

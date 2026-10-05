@@ -70,5 +70,6 @@ export function Portal({ children }: { children: ReactNode }) {
   });
   useLayoutEffect(() => () => host?.remove(key), [host, key]);
 
+  // biome-ignore lint/complexity/noUselessFragments: keeps the return a JSX element, not a bare ReactNode
   return host ? null : <>{children}</>;
 }

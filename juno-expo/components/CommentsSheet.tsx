@@ -41,7 +41,7 @@ export type CommentsTarget =
   | { kind: "post"; postId: string };
 
 /** One row, flattened from whichever store it came out of. */
-type Row = {
+type Comment = {
   id: string;
   wallet: string;
   body: string;
@@ -72,7 +72,7 @@ export function CommentsSheet({
   bottomInset?: number;
 }) {
   const wallet = useWallet();
-  const [rows, setRows] = useState<Row[] | null>(null);
+  const [rows, setRows] = useState<Comment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -221,7 +221,7 @@ export function CommentsSheet({
  * recorded something and recorded nothing. The count that matters is on the
  * post, where likes are stored.
  */
-function CommentRow({ comment }: { comment: Row }) {
+function CommentRow({ comment }: { comment: Comment }) {
   return (
     <Entry>
       <Identicon seed={comment.wallet} size={34} />

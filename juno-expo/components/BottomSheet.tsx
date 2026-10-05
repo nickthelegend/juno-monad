@@ -208,13 +208,14 @@ export function BottomSheet({
     [dismissable, dismiss, settle, y],
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the sheet opens or closes; `mounted` and `dismiss` are read as they are at that moment
   useEffect(() => {
     if (visible) {
       setMounted(true);
       return;
     }
     if (mounted) dismiss();
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   // Android's back button closes the sheet rather than the screen under it.
   useEffect(() => {

@@ -82,20 +82,27 @@ export function useApi<T>(
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The caller's deps stand for whatever `load` reads; `load` itself is a new closure each render.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the caller's deps are the dependency list
     deps,
   );
 
-  useEffect(() => {
-    run("load");
-    return () => {
-      // Invalidate anything in flight.
-      generation.current += 1;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  useEffect(
+    () => {
+      run("load");
+      return () => {
+        // Invalidate anything in flight.
+        generation.current += 1;
+      };
+    },
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the caller's deps are the dependency list
+    deps,
+  );
 
-  return { data, error, errorStatus, loading, refreshing, refresh: () => run("refresh"), poll: () => run("poll") };
+  // Stable while the deps are, so a screen can list them in its own effects.
+  const refresh = useCallback(() => run("refresh"), [run]);
+  const poll = useCallback(() => run("poll"), [run]);
+  return { data, error, errorStatus, loading, refreshing, refresh, poll };
 }
 
 /*

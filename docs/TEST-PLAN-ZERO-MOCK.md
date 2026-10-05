@@ -1,0 +1,128 @@
+# Zero-mock test plan: Juno on Monad (6 Oct 2026)
+
+Every component and flow, what "correct" means for each, and its status, run
+for real. Statuses are updated in place.
+
+## Rules
+
+- **Nothing mocked in the running product.** No fixture modes, stubs or
+  fallback data. A missing credential shows an honest "not configured" state,
+  and its items are UNTESTED with the exact dependency named. (Unit tests may
+  use test doubles; they are listed under K and are not counted as browser
+  passes.)
+- **On-chain means real contracts and real signed transactions** on an anvil
+  fork of Monad testnet (`:8555`, `--prune-history 300`). Juno's real testnet
+  deployment, and Perpl, Kuru, AUSD, Pyth and Chainlink's feeds, are all
+  forked from testnet. **Monad testnet itself is on hold**, so items that need
+  it are UNTESTED (*awaiting testnet go*).
+- **The app under test is a production build:** `next build` + `next start`
+  on `:3150` and the Expo web export on `:8183`. Data is a fresh Postgres and
+  Mongo, seeded only through the API with real signed transactions
+  (`scripts/juno-demo.ts`).
+- **In a real browser:** Google Chrome, driven headlessly through Playwright's
+  `chrome` channel. The Claude in Chrome extension was not reachable from
+  this session on 6 Oct, so it was not used. Every item checks the console
+  (no error or warning) and the network (no failed or 4xx/5xx request,
+  except the one the item is about).
+- PASS means the result matches "correct" exactly. UNTESTED is never counted
+  as PASS.
+
+## Components
+
+| Kind | Components |
+|---|---|
+| Screens (13 routes) | `/`, `/social`, `/reels`, `/trade` (Pre-IPO, Stocks, Memes, Kuru, Perps + Risk, Traders), `/post`, `/profile` (Holdings, Watching, Plans, Activity, About), `/coin/[token]` (Activity, Holders, Comments, Details), `/post/[id]`, `/trader/[wallet]`, not-found |
+| API (43 routes) | `config coins coins/[token] feed posts posts/[id] comments likes follow saved watchlist plans profiles profiles/privy depth leaderboard portfolio/[wallet] pools live index tessera faucet metadata upload drafts tx/{swap,launch,claim,graduate,submit,balance} kuru/{order,orders,cancel,withdraw} perps perps/{account,deposit,withdraw,open,close,faucet,risk} autopilot autopilot/{send,run}` |
+| Contracts | `JunoLaunchpad`, `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`, `JunoSwapRouter` (deployed on testnet, forked); `JunoNavOracle` (deployed on the fork) |
+| External | Pyth (Monad contract), Tessera API, Perpl (contracts + API), Kuru (contracts), Agora AUSD faucet, Chainlink USDC/USD feed and MockKeystoneForwarder, Pinata/IPFS, Privy, Mera (WebAuthn PRF), Envio, Chainlink CRE CLI, MetaMask `mm`, Kimi |
+
+## Items
+
+Items A–K use the IDs and "correct means" definitions in
+[`E2E-PLAN.md`](E2E-PLAN.md), which this plan builds on. Their statuses below
+are from this run. Items S, P, X and T are new.
+
+### A–H. The app, end to end (`.juno/rerun.mjs`, fresh visitor)
+
+| IDs | Covers | Status |
+|---|---|---|
+| A1–A7 | Landing, Get Started, tab bar, unknown route, deep-link reload, web frame, API page redirect | _pending_ |
+| B1–B6, B9–B10 | Device wallet, faucet (pays, refuses a repeat, empty), names and rules, Privy identity route, copy address | _pending_ |
+| B7 | Privy modal opens | _pending_ |
+| C1–C9 | Composer, validation, photo launch (Pinata upload + metadata + one transaction), first buy, Kuru venue, reel launch with poster, venue and preset rules, the launch in the feed | _pending_ |
+| D1–D11 | Feed, stories, like, comment, follow and Following, share, reels, post page, live tape, buy from the feed | _pending_ |
+| E1–E20 | Coin page, chart ranges, buy (spend and exact), sell 50%, size hint, over balance, close mid-flow, activity, holders, comments, details, depth, creator fees, watch, alert, plan, fill and graduate (v2), trade on the pair, unknown coin | _pending_ |
+| F1–F4 | Graduate into Kuru, trade on Kuru, limit orders (place, cancel, withdraw), Kuru history | _pending_ |
+| G1–G7 | Pre-IPO (Tessera), Stocks (Pyth), Memes, Perps markets, Perps trade (deposit, open, close, withdraw on Perpl), Traders, tracker band warning | _pending_ |
+| H1–H4 | Portfolio, Watching, Plans, trader page | _pending_ |
+
+### I. Every API method, from the app's origin (`.juno/api-rerun.mjs`, 88 calls)
+
+| ID | Correct means | Status |
+|---|---|---|
+| I1–I16 + faucet | Each route answers what E2E-PLAN.md I1–I16 say, including refusals (400/401/404/409) with a sentence | _pending_ |
+
+### S. Every screen at 375 px (`tests/e2e/walk.mjs`)
+
+| ID | Correct means | Status |
+|---|---|---|
+| S1 | All 43 screens and tabs render content, with no sideways overflow, no `NaN`/`undefined`, no console error and no failed request | _pending_ |
+
+### P. Passkeys (Mera)
+
+| ID | Correct means | Status |
+|---|---|---|
+| P1 | Create a passkey account in one prompt; only `{address, credentialId}` stored | _pending_ |
+| P2 | Signing in the session asks for nothing; End session locks; the next signature asks exactly once | _pending_ |
+| P3 | Storage wiped → "Sign in with my passkey" → the same address | _pending_ |
+| P4 | Sealed draft: the server holds only the vault (no plaintext); wiped and signed back in, it opens and fills the form; delete leaves 0 | _pending_ |
+| P5 | The same passkey on a second real device | UNTESTED: needs a second device with a synced passkey (Chrome's virtual authenticator cannot export a PRF secret) |
+| P6 | Mera in the iOS and Android apps | UNTESTED: needs an Apple Developer team id with Associated Domains, and the Android release certificate (see `MOBILE-PASSKEYS.md`) |
+
+### X. Sponsor features
+
+| ID | Correct means | Status |
+|---|---|---|
+| X1 | Perpl bot: deposit; open on the paid side when funding passes entry; close when it fades; the kill switch holds; real `execOrder` on the fork | _pending_ |
+| X2 | Perpl risk view (Perps → Risk): funding history, skew, liquidation distance | _pending_ (covered by S1 and G4) |
+| X3 | Chainlink CRE `juno-nav`: a report built by the workflow's code from live Tessera, Pyth and Chainlink readings is delivered through Monad's MockKeystoneForwarder; `JunoNavOracle.navOf` holds it; the coin page shows "Attested on Monad by Chainlink CRE" | _pending_ |
+| X4 | `cre workflow simulate juno-nav` | UNTESTED: needs `cre login` (the owner's CRE account) |
+| X5 | MetaMask plugin: installs in `mm` 7.0.0; `mm juno markets` and `mm juno coin` answer from the API | _pending_ |
+| X6 | Plugin trade path: buy on a curve, buy on a v2 pair, sell 50% exactly, sell 100% to zero, Juno refuses a sell of nothing, portfolio | _pending_ (the executor is a fork key standing in for MetaMask's wallet service; see X7) |
+| X7 | `mm juno buy` through MetaMask's own executor | UNTESTED: needs `mm login` (a MetaMask Agent Wallet account) |
+| X8 | `mm juno ask` on Kimi | UNTESTED: needs `MOONSHOT_API_KEY` (and `mm login`, which `mm` checks first). The command refuses to run without the key; there is no stand-in model in the plugin. |
+| X9 | Autopilot without a Privy signer: the Plans tab shows "Not set up" and offers nothing | _pending_ (S1) |
+| X10 | Autopilot live: policy written in Privy, signer added, a plan bought through Privy with `sponsor: true` | UNTESTED: needs `PRIVY_SIGNER_ID` and `PRIVY_AUTHORIZATION_KEY` (`npm run juno:privy-setup`) and the testnet go. Privy's wallet API broadcasts to Monad testnet itself. |
+| X11 | Kuru orders without an indexer: a resting bid is listed, cancelled, withdrawn | _pending_ (F3) |
+| X12 | Privy sign-in and signing in the app | UNTESTED here: Privy opens only on its allowed origin (`localhost:3000`, which another project holds today). Passed on the hosted app on 5 Oct. |
+
+### J. Integrations
+
+| ID | Correct means | Status |
+|---|---|---|
+| J1 | Envio serves full history and the app's numbers equal the chain | UNTESTED on this fork (no local Envio; it needs Docker plus an index from the launchpad's deploy block). Hosted Envio passed on 5 Oct. The app's no-indexer path is tested instead (receipts + log tail, honestly labelled). |
+| J2 | Tessera marks equal Tessera's API | _pending_ (G1) |
+| J3 | Pyth MON/USD from Monad's contract; equity marks labelled with their age | _pending_ (G2) |
+| J4 | Pinata upload: bytes come back identical | _pending_ (C3) |
+| J5 | Kuru and Perpl read from the real forked contracts | _pending_ (F, G5) |
+| J6 | Fresh equity marks | UNTESTED: needs `PYTH_API_KEY` |
+
+### K. Suites and gates
+
+| ID | Correct means | Status |
+|---|---|---|
+| K1 | `forge test` | PASS: 83 passed, 1 skipped (the env-gated Kuru fork suite) |
+| K2 | Root unit tests, three typechecks, production build | _pending_ |
+| K3 | Indexer `pnpm test` | PASS: 10/10 |
+| K4 | No mock, stub or fallback data in shipped code | _pending_ |
+| K5 | Plugin tests, CRE workflow tests, WASM build | _pending_ |
+| K6 | Slither, secret scan, nothing secret tracked | _pending_ |
+
+### T. Monad testnet (on hold)
+
+| ID | Item | Status |
+|---|---|---|
+| T1 | Hosted app redeployed on HEAD; the post-deploy smoke test (`DEPLOY-LATER.md`) | UNTESTED: awaiting testnet go |
+| T2 | `JunoNavOracle` on testnet; CRE simulate with `--broadcast` | UNTESTED: awaiting testnet go and `cre login` |
+| T3 | Autopilot live with sponsorship | UNTESTED: awaiting testnet go and the Privy signer |
+| T4 | A Kuru-venue coin graduated on hosted testnet | UNTESTED: awaiting testnet go (MON) |

@@ -6,6 +6,7 @@ import { juno, type DepthPoint } from "../lib/api";
 import { money } from "../lib/format";
 import { useApi } from "../lib/useApi";
 import { theme } from "../theme";
+import { useSvgId } from "./svg-id";
 
 /**
  * How far a buy of each size moves this coin's price.
@@ -78,6 +79,7 @@ export function DepthChart({ token }: { token: string }) {
 }
 
 function Chart({ points, width }: { points: DepthPoint[]; width: number }) {
+  const depthFillId = useSvgId("depth-fill");
   const lo = Math.log(points[0].amountIn);
   const hi = Math.log(points[points.length - 1].amountIn);
   const top = Math.max(...points.map((p) => p.curveImpact), 1e-6);
@@ -96,13 +98,13 @@ function Chart({ points, width }: { points: DepthPoint[]; width: number }) {
   return (
     <Svg width={width} height={H}>
       <Defs>
-        <LinearGradient id="depth-fill" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient id={depthFillId} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0%" stopColor={theme.colors.text} stopOpacity={0.14} />
           <Stop offset="100%" stopColor={theme.colors.text} stopOpacity={0} />
         </LinearGradient>
       </Defs>
       <Line x1={PAD.left} x2={width - PAD.right} y1={base} y2={base} stroke={theme.colors.line} />
-      <Path d={area} fill="url(#depth-fill)" />
+      <Path d={area} fill={`url(#${depthFillId})`} />
       <Path d={line} stroke={theme.colors.text} strokeWidth={2} fill="none" strokeLinejoin="round" />
       <Circle cx={last.x} cy={last.y} r={3.5} fill={theme.colors.text} />
     </Svg>

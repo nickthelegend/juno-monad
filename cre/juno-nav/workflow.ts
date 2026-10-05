@@ -174,7 +174,8 @@ export function buildPoints(runtime: Runtime<Config>): NavPoint[] {
       continue;
     }
     const usdcQuote = pool.quote.toLowerCase() === config.usdc.toLowerCase();
-    const quoteUsd = usdcQuote ? (usdcUsd ??= usdcUsdE18(runtime, client)) : mon.usdE18;
+    if (usdcQuote && usdcUsd === null) usdcUsd = usdcUsdE18(runtime, client);
+    const quoteUsd = usdcQuote && usdcUsd !== null ? usdcUsd : mon.usdE18;
     const curve = curvePriceE18(pool.sqrtPriceX96, 18, usdcQuote ? 6 : 18);
 
     let nav: bigint;

@@ -21,5 +21,3 @@ import { Buffer } from "buffer";
 
 const scope = globalThis as { Buffer?: unknown };
 if (typeof scope.Buffer === "undefined") scope.Buffer = Buffer;
-
-export {};

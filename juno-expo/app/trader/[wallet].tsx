@@ -30,7 +30,7 @@ import {
   Title,
 } from "../../components/kit";
 import { sameAddress, toAddress } from "../../lib/address";
-import { juno, type Coin, type Position, type Trader } from "../../lib/api";
+import { juno, type Coin, type Position } from "../../lib/api";
 import { money, tokens, useApi } from "../../lib/useApi";
 import { useWallet } from "../../lib/wallet";
 import { theme } from "../../theme";
