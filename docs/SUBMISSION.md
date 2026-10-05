@@ -54,6 +54,11 @@ claimed before it is true. Where the track and bounties come from:
   - **Envio:** handler tests.
   - **Fork E2E:** autopilot (21 checks), the plugin's trade path (11), the
     Perpl bot, and a CRE report through Monad's forwarder.
+  - **Full regression on a production build** ([E2E-FORK.md](E2E-FORK.md)):
+    59 of 60 app checks with 0 console or network problems, the 88-call
+    API harness, passkeys and sealed drafts. The one untested check is
+    Privy sign-in, which only opens on the origins Privy allows; it passed on
+    the hosted app.
 - **Monad integration.** See *Why Monad*; Pyth read from its contract on
   Monad; Envio HyperIndex for full history because public `eth_getLogs` covers
   100 blocks.
