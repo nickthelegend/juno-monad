@@ -62,7 +62,7 @@ rough chance of winning it; credits count low.
 | Perpl Risk Tool | **Built**: Perps → Risk, live from Perpl's public API. |
 | Agora Mobile Trading | **Mera sign-in, AUSD and a Perpl trade all work in the web app**, on a phone browser too; tested on real testnet (`E2E-HOSTED.md`). Native Mera (iOS/Android) still needs the passkey domain in the app builds. |
 | Mera UX | **Built** on the web: one ceremony, 15-minute signing sessions with a countdown and End session, re-prompt on expiry, stateless sign-in. |
-| Mera Many Keys | Not yet. |
+| Mera Many Keys | **Built**: sealed drafts — a post's words encrypted to the passkey under a per-draft PRF salt (Mera secret vault), stored as ciphertext, opened from the passkey on any device. |
 
 ## What gets built now (no owner action needed)
 
