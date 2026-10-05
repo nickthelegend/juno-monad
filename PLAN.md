@@ -58,8 +58,8 @@ innovation. Bounties are judged 40% on meeting the stated requirement. So:
 | 1.8 | MetaMask Agent Wallet plugin | `mm juno …` installs and trades through `walletExecutor` | 20 tests, fork E2E, runs in `mm` 7.0.0 | DONE. Live buy **BLOCKED**: `mm login` |
 | 1.9 | Kimi (`mm juno ask`) | Kimi plans with tool calls that trade | Request-shape and loop tests | Code DONE. Live **BLOCKED**: `MOONSHOT_API_KEY` |
 | 1.10 | Kuru orders without an indexer | List and cancel resting orders without Envio | F3 on a prod build, unit test | DONE |
-| 2.1 | Remove autopilot's fixture mode | Only `privy` or `off`; off shows "not set up" | Grep for `fixture` in the product path; app shows the state | NOT STARTED |
-| 2.2 | Remove the Kimi fixture planner from the command | `ask` without a key says the key is missing | Run `mm juno ask` without the key | NOT STARTED |
+| 2.1 | Remove autopilot's fixture mode | Only `privy` or `off`; off shows "not set up" | Grep for `fixture` in the product path; app shows the state | DONE: product is Privy-only; the card shows "Not set up"; 6 unit tests on doubles (`tests/unit/juno-autopilot.test.ts`) |
+| 2.2 | Remove the Kimi fixture planner from the command | `ask` without a key says the key is missing | Run `mm juno ask` without the key | DONE: the planner lives in `mm-plugin-juno/test/`; the command names `MOONSHOT_API_KEY` |
 | 3.1 | Screen walk at 375px on a prod build | Every screen renders; no overflow; empty, loading and error states present; console clean | `tests/e2e/walk.mjs` (committed) | NOT STARTED |
 | 4.1 | Zero-mock test plan, every item run | PASS / FAIL / UNTESTED per item; 0 console or network errors | `docs/TEST-PLAN-ZERO-MOCK.md` | NOT STARTED |
 | 5.1 | Quality gate | All suites green; tsc clean; lint clean; Slither; no secrets tracked | Commands recorded below | NOT STARTED |

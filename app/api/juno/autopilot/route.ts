@@ -15,8 +15,8 @@ export async function GET(request: Request) {
 }
 
 /**
- * `POST {action: "start" | "confirm" | "stop", wallet, accessToken}` with a
- * Privy session, or `{…, issuedAt, signature}` in fixture mode.
+ * `POST {action: "start" | "confirm" | "stop", wallet, accessToken}`, with the
+ * person's Privy session.
  */
 export async function POST(request: Request) {
   return junoHandler(async () => {
@@ -24,8 +24,6 @@ export async function POST(request: Request) {
     const input = {
       wallet: requireString(body.wallet, "wallet"),
       accessToken: typeof body.accessToken === "string" ? body.accessToken : undefined,
-      issuedAt: typeof body.issuedAt === "string" ? body.issuedAt : undefined,
-      signature: typeof body.signature === "string" ? body.signature : undefined,
     } satisfies { wallet: string } & AutopilotProof;
     switch (body.action) {
       case "start":

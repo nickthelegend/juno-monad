@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
 
 import { Button, Caption, Card, Label, Pill, Row } from "./kit";
-import { autopilotMessage, juno, type AutopilotStatus } from "../lib/api";
+import { juno, type AutopilotStatus } from "../lib/api";
 import { autopilotConfig, cachedAutopilot, onAutopilot, rememberAutopilot } from "../lib/autopilot-relay";
 import { usePrivyWallet } from "../lib/privy";
 import { useWallet } from "../lib/wallet";
@@ -17,8 +17,8 @@ import { theme } from "../theme";
  * sponsorship every autopilot transaction is free to the person. Off: the key
  * comes off the wallet and Juno stops acting.
  *
- * In fixture mode (a local fork with no Privy keys) the card says so: the
- * fork sends as the wallet where Privy would, and nothing is sponsored.
+ * On a server without a Privy signer, the card says autopilot is not set up
+ * there, and offers nothing it cannot do.
  */
 export function AutopilotCard() {
   const wallet = useWallet();
@@ -31,28 +31,39 @@ export function AutopilotCard() {
   useEffect(() => onAutopilot(() => setStatus(cachedAutopilot(wallet.address))), [wallet.address]);
 
   const refresh = useCallback(async () => {
-    if (!wallet.address || !config || config.mode === "off") return;
+    if (!wallet.address || config?.mode !== "privy") return;
     try {
       rememberAutopilot(wallet.address, await juno.autopilot(wallet.address));
     } catch {
       // The card keeps what it last knew; the next visit reads again.
     }
-  }, [wallet.address, config]);
+  }, [wallet.address, config?.mode]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  if (!config || config.mode === "off" || !wallet.address) return null;
-  const address = wallet.address;
-  const fixture = config.mode === "fixture";
-  const needsPrivy = !fixture && wallet.mode !== "privy";
+  if (!config || !wallet.address) return null;
 
-  const proof = async (action: "start" | "stop") => {
-    if (fixture) {
-      const issuedAt = new Date().toISOString();
-      return { issuedAt, signature: await wallet.signMessage(autopilotMessage(action, address, issuedAt)) };
-    }
+  if (config.mode === "off") {
+    return (
+      <Card style={styles.card}>
+        <Row gap={8} style={styles.head}>
+          <Label style={styles.title}>Autopilot</Label>
+          <Pill label="Not set up" tone="neutral" />
+        </Row>
+        <Caption style={styles.note}>
+          Autopilot buys your plans for you through a Privy session signer, with gas paid by Privy. This server has
+          no Privy signer set up yet, so your plans tell you when a buy is due and you sign it.
+        </Caption>
+      </Card>
+    );
+  }
+
+  const address = wallet.address;
+  const needsPrivy = wallet.mode !== "privy";
+
+  const session = async () => {
     const accessToken = await privy.getAccessToken();
     if (!accessToken) throw new Error("Sign in with Privy first.");
     return { accessToken };
@@ -72,18 +83,18 @@ export function AutopilotCard() {
 
   const turnOn = () =>
     run("on", async () => {
-      const auth = await proof("start");
+      const auth = await session();
       const started = await juno.autopilotAction({ action: "start", wallet: address, ...auth });
       if (started.status !== "pending") return started;
-      // Privy: put Juno's key on the wallet under this wallet's policy, then have the server check it is there.
+      // Put Juno's key on the wallet under this wallet's policy, then have the server check it is there.
       await privy.addSigner(started.signerId!, started.policyId!);
       return juno.autopilotAction({ action: "confirm", wallet: address, ...auth });
     });
 
   const turnOff = () =>
     run("off", async () => {
-      const stopped = await juno.autopilotAction({ action: "stop", wallet: address, ...(await proof("stop")) });
-      if (!fixture) await privy.removeSigners();
+      const stopped = await juno.autopilotAction({ action: "stop", wallet: address, ...(await session()) });
+      await privy.removeSigners();
       return stopped;
     });
 
@@ -95,22 +106,13 @@ export function AutopilotCard() {
     <Card style={styles.card}>
       <Row gap={8} style={styles.head}>
         <Label style={styles.title}>Autopilot</Label>
-        <Pill
-          label={fixture ? "Fixture · local fork" : on ? "On" : status?.status === "expired" ? "Expired" : "Off"}
-          tone={on ? "lime" : "neutral"}
-        />
+        <Pill label={on ? "On" : status?.status === "expired" ? "Expired" : "Off"} tone={on ? "lime" : "neutral"} />
       </Row>
       <Caption style={styles.note}>
         {on
           ? `Juno buys your due plans for you${config.sponsor ? ", and Privy pays the gas, for those and for your trades" : ""}. Until ${until}.`
           : `Let Juno buy your plans when they come due${config.sponsor ? ", with gas paid by Privy" : ""}. Juno can only trade Juno coins for this wallet, paid out to it, up to ${config.maxPerTradeMon} MON a trade, for ${config.days} days. Turn it off any time.`}
       </Caption>
-      {fixture ? (
-        <Caption style={styles.note}>
-          Privy is not set up on this server, so this local fork sends as your wallet where Privy&rsquo;s session
-          signer would, under the same policy. Gas is not sponsored here.
-        </Caption>
-      ) : null}
       {needsPrivy ? (
         <Caption style={styles.note}>Autopilot runs on a Privy wallet. Switch to Privy above to use it.</Caption>
       ) : on ? (

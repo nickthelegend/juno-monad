@@ -1,11 +1,10 @@
 import "server-only";
 
-import { getAddress, isAddress, isHex, parseEther, toHex, verifyMessage, type Address, type Hex } from "viem";
+import { getAddress, isAddress, isHex, parseEther, type Address, type Hex } from "viem";
 
 import { CallerError } from "./api";
-import { publicClient } from "./client";
 import { USDC } from "./launchpad";
-import { chainId, launchpadAddress, localFork, networkKey, swapRouterAddress } from "./network";
+import { chainId, launchpadAddress, networkKey, swapRouterAddress } from "./network";
 import { privy, privyConfigured } from "./privy";
 import { privySendInput } from "./privy-keys";
 import { evaluatePolicy, tradingPolicy, type TradingPolicy } from "./privy-policy";
@@ -34,25 +33,18 @@ import { buildSwap, explainFailure, settleSent, type SubmitResult } from "./tx";
  * back as a sentence. Privy's policy engine checks it again with the
  * server's key, and that check is the one that counts.
  *
- * Modes:
- * - `privy`: `PRIVY_APP_SECRET`, `PRIVY_SIGNER_ID` and
- *   `PRIVY_AUTHORIZATION_KEY` are set (see `scripts/privy-setup.ts`).
- *   `PRIVY_SPONSOR_GAS=1` adds `sponsor: true` once gas sponsorship is
- *   enabled for Monad testnet in the Privy dashboard.
- * - `fixture`: **local fork only**, `JUNO_AUTOPILOT_FIXTURE=1`, no Privy keys.
- *   The wallet proves itself with a signed message instead of a Privy session,
- *   the same policy is enforced by `evaluatePolicy`, and the fork sends as the
- *   wallet (`anvil_impersonateAccount`) where Privy would. Gas comes from the
- *   wallet: sponsorship needs Privy's paymaster.
- * - `off`: neither.
+ * It is on when `PRIVY_APP_SECRET`, `PRIVY_SIGNER_ID` and
+ * `PRIVY_AUTHORIZATION_KEY` are set (see `scripts/privy-setup.ts`);
+ * `PRIVY_SPONSOR_GAS=1` adds `sponsor: true` once gas sponsorship is enabled
+ * for Monad testnet in the Privy dashboard. Without them it is `off`, and the
+ * app says autopilot is not set up on this server. There is no stand-in:
+ * Privy's wallet API is the only thing that sends for a wallet.
  */
 
-export type AutopilotMode = "privy" | "fixture" | "off";
+export type AutopilotMode = "privy" | "off";
 
 export function autopilotMode(): AutopilotMode {
-  if (privyConfigured() && process.env.PRIVY_SIGNER_ID?.trim() && process.env.PRIVY_AUTHORIZATION_KEY?.trim()) return "privy";
-  if (process.env.JUNO_AUTOPILOT_FIXTURE === "1" && localFork()) return "fixture";
-  return "off";
+  return privyConfigured() && process.env.PRIVY_SIGNER_ID?.trim() && process.env.PRIVY_AUTHORIZATION_KEY?.trim() ? "privy" : "off";
 }
 
 /** MON a single autopilot trade may carry. */
@@ -91,7 +83,7 @@ export function autopilotConfig(): AutopilotConfig {
 type EnrolmentDoc = {
   network: string;
   wallet: Address;
-  mode: Exclude<AutopilotMode, "off">;
+  mode: "privy";
   /** pending: the policy exists, the app has not added the signer yet. */
   status: "pending" | "active" | "stopped";
   privyUserId: string | null;
@@ -120,7 +112,7 @@ export type RunDoc = {
   claim: string | null;
   label: string;
   hash: Hex | null;
-  via: "privy" | "fixture";
+  via: "privy";
   sponsored: boolean;
   error: string | null;
   at: Date;
@@ -145,25 +137,17 @@ async function runs() {
 /* Who is asking                                                       */
 /* ------------------------------------------------------------------ */
 
-/** A Privy session (`privy` mode) or a signature by the wallet (`fixture` mode). */
-export type AutopilotProof = { accessToken?: string; issuedAt?: string; signature?: string };
-
-/** The text a wallet signs in fixture mode. Shared with the app. */
-export function autopilotMessage(action: "start" | "stop" | "send", wallet: string, issuedAt: string): string {
-  return `Juno autopilot: ${action}\nWallet: ${wallet}\nIssued: ${issuedAt}`;
-}
-
-const MAX_AGE_MS = 5 * 60_000;
+/** The person's live Privy session: the server verifies it and checks the wallet is theirs. */
+export type AutopilotProof = { accessToken?: string };
 
 function requireWallet(raw: string): Address {
   if (!isAddress(raw)) throw new CallerError("wallet is not an address");
   return getAddress(raw);
 }
 
-function requireMode(): Exclude<AutopilotMode, "off"> {
-  const mode = autopilotMode();
-  if (mode === "off") throw new CallerError("Autopilot is not set up on this server.", 503);
-  return mode;
+function requireMode(): "privy" {
+  if (autopilotMode() === "off") throw new CallerError("Autopilot is not set up on this server.", 503);
+  return "privy";
 }
 
 /** The Privy user behind a session, and the embedded wallet of theirs this is. */
@@ -188,16 +172,6 @@ async function privyOwner(wallet: Address, accessToken: string | undefined): Pro
   const walletId = embedded && "id" in embedded ? embedded.id : null;
   if (!walletId) throw new CallerError("Autopilot works with your Privy embedded wallet, and this is not it.", 403);
   return { userId, walletId };
-}
-
-async function signedBy(wallet: Address, action: "start" | "stop" | "send", proof: AutopilotProof): Promise<void> {
-  const issued = Date.parse(proof.issuedAt ?? "");
-  if (!Number.isFinite(issued) || Math.abs(Date.now() - issued) > MAX_AGE_MS) throw new CallerError("That request has expired. Try again.");
-  if (!proof.signature || !isHex(proof.signature)) throw new CallerError("The signature is not valid.");
-  const ok = await verifyMessage({ address: wallet, message: autopilotMessage(action, wallet, proof.issuedAt!), signature: proof.signature }).catch(
-    () => false,
-  );
-  if (!ok) throw new CallerError("The signature does not match this wallet.");
 }
 
 /* ------------------------------------------------------------------ */
@@ -239,17 +213,15 @@ export async function autopilotStatus(walletInput: string): Promise<AutopilotSta
 }
 
 /**
- * Step one of turning autopilot on: write this wallet's policy (in Privy, in
- * `privy` mode) and answer with what the app adds to the wallet:
- * `{signerId, policyId}`. In fixture mode there is no signer to add, so it is
- * active at once.
+ * Step one of turning autopilot on: write this wallet's policy in Privy and
+ * answer with what the app adds to the wallet: `{signerId, policyId}`.
  */
 export async function startAutopilot(input: { wallet: string } & AutopilotProof): Promise<AutopilotStatus> {
   const mode = requireMode();
   const wallet = requireWallet(input.wallet);
   const launchpad = launchpadAddress();
   if (!launchpad) throw new CallerError("This server has no launchpad.", 503);
-  const owner = mode === "privy" ? await privyOwner(wallet, input.accessToken) : (await signedBy(wallet, "start", input), null);
+  const owner = await privyOwner(wallet, input.accessToken);
 
   const expiresAt = new Date(Date.now() + DAYS * 86_400_000);
   const policy = tradingPolicy({
@@ -261,7 +233,7 @@ export async function startAutopilot(input: { wallet: string } & AutopilotProof)
     maxValueWei: parseEther(String(maxPerTradeMon())),
     expiresAt: Math.floor(expiresAt.getTime() / 1000),
   });
-  const policyId = mode === "privy" ? (await privy().policies().create(policy as never)).id : null;
+  const policyId = (await privy().policies().create(policy as never)).id;
 
   const now = new Date();
   await (await enrolments()).updateOne(
@@ -269,14 +241,14 @@ export async function startAutopilot(input: { wallet: string } & AutopilotProof)
     {
       $set: {
         mode,
-        status: mode === "privy" ? "pending" : "active",
-        privyUserId: owner?.userId ?? null,
-        walletId: owner?.walletId ?? null,
+        status: "pending",
+        privyUserId: owner.userId,
+        walletId: owner.walletId,
         policyId,
         policy,
         expiresAt,
         createdAt: now,
-        activatedAt: mode === "privy" ? null : now,
+        activatedAt: null,
         stoppedAt: null,
       },
     },
@@ -286,17 +258,16 @@ export async function startAutopilot(input: { wallet: string } & AutopilotProof)
 }
 
 /**
- * Step two (`privy` mode): the app has added the signer; check with Privy
- * that the wallet really carries Juno's key under this policy, then start
- * acting on it.
+ * Step two: the app has added the signer; check with Privy that the wallet
+ * really carries Juno's key under this policy, then start acting on it.
  */
 export async function confirmAutopilot(input: { wallet: string } & AutopilotProof): Promise<AutopilotStatus> {
-  const mode = requireMode();
+  requireMode();
   const wallet = requireWallet(input.wallet);
   const collection = await enrolments();
   const doc = await collection.findOne({ network: networkKey(), wallet });
   if (!doc || doc.status === "stopped") throw new CallerError("Turn autopilot on first.", 409);
-  if (mode === "fixture" || doc.status === "active") return autopilotStatus(wallet);
+  if (doc.status === "active") return autopilotStatus(wallet);
 
   const owner = await privyOwner(wallet, input.accessToken);
   const held = await privy().wallets().get(owner.walletId);
@@ -312,14 +283,13 @@ export async function confirmAutopilot(input: { wallet: string } & AutopilotProo
 
 /** Stop acting for this wallet. The app removes the signer from the wallet itself. */
 export async function stopAutopilot(input: { wallet: string } & AutopilotProof): Promise<AutopilotStatus> {
-  const mode = requireMode();
+  requireMode();
   const wallet = requireWallet(input.wallet);
-  if (mode === "privy") await privyOwner(wallet, input.accessToken);
-  else await signedBy(wallet, "stop", input);
+  await privyOwner(wallet, input.accessToken);
   const collection = await enrolments();
   const doc = await collection.findOne({ network: networkKey(), wallet });
   await collection.updateOne({ network: networkKey(), wallet }, { $set: { status: "stopped", stoppedAt: new Date() } });
-  if (mode === "privy" && doc?.policyId) await privy().policies().delete(doc.policyId, {}).catch(() => undefined);
+  if (doc?.policyId) await privy().policies().delete(doc.policyId, {}).catch(() => undefined);
   return autopilotStatus(wallet);
 }
 
@@ -329,7 +299,7 @@ export async function stopAutopilot(input: { wallet: string } & AutopilotProof):
 
 export type AutopilotCall = { to: Address; data: Hex; value: bigint; label: string };
 
-export type AutopilotResult = SubmitResult & { via: "privy" | "fixture"; sponsored: boolean };
+export type AutopilotResult = SubmitResult & { via: "privy"; sponsored: boolean };
 
 async function activeEnrolment(wallet: Address): Promise<EnrolmentDoc> {
   const mode = requireMode();
@@ -339,41 +309,22 @@ async function activeEnrolment(wallet: Address): Promise<EnrolmentDoc> {
   return doc;
 }
 
-/** Send one call as the wallet: policy first, then Privy (or the fork), then the receipt. */
+/** Send one call as the wallet: policy first, then Privy's wallet API, then the receipt. */
 async function sendAs(doc: EnrolmentDoc, call: AutopilotCall): Promise<AutopilotResult> {
   const verdict = evaluatePolicy(doc.policy, { chainId: chainId(), to: call.to, value: call.value, data: call.data });
   if (!verdict.allowed) throw new CallerError(verdict.reason, 403);
   const started = performance.now();
 
-  if (doc.mode === "privy") {
-    const sponsored = autopilotConfig().sponsor;
-    const sent = await privy()
-      .wallets()
-      .ethereum()
-      .sendTransaction(
-        doc.walletId!,
-        privySendInput(call, { chainId: chainId(), sponsor: sponsored, authorizationKey: process.env.PRIVY_AUTHORIZATION_KEY!.trim() }),
-      );
-    const result = await settleSent(sent.hash as Hex, doc.wallet, started);
-    return { ...result, via: "privy", sponsored };
-  }
-
-  // Fixture: the fork sends as the wallet, where Privy's session signer would.
-  if (!localFork()) throw new CallerError("Fixture autopilot runs only on a local fork.", 503);
-  const client = publicClient();
-  const rpc = client.request as unknown as (args: { method: string; params: unknown[] }) => Promise<unknown>;
-  await rpc({ method: "anvil_impersonateAccount", params: [doc.wallet] });
-  let hash: Hex;
-  try {
-    hash = (await rpc({
-      method: "eth_sendTransaction",
-      params: [{ from: doc.wallet, to: call.to, data: call.data, value: toHex(call.value) }],
-    })) as Hex;
-  } finally {
-    await rpc({ method: "anvil_stopImpersonatingAccount", params: [doc.wallet] }).catch(() => undefined);
-  }
-  const result = await settleSent(hash, doc.wallet, started);
-  return { ...result, via: "fixture", sponsored: false };
+  const sponsored = autopilotConfig().sponsor;
+  const sent = await privy()
+    .wallets()
+    .ethereum()
+    .sendTransaction(
+      doc.walletId!,
+      privySendInput(call, { chainId: chainId(), sponsor: sponsored, authorizationKey: process.env.PRIVY_AUTHORIZATION_KEY!.trim() }),
+    );
+  const result = await settleSent(sent.hash as Hex, doc.wallet, started);
+  return { ...result, via: "privy", sponsored };
 }
 
 /** A failure in words: the caller's sentence, or the chain's reason without the request dump. */
@@ -408,20 +359,15 @@ async function withWallet<T>(wallet: Address, waitMs: number, work: () => Promis
 /**
  * Trades the person asked for, sent by autopilot so Privy pays the gas. The
  * app sends the steps the server built for it; each must pass the policy,
- * and the Privy session (or, in fixture mode, the wallet's signature) proves
- * the person is here asking.
+ * and the Privy session proves the person is here asking.
  */
 export async function sendForWallet(
   input: { wallet: string; steps: Array<{ to: string; data: string; value: string; label: string }> } & AutopilotProof,
 ): Promise<AutopilotResult[]> {
   const wallet = requireWallet(input.wallet);
   const doc = await activeEnrolment(wallet);
-  if (doc.mode === "privy") {
-    const owner = await privyOwner(wallet, input.accessToken);
-    if (owner.userId !== doc.privyUserId) throw new CallerError("That Privy session is not this wallet's.", 403);
-  } else {
-    await signedBy(wallet, "send", input);
-  }
+  const owner = await privyOwner(wallet, input.accessToken);
+  if (owner.userId !== doc.privyUserId) throw new CallerError("That Privy session is not this wallet's.", 403);
   if (!Array.isArray(input.steps) || input.steps.length === 0 || input.steps.length > 4) throw new CallerError("steps: one to four transactions");
   const calls = input.steps.map((step): AutopilotCall => {
     if (!isAddress(step.to) || !isHex(step.data) || !isHex(step.value)) throw new CallerError("A step is not a transaction");
@@ -465,7 +411,7 @@ const RETRY_AFTER_MS = 30 * 60_000;
 export async function runDuePlans(): Promise<PlanRunReport[]> {
   if (autopilotMode() === "off") return [];
   const active = await (await enrolments())
-    .find({ network: networkKey(), status: "active", mode: autopilotMode() as "privy" | "fixture", expiresAt: { $gt: new Date() } })
+    .find({ network: networkKey(), status: "active", mode: "privy", expiresAt: { $gt: new Date() } })
     .toArray();
   const reports: PlanRunReport[] = [];
   for (const doc of active) {
@@ -478,7 +424,7 @@ export async function runDuePlans(): Promise<PlanRunReport[]> {
         const base = { network: networkKey(), wallet: doc.wallet, kind: "plan" as const, planId: plan.id };
         let id;
         try {
-          ({ insertedId: id } = await log.insertOne({ ...base, claim, label: "Buying", hash: null, via: doc.mode, sponsored: false, error: null, at: new Date() }));
+          ({ insertedId: id } = await log.insertOne({ ...base, claim, label: "Buying", hash: null, via: "privy", sponsored: false, error: null, at: new Date() }));
         } catch {
           continue; // Bought already for this due time.
         }

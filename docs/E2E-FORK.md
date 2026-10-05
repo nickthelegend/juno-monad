@@ -17,7 +17,7 @@ deploys. Everything runs on this machine:
 |---|---|
 | App regression A–H (`.juno/rerun.mjs`, Playwright in headless Chrome, a fresh visitor each run) | **59 PASS, 1 UNTESTED** (B7), **0 console or network problems** |
 | API harness I (`.juno/api-rerun.mjs`, 88 calls from the app's origin) | **88 / 88** |
-| Autopilot fixture E2E (`scripts/e2e/autopilot-fork.ts`) | **21 / 21** |
+| Autopilot | Ran 21/21 in a fork-only fixture mode, which has since been removed from the product. Now unit-tested against Privy doubles; live awaits testnet go. |
 | MetaMask plugin and Kimi agent loop (`mm-plugin-juno/scripts/fork-e2e.ts`) | **11 / 11** |
 | Mera passkey accounts (`.juno/mera-e2e.mjs`) | create in 1 prompt; 0 prompts in session; End session, then 1 prompt; cleared storage, then the same account; **0 problems** |
 | Sealed drafts (`.juno/drafts-e2e.mjs`) | sealed; server holds only the vault; wiped, signed back in, opened; deleted; **0 problems** |

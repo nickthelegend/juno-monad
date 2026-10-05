@@ -19,8 +19,6 @@ export async function POST(request: Request) {
       wallet: requireString(body.wallet, "wallet"),
       steps: body.steps as Array<{ to: string; data: string; value: string; label: string }>,
       accessToken: typeof body.accessToken === "string" ? body.accessToken : undefined,
-      issuedAt: typeof body.issuedAt === "string" ? body.issuedAt : undefined,
-      signature: typeof body.signature === "string" ? body.signature : undefined,
     });
     return junoJson({ results });
   });

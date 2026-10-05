@@ -1,6 +1,6 @@
 import { type CommandIO, InputFieldType, type InputSchema, PluginCommand, schemaToArgs, schemaToFlags } from "@metamask/agent-wallet/plugin";
 
-import { type AgentResult, fixtureModel, KIMI_MODEL, kimiModel, runAgent } from "../../lib/agent.js";
+import { type AgentResult, KIMI_MODEL, kimiModel, runAgent } from "../../lib/agent.js";
 import { junoTools } from "../../lib/agent-tools.js";
 import { apiInput, positive } from "../../lib/inputs.js";
 import type { Executor } from "../../lib/juno.js";
@@ -46,13 +46,12 @@ export default class JunoAsk extends PluginCommand<Result> {
     if (!wallet) throw new Error("No EVM wallet is set up. Run `mm init` first.");
 
     const apiKey = process.env.MOONSHOT_API_KEY?.trim();
-    const fixture = process.env.JUNO_KIMI_FIXTURE === "1";
-    if (!apiKey && !fixture) throw new Error("Set MOONSHOT_API_KEY (platform.moonshot.ai) to let Kimi plan trades.");
-    const modelName = apiKey ? model || KIMI_MODEL : "FIXTURE (not Kimi)";
+    if (!apiKey) throw new Error("mm juno ask is not set up here: set MOONSHOT_API_KEY (platform.moonshot.ai) so Kimi can plan trades.");
+    const modelName = model || KIMI_MODEL;
 
     let executor: Executor | null = null;
     const result = await runAgent({
-      model: apiKey ? kimiModel({ apiKey, model: model || undefined }) : fixtureModel,
+      model: kimiModel({ apiKey, model: model || undefined }),
       instruction,
       tools: junoTools({
         api,

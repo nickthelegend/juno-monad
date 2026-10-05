@@ -53,13 +53,16 @@ Turning it off stops the server and takes the signer off the wallet.
 - A sponsored trade the person asks for needs their live Privy session (access
   token), and the session must belong to the enrolled Privy user.
 
-## Modes
+## On or off
 
-| Mode | When | What happens |
+| State | When | What happens |
 |---|---|---|
-| `privy` | `PRIVY_APP_SECRET`, `PRIVY_SIGNER_ID`, `PRIVY_AUTHORIZATION_KEY` set | Everything above. `PRIVY_SPONSOR_GAS=1` adds `sponsor: true`. |
-| `fixture` | **Local fork only**, `JUNO_AUTOPILOT_FIXTURE=1`, no Privy keys | Labelled in the app ("Fixture · local fork"). The wallet proves itself with a signed message instead of a Privy session. The same policy is enforced by `evaluatePolicy`. The fork sends as the wallet (`anvil_impersonateAccount`) where Privy would. Gas is not sponsored. |
-| `off` | Neither | The card is hidden; plans work as before. |
+| On | `PRIVY_APP_SECRET`, `PRIVY_SIGNER_ID` and `PRIVY_AUTHORIZATION_KEY` are set | Everything above. `PRIVY_SPONSOR_GAS=1` adds `sponsor: true`. |
+| Off | Any of them missing | The Plans tab says autopilot is not set up on this server; plans work as before (due, then signed by the person). |
+
+There is no stand-in mode: only Privy's wallet API sends for a wallet. (An
+earlier fork-only fixture mode, in which anvil impersonated the wallet, was
+removed on 6 Oct.)
 
 ## What the owner sets up (keys only)
 
@@ -72,27 +75,27 @@ Turning it off stops the server and takes the signer off the wallet.
 3. Privy dashboard: allow session signers for the app, if it asks.
 4. `JUNO_CRON_SECRET` on the API and the cron that calls `/autopilot/run`.
 
-## Proof (local fork of Monad testnet, 6 Oct 2026)
+## Proof
 
-- Unit: the policy and evaluator (9 tests); the two Privy calls through
-  Privy's own SDK against a stub of its API (2 tests). The tests check the
+- **`tests/unit/juno-autopilot.test.ts`** (6 tests). It runs the real
+  `lib/juno/autopilot.ts` against test doubles for Privy's client, Mongo,
+  the plans table and the trade builder. It checks that:
+  - autopilot is off without a signer;
+  - enrolment writes the wallet's policy in Privy, and confirmation waits
+    for Juno's signer under that policy;
+  - a session from another Privy user is refused;
+  - two runners at once buy each due plan exactly once, through Privy's
+    `eth_sendTransaction` with `sponsor: true` and Juno's authorization key,
+    and record the contribution;
+  - a step that pays out to another address is refused before Privy is asked;
+  - after stop, sends are refused.
+- **`tests/unit/juno-privy-policy.test.ts`** (9 tests): the policy and the
+  local evaluator.
+- **`tests/unit/juno-privy-autopilot.test.ts`** (2 tests): the two Privy calls
+  made through Privy's own SDK against a stub of its API. They check the
   `/v1/policies` body, the `/v1/wallets/{id}/rpc` body with `sponsor: true`,
-  and that the `privy-authorization-signature` header verifies against the key
-  quorum's public key.
-- `scripts/e2e/autopilot-fork.ts` against the API in fixture mode: 21 of 21
-  pass. The checks:
-  - plan buys landed on chain, one on a curve and one on a graduated coin's
-    v2 pair, and the wallet's balances rose;
-  - two runners started at the same moment bought each plan once;
-  - a second pass bought nothing;
-  - a trade the person asked for, relayed through autopilot, landed;
-  - the policy refused a payout to another address, 6 MON (over the 5 MON
-    cap) and a token transfer;
-  - after stop, a send was refused.
-- In the app (exported web build on the fork): Profile → Plans → *Turn on
-  autopilot*, then a 1 MON daily plan from a coin's Details tab. The runner
-  bought it ("Plan: bought with 1 MON on its curve"), and the plan showed
-  1 fill and *Scheduled*.
-
-Not run here: the `privy` mode against Privy's live API, which needs the
-owner's app secret and the signer from step 1.
+  and that the `privy-authorization-signature` header verifies against the
+  key quorum's public key.
+- **Live: awaiting testnet go.** Privy's wallet API broadcasts to Monad
+  testnet itself, so a live run needs the signer set up (below) and the
+  testnet hold lifted.

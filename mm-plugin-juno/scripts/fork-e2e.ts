@@ -15,7 +15,8 @@
 import { createPublicClient, createWalletClient, erc20Abi, type Hex, http, parseEther, toHex } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
-import { fixtureModel, kimiModel, runAgent } from "../src/lib/agent";
+import { kimiModel, runAgent } from "../src/lib/agent";
+import { fixtureModel } from "../test/fixture-model";
 import { junoTools } from "../src/lib/agent-tools";
 import { type Executor, JunoApi } from "../src/lib/juno";
 import { trade } from "../src/lib/trade";
@@ -84,7 +85,7 @@ async function main() {
   const tools = junoTools({ api: API, wallet: account.address, io, executor: async () => executor, maxSpend: 3, dryRun: false });
   const asked = await runAgent({ model: key ? kimiModel({ apiKey: key }) : fixtureModel, tools, instruction: "buy 2 MON of the coin closest to graduating" });
   const bought = asked.steps.find((s) => s.tool === "buy" && s.ok)?.result as { token: Hex; transactions: Array<{ hash: Hex }> } | undefined;
-  check(`ask (${key ? "Kimi" : "FIXTURE, not Kimi"}): plans with markets, then buys`, asked.steps[0]?.tool === "markets" && Boolean(bought), asked.steps.map((s) => s.tool));
+  check(`ask (${key ? "Kimi" : "test planner, not Kimi"}): plans with markets, then buys`, asked.steps[0]?.tool === "markets" && Boolean(bought), asked.steps.map((s) => s.tool));
   if (bought) check("the agent's buy is on chain", (await balance(bought.token)) > 0n, bought.transactions.map((t) => t.hash));
   const capped = await runAgent({ model: fixtureModel, tools, instruction: "buy 2 MON of the coin closest to graduating" });
   check("the spend cap holds within one request's tools (3 MON, 2 already spent)", capped.steps.some((s) => s.tool === "buy" && !s.ok), capped.answer);

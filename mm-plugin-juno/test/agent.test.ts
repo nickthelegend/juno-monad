@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type ChatMessage, fixtureModel, kimiModel, type Model, runAgent, type Tool } from "../src/lib/agent";
+import { type ChatMessage, kimiModel, type Model, runAgent, type Tool } from "../src/lib/agent";
+import { fixtureModel } from "./fixture-model";
 import { junoTools } from "../src/lib/agent-tools";
 
 const WALLET = "0xB5a4c292d73Ba96cB5126b0A81039e1cbc945Fba";
@@ -144,7 +145,7 @@ describe("junoTools", () => {
   });
 });
 
-describe("fixtureModel (labelled, not Kimi)", () => {
+describe("the test planner (a double, not Kimi)", () => {
   it("lists markets, buys the first coin still on its curve, then answers", async () => {
     const result = await runAgent({
       model: fixtureModel,

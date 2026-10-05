@@ -252,11 +252,11 @@ export type ChainConfig = {
 
 /**
  * Autopilot: Juno sends trades for a Privy wallet, inside a Privy policy
- * written for that wallet, and Privy pays the gas. `fixture` is a local fork
- * standing in for Privy (no keys), and says so on screen.
+ * written for that wallet, and Privy pays the gas. `off` when the server has
+ * no Privy signer set up.
  */
 export type AutopilotConfig = {
-  mode: "privy" | "fixture" | "off";
+  mode: "privy" | "off";
   /** The key quorum the app adds to the wallet as a signer. */
   signerId: string | null;
   /** Privy pays the gas for autopilot's transactions. */
@@ -271,7 +271,7 @@ export type AutopilotRun = {
   planId: string | null;
   label: string;
   hash: Hex | null;
-  via: "privy" | "fixture";
+  via: "privy";
   sponsored: boolean;
   error: string | null;
   at: string;
@@ -290,13 +290,8 @@ export type AutopilotStatus = {
   runs: AutopilotRun[];
 };
 
-/** A Privy session, or (fixture mode) the wallet's signature over `autopilotMessage`. */
-export type AutopilotProof = { accessToken?: string; issuedAt?: string; signature?: Hex };
-
-/** The text a wallet signs in fixture mode. Must match `lib/juno/autopilot.ts`. */
-export function autopilotMessage(action: "start" | "stop" | "send", wallet: string, issuedAt: string): string {
-  return `Juno autopilot: ${action}\nWallet: ${wallet}\nIssued: ${issuedAt}`;
-}
+/** The person's Privy session token, which the server verifies. */
+export type AutopilotProof = { accessToken: string };
 
 /** A Perpl perpetual market, live. Prices USD; `fundingRate` per interval as a ratio. */
 export type PerpMarket = {
@@ -1348,7 +1343,7 @@ export const juno = {
     api.post<AutopilotStatus>("/api/juno/autopilot", input, 60_000),
   /** Send server-built steps through autopilot (Privy pays the gas). Answers like `submit`, one result per step. */
   autopilotSend: (input: { wallet: string; steps: Array<{ to: string; data: Hex; value: Hex; label: string }> } & AutopilotProof) =>
-    api.post<{ results: Array<SubmitResult & { via: "privy" | "fixture"; sponsored: boolean }> }>("/api/juno/autopilot/send", input, 120_000),
+    api.post<{ results: Array<SubmitResult & { via: "privy"; sponsored: boolean }> }>("/api/juno/autopilot/send", input, 120_000),
 
   /** Broadcast one signed transaction and wait for its receipt. */
   submit: (input: { signed: Hex }) =>

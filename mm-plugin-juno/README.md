@@ -54,9 +54,9 @@ policy still applies to every transaction. The plugin bounds the rest:
 - the loop stops after eight model turns.
 
 Kimi's `reasoning_content` is sent back with each of its turns, as Moonshot
-requires for its thinking models. Without a key, `JUNO_KIMI_FIXTURE=1` swaps
-in a fixed planner, labelled `FIXTURE (not Kimi)` in the output, so the
-tool loop can be tested.
+requires for its thinking models. Without `MOONSHOT_API_KEY` the command says
+it is not set up; there is no stand-in model in the plugin. The tests use a
+fixed planner (`test/fixture-model.ts`) to drive the tool loop.
 
 ## Permissions
 

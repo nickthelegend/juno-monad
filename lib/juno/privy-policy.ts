@@ -24,8 +24,8 @@ import { junoLaunchpadAbi, junoSwapRouterAbi, junoTokenAbi } from "./abi";
  * default.
  *
  * `evaluatePolicy` applies the same rules here. Before a request goes to
- * Privy, it turns a refusal into a sentence. In fixture mode, with no Privy
- * keys, it is the only check.
+ * Privy, it turns a refusal into a sentence; Privy's engine then checks the
+ * request again, and that check is the one that counts.
  */
 
 export type EthereumTransactionCondition = {
