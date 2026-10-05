@@ -2,11 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
+import { meraAvailable, meraSource } from "./mera";
 import { usePrivyWallet } from "./privy";
 import { WalletProvider, localKeySource, type WalletMode } from "./wallet";
 
 /**
- * Which wallet signs: the device key, or the person's Privy embedded wallet.
+ * Which wallet signs: the device key, the person's Privy embedded wallet, or a
+ * passkey account (Mera).
  *
  * The choice is the person's and is remembered on this device — in the browser's
  * storage on the web, in the keychain on a phone. Switching does
@@ -14,24 +16,26 @@ import { WalletProvider, localKeySource, type WalletMode } from "./wallet";
  * which one is active and switching is an explicit act, never a fallback.
  */
 
-type Choice = "local" | "privy";
+type Choice = "local" | "privy" | "mera";
 
 type WalletChoice = {
   choice: Choice;
   /** Privy is configured and supported here. */
   privyAvailable: boolean;
+  /** This browser can run Mera's passkey ceremonies (WebAuthn with PRF). */
+  meraAvailable: boolean;
   choose: (next: Choice) => void;
 };
 
 const KEY = "juno.wallet.choice.v1";
 
-const ChoiceContext = createContext<WalletChoice>({ choice: "local", privyAvailable: false, choose: () => undefined });
+const ChoiceContext = createContext<WalletChoice>({ choice: "local", privyAvailable: false, meraAvailable: false, choose: () => undefined });
 
 function stored(): Choice {
   try {
     const value =
       Platform.OS === "web" ? globalThis.localStorage?.getItem(KEY) : SecureStore.getItem(KEY.replace(/[^\w.-]/g, "_"));
-    return value === "privy" ? "privy" : "local";
+    return value === "privy" || value === "mera" ? value : "local";
   } catch {
     return "local";
   }
@@ -50,8 +54,10 @@ export function WalletRoot({ children }: { children: ReactNode }) {
   const privy = usePrivyWallet();
   const [choice, setChoice] = useState<Choice>(stored);
 
-  // A stored choice of Privy on a build without it falls back to the device key.
-  const active: Choice = choice === "privy" && privy.available && privy.source ? "privy" : "local";
+  const passkeys = meraAvailable();
+  // A stored choice this build or browser cannot honour falls back to the device key.
+  const active: Choice =
+    choice === "privy" && privy.available && privy.source ? "privy" : choice === "mera" && passkeys ? "mera" : "local";
 
   const choose = useCallback((next: Choice) => {
     setChoice(next);
@@ -63,8 +69,10 @@ export function WalletRoot({ children }: { children: ReactNode }) {
   }, [choice, privy.ready, privy.available, choose]);
 
   return (
-    <ChoiceContext.Provider value={{ choice: active, privyAvailable: privy.available, choose }}>
-      <WalletProvider source={active === "privy" ? privy.source! : localKeySource}>{children}</WalletProvider>
+    <ChoiceContext.Provider value={{ choice: active, privyAvailable: privy.available, meraAvailable: passkeys, choose }}>
+      <WalletProvider source={active === "privy" ? privy.source! : active === "mera" ? meraSource : localKeySource}>
+        {children}
+      </WalletProvider>
     </ChoiceContext.Provider>
   );
 }

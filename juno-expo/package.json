@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@category-labs/mera": "0.2.0",
     "@expo/metro-runtime": "~57.0.16",
     "@privy-io/expo": "^0.74.3",
     "@privy-io/expo-native-extensions": "^0.0.12",
     "@privy-io/react-auth": "3.45.0",
+    "@scure/bip32": "2.2.0",
+    "@scure/bip39": "2.2.0",
     "buffer": "^6.0.3",
     "expo": "~57.0.24",
     "expo-apple-authentication": "~57.0.2",

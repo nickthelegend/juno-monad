@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { Button, Caption, Pill, Segmented } from "./kit";
+import { PasskeyPanel } from "./PasskeyPanel";
 import { api } from "../lib/api";
 import { rememberIdentity, useIdentity, type Identity } from "../lib/names";
 import { usePrivyWallet } from "../lib/privy";
@@ -9,15 +10,18 @@ import { useWallet } from "../lib/wallet";
 import { useWalletChoice } from "../lib/wallet-choice";
 import { theme } from "../theme";
 
-const OPTIONS = [
+const ALL_OPTIONS = [
   { id: "local" as const, label: "Device key" },
+  { id: "mera" as const, label: "Passkey" },
   { id: "privy" as const, label: "Privy" },
 ];
 
 /**
  * Which wallet signs, and — with Privy — who is behind it.
  *
- * The device key needs nothing and stays on this device. Privy signs in with
+ * The device key needs nothing and stays on this device. A passkey (Mera) is
+ * an account made from one passkey prompt and brought back by it anywhere —
+ * see `PasskeyPanel`. Privy signs in with
  * email, Google or X and gives the person an embedded wallet that follows
  * their login. Choosing one does not move funds: they are two addresses, and
  * this says so.
@@ -27,7 +31,7 @@ const OPTIONS = [
  * anywhere — nobody can claim someone else's handle, or pin theirs to a
  * wallet that is not theirs.
  *
- * Renders nothing where Privy is unavailable (a build without a Privy app).
+ * Renders nothing where neither Privy nor passkeys are available.
  * On a phone sign-in is email only, through Juno's own sheet.
  */
 export function SignerChoice() {
@@ -38,9 +42,13 @@ export function SignerChoice() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "pos" | "neg"; text: string } | null>(null);
 
-  if (!choice.privyAvailable) return null;
+  if (!choice.privyAvailable && !choice.meraAvailable) return null;
+  const options = ALL_OPTIONS.filter(
+    (option) => option.id === "local" || (option.id === "mera" ? choice.meraAvailable : choice.privyAvailable),
+  );
 
   const onPrivy = choice.choice === "privy";
+  const onMera = choice.choice === "mera";
   const linkedX = privy.identity?.twitter;
 
   const verify = async () => {
@@ -69,16 +77,20 @@ export function SignerChoice() {
   return (
     <View style={styles.box}>
       <Caption>Sign with</Caption>
-      <Segmented items={OPTIONS} value={choice.choice} onChange={choice.choose} />
-      <Caption style={styles.note}>
-        {onPrivy
-          ? privy.authenticated
-            ? `Signed in with Privy${privy.identity?.email ? ` as ${privy.identity.email}` : privy.identity?.google ? ` as ${privy.identity.google}` : linkedX ? ` as @${linkedX}` : ""}. Your embedded wallet signs every trade and launch${Platform.OS === "web" ? ", after Privy asks you to confirm" : ""}.`
-            : Platform.OS === "web"
-              ? "Sign in with email, Google or X. Privy gives you an embedded wallet that follows your login to any device."
-              : "Sign in with your email. Privy gives you an embedded wallet that follows your login to any device — no seed phrase."
-          : "A key made on this device. Nothing to sign up for, and nothing to recover it with. Switching to Privy uses a different address."}
-      </Caption>
+      <Segmented items={options} value={choice.choice} onChange={choice.choose} />
+      {onMera ? (
+        <PasskeyPanel />
+      ) : (
+        <Caption style={styles.note}>
+          {onPrivy
+            ? privy.authenticated
+              ? `Signed in with Privy${privy.identity?.email ? ` as ${privy.identity.email}` : privy.identity?.google ? ` as ${privy.identity.google}` : linkedX ? ` as @${linkedX}` : ""}. Your embedded wallet signs every trade and launch${Platform.OS === "web" ? ", after Privy asks you to confirm" : ""}.`
+              : Platform.OS === "web"
+                ? "Sign in with email, Google or X. Privy gives you an embedded wallet that follows your login to any device."
+                : "Sign in with your email. Privy gives you an embedded wallet that follows your login to any device — no seed phrase."
+            : "A key made on this device. Nothing to sign up for, and nothing to recover it with. Switching to a passkey or Privy uses a different address."}
+        </Caption>
+      )}
 
       {onPrivy && privy.authenticated && wallet.address ? (
         identity?.twitter ? (
