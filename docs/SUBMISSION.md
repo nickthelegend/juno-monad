@@ -1,20 +1,21 @@
-# Metropolis submission — Track 03, Social, Attention & Culture
+# Metropolis submission — Track 01, Onchain Finance & Trading
 
 Deadline: **13 Oct 2026, 11:59 pm ET** (<https://hackathon.monad.xyz>).
 Fields in [brackets] are filled once the thing exists; nothing here is
 claimed before it is true. Where the track and bounties come from:
-[METROPOLIS.md](METROPOLIS.md).
+[METROPOLIS.md](METROPOLIS.md) and [SPONSOR-GAP.md](SPONSOR-GAP.md).
 
 | Field | Value |
 |---|---|
 | Project | Juno — every post is a market |
-| One-liner | Post a photo or a reel and it launches its own bonding curve on Monad; fans buy the posts they believe in and the creator earns every trade's fee. |
-| Primary track | 03 — Social, Attention & Culture |
-| Bounties to add | Envio (built: `indexer/`). Privy (built on web, iOS and Android; a real login still to be shown). Alchemy only if `MONAD_RPC_URL` is an Alchemy endpoint |
-| Repo | [github.com/nickthelegend/juno-monad — after `scripts/publish-github.sh`] |
-| Live app | [after hosting, Phase 8] |
-| Contracts (Monad testnet) | [after `contracts/deploy.sh testnet`; addresses land in `contracts/deployments/10143.json` and JUNO.md's *On-chain proof*] |
-| Builds | [release v1.1.0: Android APK, iOS Simulator zip, checksums] |
+| One-liner | Post a photo or a reel and it launches its own bonding curve on Monad; when the curve fills it graduates into its own Kuru order-book market (or a Uniswap v2 pair), with perps on Perpl and pre-IPO trackers beside it. |
+| Primary track | 01 — Onchain Finance & Trading |
+| Bounties to add | Kuru — New Assets and Markets · Kuru — Consumer Trading App · Perpl — Analytics/Risk Tool · Agora — Mobile Trading App (Mera sign-in + AUSD + Perpl, working in the web app; native Mera pending) · Mera — Best UX · Mera — One Passkey, Many Keys · Envio · Privy |
+| Repo | <https://github.com/nickthelegend/juno-monad> (MIT) |
+| Live app | <https://juno-monad-app.vercel.app> (API <https://juno-api-production-04ea.up.railway.app>) |
+| Contracts (Monad testnet) | `JunoLaunchpad` `0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81`, `UniswapV2Graduator` `0x6924937d7DDDD7D1c931Dc7a9779bD32F807FeAA`, `KuruGraduator` `0xBeFD5740896D157A3E9821939e5ba213BEf50F99`, `JunoSwapRouter` `0x648c6E84F779Cf20730Db26d49B7B950ca256366`, v2 factory `0xA81f5D4884d56B7F648bCAb6e6fcdc8b8f54fb81` — all verified on MonadVision ([`contracts/deployments/10143.json`](../contracts/deployments/10143.json)) |
+| On-chain proof | `$GENESIS` [`0x1409…6360`](https://testnet.monadvision.com/token/0x14092A529e2e5EB4DECB4a1828f6aFa72e026360): launched, bought, sold, filled, [graduated](https://testnet.monadvision.com/tx/0x799309cc168b1b1ea248d04fb9b9c6b90972fc7090bf42765a1cf52dc0907ed4) and traded on its pair ([E2E-PLAN.md](E2E-PLAN.md), Phase 6) |
+| Builds | Web (live). Native iOS/Android build from `juno-expo/` (see README); no published release |
 | Technical demo (≤ 3 min) | [video link] |
 | Founder pitch (≤ 2 min) | [video link] |
 | Cover graphic (≤ 3 MB) | [file] |
@@ -50,9 +51,10 @@ claimed before it is true. Where the track and bounties come from:
 - **Monad integration.** See *Why Monad*; Pyth read from its contract on
   Monad; Envio HyperIndex for full history because public `eth_getLogs` covers
   100 blocks.
-- **Track fit.** A buy is a curation signal the curator pays for, and the
-  poster is paid for it — the track's own example of "a feed where curation is
-  paid for by the people who benefit from it".
+- **Track fit.** A launchpad whose markets don't end on a curve: each coin
+  that fills opens its own Kuru order book seeded from its raise; perps on
+  Perpl with AUSD collateral (Agora's faucet in the app) and a live risk
+  view; pre-IPO and stock trackers priced against Tessera and Pyth.
 - **Innovation.** The curve's shape is a product decision: four presets
   (content, thin name, IPO book, tight NAV), each measured
   ([JUNO.md](../JUNO.md), *The presets, measured*); Pre-IPO trackers marked
@@ -64,7 +66,7 @@ claimed before it is true. Where the track and bounties come from:
   16 Sep) and this port (from 24 Sep), both inside the window.
 - Commit history covers the build; nothing squashed.
 - AI assistance disclosed in the README.
-- MIT, public repository — [once published].
+- MIT, public repository: <https://github.com/nickthelegend/juno-monad>.
 - **No fake volume.** `npm run juno:demo` makes four wallets named `demo_ana`,
   `demo_kai`, `demo_rio` and `demo_lena` and places a few small trades between
   them so the feed is not empty. On testnet it is optional; if it is run, say
@@ -72,10 +74,17 @@ claimed before it is true. Where the track and bounties come from:
 
 ## For judges
 
-1. Open [the live app] — or run the stack locally (README, *Run it*).
-2. Profile → *Get testnet MON* (Juno's faucet), then buy a post from the feed.
-   The receipt links the transaction on MonadVision.
-3. Create → pick a photo → launch. One transaction; the launch log shows each
-   step.
-4. [A coin that graduated on testnet] shows trading continuing on its Uniswap
-   v2 pair (or Kuru market).
+1. Open <https://juno-monad-app.vercel.app> on a phone or desktop.
+2. Profile → *Sign with* → **Passkey** → *Create a passkey account* (one
+   prompt). Trades then sign without prompts for 15 minutes; *End session*
+   wipes the key. Clear the browser and *Sign in with my passkey* — same
+   address.
+3. Fund it: Profile → *Get testnet MON* (Juno's faucet).
+4. Trade → **Perps** → *Get 10,000 test AUSD* (Agora's faucet) → *Open
+   account* → open a 2x position → **Risk** shows its distance to
+   liquidation, margin health and funding → close and withdraw.
+5. Trade → **Kuru**: the markets Juno opened on Kuru's order book.
+6. Feed → buy a post; the receipt links the transaction on MonadVision and
+   the live tape shows it move Proposed → Voted → Finalized.
+7. + → Post a photo → launch: one transaction. A passkey account can also
+   *Seal this draft* — encrypted to the passkey, opened on any device with it.

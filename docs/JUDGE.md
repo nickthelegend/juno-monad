@@ -1,5 +1,13 @@
 # A skeptical judge's verdict on Juno
 
+> **Update, 5 Oct 2026.** Issue 1 is closed: the contracts are deployed and
+> verified on Monad testnet, the app and API are hosted, and `$GENESIS` was
+> taken through its whole life on chain. Issue 2: the live tape shows Juno's
+> own trades through every commit stage on real Monad. Issue 3: Juno enters
+> **Track 01** (see `SPONSOR-GAP.md`). Issue 5: the indexer is hosted on
+> Railway beside the API. The review below is kept as written.
+
+
 Written 2026-09-24 as a Metropolis judge would see it: from the running app in
 Chrome, the repository and the claims in its README, looking for anything
 mocked, faked or overstated. This document judges; it fixes nothing.
