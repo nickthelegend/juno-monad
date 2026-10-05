@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { positionRisk, type MarketRisk, type PerpPosition } from "@/lib/juno/perpl";
 
@@ -64,5 +64,38 @@ describe("positionRisk", () => {
     expect(risk.liquidationDistance).toBeNull();
     // No maintenance fraction has been read in this process.
     expect(risk.health).toBeNull();
+  });
+});
+
+describe("Perpl's public API under a rate limit", () => {
+  it("waits out a 429 and reads again instead of failing the read", async () => {
+    const { perpMarkets } = await import("@/lib/juno/perpl");
+    const context = {
+      markets: [
+        {
+          id: 16,
+          symbol: "BTC",
+          config: { is_open: true, price_decimals: 1, size_decimals: 5, initial_margin: 1500, maintenance_margin: 2500, taker_fee: 350 },
+          state: { mrk: 850_000, prv: 840_000, orl: 850_000, lst: 850_000, dva: "0", oi: 0, at: { t: 1 } },
+          funding: { rate: 10 },
+          funding_interval_sec: 2_580,
+        },
+      ],
+    };
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      calls.push(url);
+      return calls.length === 1
+        ? new Response("slow down", { status: 429, headers: { "retry-after": "0.01" } })
+        : new Response(JSON.stringify(context), { status: 200 });
+    });
+    try {
+      const [btc] = await perpMarkets();
+      expect(calls).toHaveLength(2);
+      expect(btc.mark).toBe(85_000);
+      expect(btc.fundingRate).toBeCloseTo(0.00001, 12);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

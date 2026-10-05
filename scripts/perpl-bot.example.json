@@ -1,0 +1,15 @@
+{
+  "markets": ["BTC", "ETH"],
+  "carry": true,
+  "entryAnnualized": 0.3,
+  "exitAnnualized": 0.1,
+  "collateralPerTrade": 25,
+  "leverage": 2,
+  "maxPositions": 2,
+  "maxNotional": 200,
+  "stopLoss": 0.25,
+  "takeProfit": 0.5,
+  "liquidationBuffer": 0.15,
+  "dailyLossLimit": 20,
+  "maxVolatility": 1.5
+}

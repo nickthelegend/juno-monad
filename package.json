@@ -27,7 +27,8 @@
     "juno:pyth-push": "dotenv -e .env.local -- tsx scripts/pyth-push.ts",
     "juno:perps-simulate": "dotenv -e .env.local -- tsx scripts/perps-simulate.ts",
     "juno:compare-presets": "tsx scripts/juno-compare-presets.ts",
-    "juno:demo": "dotenv -e .env.local -- tsx scripts/juno-demo.ts"
+    "juno:demo": "dotenv -e .env.local -- tsx scripts/juno-demo.ts",
+    "juno:perpl-bot": "dotenv -e .env.local -- tsx scripts/perpl-bot.ts"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

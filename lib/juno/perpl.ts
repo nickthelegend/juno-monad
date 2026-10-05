@@ -120,9 +120,7 @@ const maintenance = new Map<number, number>();
 /** Every Perpl market, live. Cached for five seconds: marks move on every block. */
 export async function perpMarkets(): Promise<PerpMarket[]> {
   if (contextCache && Date.now() - contextCache.at < 5_000) return contextCache.value;
-  const response = await fetch(`${perpl().api}/v1/pub/context`, { signal: AbortSignal.timeout(8_000), cache: "no-store" });
-  if (!response.ok) throw new Error(`Perpl answered ${response.status}`);
-  const body = (await response.json()) as { markets: ContextMarket[] };
+  const body = await perplJson<{ markets: ContextMarket[] }>("/v1/pub/context");
   const value = body.markets.map((market): PerpMarket => {
     maintenance.set(market.id, market.config.maintenance_margin);
     const scale = 10 ** market.config.price_decimals;
@@ -565,12 +563,25 @@ export type PositionRisk = {
 type FundingPoint = { at: { t: number }; rate: number };
 type Candle = { t: number; c: number; h: number; l: number };
 
-let riskCache: { at: number; value: MarketRisk[] } | null = null;
+const riskCache = new Map<string, { at: number; value: MarketRisk[] }>();
 
-async function perplJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${perpl().api}${path}`, { signal: AbortSignal.timeout(8_000), cache: "no-store" });
-  if (!response.ok) throw new Error(`Perpl answered ${response.status} for ${path.split("/").slice(0, 4).join("/")}`);
-  return (await response.json()) as T;
+/**
+ * A read from Perpl's public API. A 429 or a 5xx is retried — after the
+ * `Retry-After` it gives, else 1, 2 then 4 seconds — because a burst of reads
+ * (a bot's tick, the risk view's first load) is exactly what a rate limit
+ * answers, and one refusal should not cost the whole read.
+ */
+async function perplJson<T>(path: string, attempts = 4): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    const response = await fetch(`${perpl().api}${path}`, { signal: AbortSignal.timeout(8_000), cache: "no-store" });
+    if (response.ok) return (await response.json()) as T;
+    const retryable = response.status === 429 || response.status >= 500;
+    if (!retryable || attempt >= attempts) {
+      throw new Error(`Perpl answered ${response.status} for ${path.split("/").slice(0, 4).join("/")}`);
+    }
+    const after = Number(response.headers.get("retry-after"));
+    await new Promise((resolve) => setTimeout(resolve, Number.isFinite(after) && after > 0 ? after * 1000 : 1000 * 2 ** (attempt - 1)));
+  }
 }
 
 /**
@@ -578,9 +589,12 @@ async function perplJson<T>(path: string): Promise<T> {
  * market's funding payments and hourly candles over the last day. Held for a
  * minute — funding is paid every ~43 minutes and the candles are hourly.
  */
-export async function perpMarketRisk(nowMs = Date.now()): Promise<MarketRisk[]> {
-  if (riskCache && nowMs - riskCache.at < 60_000) return riskCache.value;
-  const markets = await perpMarkets();
+export async function perpMarketRisk(nowMs = Date.now(), symbols?: readonly string[]): Promise<MarketRisk[]> {
+  // A bot watching two markets reads two markets' history, not all of them.
+  const key = symbols && symbols.length ? [...symbols].sort().join(",") : "*";
+  const hit = riskCache.get(key);
+  if (hit && nowMs - hit.at < 60_000) return hit.value;
+  const markets = (await perpMarkets()).filter((m) => key === "*" || symbols!.includes(m.symbol));
   const from = nowMs - 24 * 3_600_000;
   const value = await Promise.all(
     markets.map(async (market): Promise<MarketRisk> => {
@@ -617,7 +631,7 @@ export async function perpMarketRisk(nowMs = Date.now()): Promise<MarketRisk[]> 
       };
     }),
   );
-  riskCache = { at: nowMs, value };
+  riskCache.set(key, { at: nowMs, value });
   return value;
 }
 

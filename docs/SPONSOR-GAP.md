@@ -64,6 +64,12 @@ rough chance of winning it; credits count low.
 | Mera UX | **Built** on the web: one ceremony, 15-minute signing sessions with a countdown and End session, re-prompt on expiry, stateless sign-in. |
 | Mera Many Keys | **Built**: sealed drafts — a post's words encrypted to the passkey under a per-draft PRF salt (Mera secret vault), stored as ciphertext, opened from the passkey on any device. |
 
+## Status after the 6 Oct build (local fork only, no testnet transactions)
+
+| Bounty | Now |
+|---|---|
+| Perpl Best use of the API | **Built**: `scripts/perpl-bot.ts`, a funding-carry and position-guard bot on Perpl's public API and `execOrder`. Caps per trade, notional, positions and daily loss, a kill switch, a mainnet refusal, state that survives restarts, and 429 retry. Decisions are pure and unit-tested (10 tests). Opened and closed a real BTC short on a fork of testnet. See `PERPL-BOT.md`. |
+
 ## What gets built now (no owner action needed)
 
 1. **AUSD faucet in the Perps tab** (Agora's faucet, `requestFunds`) — every
