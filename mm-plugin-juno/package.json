@@ -1,0 +1,91 @@
+{
+  "name": "mm-plugin-juno",
+  "version": "0.1.0",
+  "description": "MetaMask Agent Wallet (mm) plugin: trade Juno's creator coins on Monad — curves, Uniswap v2 pairs and Kuru books",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "oclif-plugin",
+    "metamask",
+    "agent-wallet",
+    "monad",
+    "juno"
+  ],
+  "files": [
+    "dist",
+    "oclif.manifest.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && oclif manifest",
+    "prepack": "npm run build",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "oclif": {
+    "bin": "mm",
+    "commands": "./dist/commands",
+    "topicSeparator": " ",
+    "topics": {
+      "juno": {
+        "description": "Juno on Monad: every post is a market"
+      }
+    }
+  },
+  "peerDependencies": {
+    "@metamask/agent-wallet": "^7.0.0"
+  },
+  "devDependencies": {
+    "@metamask/agent-wallet": "^7.0.0",
+    "oclif": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "viem": "^2.57.3",
+    "vitest": "^3"
+  },
+  "mm": {
+    "schemaVersion": 1,
+    "minCliVersion": "^7.0.0",
+    "capabilities": [],
+    "commands": [
+      {
+        "id": "juno:markets",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "juno:coin",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "juno:portfolio",
+        "capabilities": [
+          "wallet-read"
+        ],
+        "dataAccess": [
+          "accounts"
+        ]
+      },
+      {
+        "id": "juno:buy",
+        "capabilities": [
+          "wallet-read",
+          "wallet-submit"
+        ],
+        "dataAccess": [
+          "accounts"
+        ]
+      },
+      {
+        "id": "juno:sell",
+        "capabilities": [
+          "wallet-read",
+          "wallet-submit"
+        ],
+        "dataAccess": [
+          "accounts"
+        ]
+      }
+    ]
+  }
+}
