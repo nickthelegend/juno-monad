@@ -1171,6 +1171,19 @@ function NavBand({ nav }: { nav: NavReference }) {
             }`}
       </Caption>
 
+      {/* The same comparison, made by a Chainlink DON (the underlying's price
+          agreed across nodes, the curve read on chain) and written to Monad by
+          the juno-nav CRE workflow. Checkable without trusting this server. */}
+      {nav.attested ? (
+        <Caption style={{ marginTop: 8 }}>
+          {`Attested on Monad by Chainlink CRE ${since(nav.attested.observedAt)} ago: NAV ${money(nav.attested.navUsd, "USD", {
+            compact: false,
+          })}, the curve ${nav.attested.premium >= 0 ? "+" : ""}${(nav.attested.premium * 100).toFixed(2)}%, ${
+            nav.attested.withinBand ? "inside" : "outside"
+          } the band.`}
+        </Caption>
+      ) : null}
+
       {/* What Tessera carries and an oracle does not: a company behind the
           mark. Juno marks against Tessera's published price and never holds
           the T-token itself, which lives on another chain. */}

@@ -423,6 +423,16 @@ export type NavReference = {
   /** Null when the source publishes no timestamp, as Tessera does not. */
   ageSeconds: number | null;
   source: "pyth" | "tessera";
+  /** The same comparison attested on Monad by Chainlink CRE (`JunoNavOracle`). Absent on an older server. */
+  attested?: {
+    oracle: string;
+    navUsd: number;
+    impliedUsd: number;
+    premium: number;
+    withinBand: boolean;
+    bandBps: number;
+    observedAt: string;
+  } | null;
   /** Present only on a Tessera reference: a company, not a ticker. */
   tessera: {
     id: string;

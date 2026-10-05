@@ -1,0 +1,18 @@
+# ==========================================================================
+# juno-nav: tracker coins' NAV, attested on Monad by Chainlink CRE.
+# ==========================================================================
+local-fork:
+  user-workflow:
+    workflow-name: "juno-nav-local"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.local-fork.json"
+    secrets-path: ""
+
+staging-settings:
+  user-workflow:
+    workflow-name: "juno-nav-staging"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.staging.json"
+    secrets-path: ""

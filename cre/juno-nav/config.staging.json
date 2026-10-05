@@ -1,0 +1,16 @@
+{
+  "schedule": "0 */10 * * * *",
+  "chainSelectorName": "monad-testnet",
+  "isTestnet": true,
+  "launchpad": "0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81",
+  "receiver": "0x0000000000000000000000000000000000000000",
+  "pyth": "0xFC6bd9F9f0c6481c6Af3A7Eb46b296A5B85ed379",
+  "monUsdFeed": "31491744e2dbf6df7fcf4ac0820d18a609b49076d45066d3568424e62f686cd1",
+  "usdcUsdFeed": "0x39820e7965e29DC86b94F20eD04e9c5cCf9aFf95",
+  "usdc": "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+  "tesseraUrl": "https://rest-api.tessera.pe/v1/public",
+  "gasLimit": "1000000",
+  "trackers": [
+    { "token": "0x0000000000000000000000000000000000000000", "source": "tessera", "ref": "T-SpaceX", "unitsPerTokenE18": "1", "bandBps": 200 }
+  ]
+}

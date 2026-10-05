@@ -313,6 +313,19 @@ export type Comment = {
 };
 
 /** Reference price for a tokenized equity, for the NAV band. */
+/** A tracker's NAV as Chainlink CRE attested it on Monad (`JunoNavOracle`). */
+export type NavAttestation = {
+  oracle: string;
+  navUsd: number;
+  impliedUsd: number;
+  /** Signed ratio, like `deviation`. */
+  premium: number;
+  withinBand: boolean;
+  bandBps: number;
+  /** When the DON observed it. */
+  observedAt: string;
+};
+
 export type NavReference = {
   /** Feed id, or a name like "Equity.US.AAPL/USD", or a Tessera token id. */
   feed: string;
@@ -365,6 +378,8 @@ export type NavReference = {
   ageSeconds: number | null;
   /** Where the reference came from. */
   source: "pyth" | "tessera";
+  /** The same comparison attested on chain by Chainlink CRE, when Juno's NAV oracle is set and has run. */
+  attested: NavAttestation | null;
   /**
    * The extra Tessera carries and Pyth does not: a company, not a ticker.
    * Null on a Pyth reference.

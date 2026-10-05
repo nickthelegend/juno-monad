@@ -1,0 +1,16 @@
+# ==========================================================================
+# CRE project settings for Juno's workflows (cre/juno-nav).
+#
+# local-fork:       an anvil fork of Monad testnet on this machine (port 8555,
+#                   see cre/README.md). `--broadcast` writes there, not to testnet.
+# staging-settings: Monad testnet.
+# ==========================================================================
+local-fork:
+  rpcs:
+    - chain-name: monad-testnet
+      url: http://127.0.0.1:8555
+
+staging-settings:
+  rpcs:
+    - chain-name: monad-testnet
+      url: https://testnet-rpc.monad.xyz

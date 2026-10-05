@@ -20,6 +20,7 @@ import { feeSchedule, tokenomics } from "./economics";
 import { identicon } from "./identicon";
 import { activityFromSwap, holdersFromSwaps } from "./activity";
 import { mediaKind, mediaSrc } from "./media";
+import { attestedNav } from "./nav-oracle";
 import { isTesseraRef, tesseraToken, TESSERA_PREFIX } from "./tessera";
 import { ttlCache } from "./rpc";
 import {
@@ -120,6 +121,8 @@ async function navFor(
     };
   };
 
+  const attested = await attestedNav(row.token).catch(() => null);
+
   if (isTesseraRef(row.navFeedId)) {
     const token = await tesseraToken(row.navFeedId).catch(() => null);
     if (!token) return null;
@@ -145,6 +148,7 @@ async function navFor(
       ageSeconds: null,
       state: "mark",
       source: "tessera",
+      attested,
       tessera: {
         id: token.id,
         mint: token.mint,
@@ -173,6 +177,7 @@ async function navFor(
     state: marketStateOf(price),
     ageSeconds: price.ageSeconds,
     source: "pyth",
+    attested,
     tessera: null,
   };
 }
