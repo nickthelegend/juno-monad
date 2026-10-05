@@ -44,7 +44,7 @@ function orderCreated(address: string, orderId: number, owner: string) {
   return {
     address,
     topics: encodeEventTopics({ abi: kuruOrderBookAbi, eventName: "OrderCreated" }),
-    data: encodeAbiParameters((event as { inputs: never }).inputs, [orderId, owner, 1000n, 7930, true] as never),
+    data: encodeAbiParameters((event as unknown as { inputs: never }).inputs, [orderId, owner, 1000n, 7930, true] as never),
   };
 }
 
