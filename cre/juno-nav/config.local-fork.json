@@ -3,7 +3,7 @@
   "chainSelectorName": "monad-testnet",
   "isTestnet": true,
   "launchpad": "0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81",
-  "receiver": "0x2cAe59eD0521DcfebE8C5d29f23C0667E7f456Ba",
+  "receiver": "0x13878d89F77D4F21f6bEc5C2896485C9838dEdE3",
   "pyth": "0xFC6bd9F9f0c6481c6Af3A7Eb46b296A5B85ed379",
   "monUsdFeed": "31491744e2dbf6df7fcf4ac0820d18a609b49076d45066d3568424e62f686cd1",
   "usdcUsdFeed": "0x39820e7965e29DC86b94F20eD04e9c5cCf9aFf95",
@@ -11,7 +11,33 @@
   "tesseraUrl": "https://rest-api.tessera.pe/v1/public",
   "gasLimit": "1000000",
   "trackers": [
-    { "token": "0x6EBB81ff6AAeaB424E811580Fe8b1332E6D1e8C8", "source": "tessera", "ref": "T-SpaceX", "unitsPerTokenE18": "2364065438", "bandBps": 200 },
-    { "token": "0x9AE65d58276f22D75986CCeBFc4C87C9B1C2439c", "source": "pyth", "ref": "49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688", "unitsPerTokenE18": "3237503238", "bandBps": 200 }
+    {
+      "token": "0x6f75De0accfD327c28860238072EF6A9c08A94b7",
+      "source": "tessera",
+      "ref": "T-OpenAI",
+      "unitsPerTokenE18": "1230330098",
+      "bandBps": 200
+    },
+    {
+      "token": "0x364cB4C423087e91B63220fe73Ec380eB70A6f4d",
+      "source": "tessera",
+      "ref": "T-Kalshi",
+      "unitsPerTokenE18": "2416044202",
+      "bandBps": 500
+    },
+    {
+      "token": "0x9153856f40D11ce533d5FFFc8421bd0eA2ea544C",
+      "source": "tessera",
+      "ref": "T-SpaceX",
+      "unitsPerTokenE18": "2364066194",
+      "bandBps": 400
+    },
+    {
+      "token": "0xEF50877e82f6124F2BC14A1d776FdBa7C1B34fA8",
+      "source": "pyth",
+      "ref": "49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688",
+      "unitsPerTokenE18": "3239313927",
+      "bandBps": 400
+    }
   ]
 }
