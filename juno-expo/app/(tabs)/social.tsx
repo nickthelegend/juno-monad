@@ -7,7 +7,7 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { CoinArt } from "../../components/art";
 import { CommentsSheet } from "../../components/CommentsSheet";
 import { FeedCard, type Buyers } from "../../components/FeedCard";
-import { Button, Placeholder, Skeleton } from "../../components/kit";
+import { Button, Placeholder, RETRY_HINT, Skeleton } from "../../components/kit";
 import { JunoMark } from "../../components/logo";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
@@ -238,7 +238,7 @@ export default function SocialScreen() {
               {/* Markets, not posts: an unpriced row cannot be sorted into a
                   post or a stock, so the count covers both. */}
               {markets.data!.missing} more {markets.data!.missing === 1 ? "market is" : "markets are"}{" "}
-              live but could not be priced — the RPC is rate-limiting. Pull to retry.
+              live but could not be priced — the RPC is rate-limiting. {RETRY_HINT}
             </Text>
           ) : null}
 

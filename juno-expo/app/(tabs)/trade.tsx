@@ -1,26 +1,12 @@
 import { Image as ExpoImage } from "expo-image";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import styled from "styled-components/native";
 
-import {
-  Button,
-  Caption,
-  Col,
-  Entry,
-  Label,
-  Ledger,
-  Mono,
-  Pill,
-  Placeholder,
-  Row,
-  Segmented,
-  Skeleton,
-  Title,
-} from "../../components/kit";
+import { Button, Caption, Col, Entry, Label, Ledger, Mono, Pill, Placeholder, RETRY_HINT, Row, Segmented, Skeleton, Title } from "../../components/kit";
 import { CoinArt, Identicon } from "../../components/art";
 import { Handle } from "../../components/Handle";
 import { PerpsPanel } from "../../components/Perps";
@@ -34,12 +20,13 @@ import { money, useApi } from "../../lib/useApi";
 import { useViewerOnce } from "../../lib/social";
 import { theme } from "../../theme";
 
-type Sort = "preipo" | "stocks" | "memes" | "perps" | "traders";
+type Sort = "preipo" | "stocks" | "memes" | "kuru" | "perps" | "traders";
 
 const SORTS = [
   { id: "preipo" as const, label: "Pre-IPO" },
   { id: "stocks" as const, label: "Stocks" },
   { id: "memes" as const, label: "Memes" },
+  { id: "kuru" as const, label: "Kuru" },
   { id: "perps" as const, label: "Perps" },
   { id: "traders" as const, label: "Traders" },
 ];
@@ -194,10 +181,18 @@ export default function TradeScreen() {
           {(markets.data?.missing ?? 0) > 0 ? (
             <Footnote>
               {markets.data!.missing} more {markets.data!.missing === 1 ? "market is" : "markets are"}{" "}
-              listed but could not be priced — the RPC is rate-limiting. Pull to retry.
+              listed but could not be priced — the RPC is rate-limiting. They are asked again when you come back to
+              this tab.
             </Footnote>
           ) : null}
-          {(() => {
+          {sort === "kuru" ? (
+            <KuruMarkets
+              coins={[...markets.data!.posts, ...markets.data!.preipo, ...markets.data!.stocks]}
+              onOpen={(address) => router.push(`/coin/${address}`)}
+              onTrade={(coin) => setTrade(coin)}
+            />
+          ) : null}
+          {sort !== "kuru" && (() => {
             const list = sort === "stocks" ? markets.data!.stocks : markets.data!.posts;
             if (list.length === 0) {
               return (
@@ -250,6 +245,60 @@ export default function TradeScreen() {
         />
       ) : null}
     </Page>
+  );
+}
+
+/**
+ * The markets Juno has brought to Kuru.
+ *
+ * A post that chooses Kuru opens its own market on Kuru's on-chain order book
+ * the moment its curve fills: the raise and the reserved supply go into the
+ * market's vault, locked, so the book has two-sided liquidity from its first
+ * block. Live markets show their book; the rest show how close they are.
+ */
+function KuruMarkets({ coins, onOpen, onTrade }: { coins: Coin[]; onOpen: (address: string) => void; onTrade: (coin: Coin) => void }) {
+  const kuru = coins.filter((coin, index, all) => coin.venue === "kuru" && all.findIndex((c) => c.address === coin.address) === index);
+  const live = kuru.filter((coin) => coin.curve.graduated);
+  const opening = kuru.filter((coin) => !coin.curve.graduated).sort((a, b) => b.curve.progress - a.curve.progress);
+  return (
+    <View style={{ gap: 14 }}>
+      <Intro
+        pill="Kuru order books"
+        title="New markets on Kuru."
+        body="A post that picks Kuru opens its own market on Kuru's on-chain order book when its curve fills, seeded from the raise and locked for good."
+      />
+      {kuru.length === 0 ? (
+        <Placeholder title="No Kuru markets yet" detail="Launch a post with Kuru as its venue and fill its curve." />
+      ) : null}
+      {live.length > 0 ? <Caption style={{ paddingHorizontal: 4 }}>Trading on Kuru · {live.length}</Caption> : null}
+      {live.map((coin) => (
+        <KuruRow key={coin.address} coin={coin} onOpen={() => onOpen(coin.address)} onTrade={() => onTrade(coin)} />
+      ))}
+      {opening.length > 0 ? <Caption style={{ paddingHorizontal: 4 }}>Opening on Kuru at graduation · {opening.length}</Caption> : null}
+      {opening.map((coin) => (
+        <KuruRow key={coin.address} coin={coin} onOpen={() => onOpen(coin.address)} onTrade={() => onTrade(coin)} />
+      ))}
+    </View>
+  );
+}
+
+function KuruRow({ coin, onOpen, onTrade }: { coin: Coin; onOpen: () => void; onTrade: () => void }) {
+  const book = coin.kuru ?? null;
+  const fmt = (value: number) => (value > 0 ? value.toPrecision(4) : "—");
+  return (
+    <View style={styles.kuruRow}>
+      <Pressable onPress={onOpen} style={{ flex: 1, gap: 3 }} accessibilityRole="button" accessibilityLabel={`${coin.name}, $${coin.symbol}`}>
+        <Text style={styles.kuruName} numberOfLines={1}>
+          {coin.name} <Text style={styles.kuruTicker}>${coin.symbol}</Text>
+        </Text>
+        <Text style={styles.kuruLine} numberOfLines={2}>
+          {coin.curve.graduated && book
+            ? `Bid ${fmt(book.bestBid)} · Ask ${fmt(book.bestAsk)} MON${book.spread !== null ? ` · spread ${(book.spread * 100).toFixed(2)}%` : ""} · market ${book.market.slice(0, 6)}…${book.market.slice(-4)}`
+            : `${(coin.curve.progress * 100).toFixed(1)}% of its curve filled · opens on Kuru when it fills`}
+        </Text>
+      </Pressable>
+      <Button label="Trade" variant="lime" onPress={onTrade} />
+    </View>
   );
 }
 
@@ -628,6 +677,17 @@ function MarketCard({
 }
 
 const styles = StyleSheet.create({
+  kuruRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.colors.surface,
+  },
+  kuruName: { fontSize: 15, fontWeight: "800", color: theme.colors.ink },
+  kuruTicker: { fontWeight: "600", color: theme.colors.muted },
+  kuruLine: { fontSize: 12.5, color: theme.colors.muted },
   intro: {
     borderRadius: theme.radius.lg,
     padding: 18,
@@ -810,7 +870,7 @@ function TraderBoard({
         <Footnote>
           Ranked from {board.data.poolsRead}{" "}
           {board.data.poolsRead === 1 ? "pool" : "pools"} — some histories would not
-          load, so this is not every trade on the network. Pull to retry.
+          load, so this is not every trade on the network. {RETRY_HINT}
         </Footnote>
       ) : board.data && traders.length > 0 ? (
         // Complete is a claim too, and worth the same line: a board that only
@@ -826,7 +886,7 @@ function TraderBoard({
           title={board.data?.partial ? "Could not read the network" : "Nobody has traded yet"}
           detail={
             board.data?.partial
-              ? "The RPC is rate-limiting, so no pool history could be walked. Pull to retry."
+              ? `The RPC is rate-limiting, so no pool history could be walked. ${RETRY_HINT}`
               : "The board fills in as soon as the first swap lands."
           }
         />

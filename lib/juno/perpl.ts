@@ -1,4 +1,4 @@
-import { BaseError, encodeFunctionData, getAddress, maxUint256, type Address } from "viem";
+import { BaseError, encodeFunctionData, getAddress, maxUint256, parseAbi, type Address } from "viem";
 
 import { junoTokenAbi } from "./abi";
 import { publicClient } from "./client";
@@ -222,6 +222,8 @@ export type PerpAccount = {
   positions: PerpPosition[];
   /** The least AUSD a new account opens with. */
   minimumOpen: number;
+  /** True where Agora's AUSD faucet exists (testnet), so the app can offer it. */
+  ausdFaucet: boolean;
 };
 
 /** The perp ids an account holds a position in, from its four 256-bit banks. */
@@ -254,7 +256,7 @@ export async function perpAccount(owner: Address): Promise<PerpAccount> {
     withRetry(() => client.readContract({ address: ausd, abi: junoTokenAbi, functionName: "balanceOf", args: [owner] })),
     withRetry(() => client.readContract({ address: exchange, abi: perplExchangeAbi, functionName: "getMinAccountOpenCNS" })),
   ]);
-  const base = { owner, walletAusd: Number(walletRaw) / CNS, minimumOpen: Number(minimumRaw) / CNS };
+  const base = { owner, walletAusd: Number(walletRaw) / CNS, minimumOpen: Number(minimumRaw) / CNS, ausdFaucet: ausdFaucetAddress() !== null };
 
   let info;
   try {
@@ -511,6 +513,222 @@ export async function perpCloseCall(input: {
     },
     `Closing your ${info.symbol} ${input.position.side}`,
   );
+}
+
+/* ------------------------------------------------------------------ */
+/* Risk: what each market and each open position is exposed to         */
+/* ------------------------------------------------------------------ */
+
+export type MarketRisk = {
+  id: number;
+  symbol: string;
+  mark: number;
+  /** Mark against Perpl's oracle, as a ratio: positive means the book trades rich. */
+  premium: number | null;
+  /** Funding per interval now, as a ratio; positive means longs pay shorts. */
+  fundingRate: number;
+  /** The same rate held for a year, as a ratio. */
+  fundingAnnualized: number;
+  /** Each funding payment in the last 24 hours, oldest first (unix ms, ratio). */
+  funding24h: Array<{ t: number; rate: number }>;
+  /** What the last 24 hours of funding cost a $1,000 long (negative: it was paid). */
+  fundingCost24hPer1kLong: number;
+  /** Realised volatility of hourly closes over 24 hours, annualised; null with too few candles. */
+  volatility: number | null;
+  high24h: number | null;
+  low24h: number | null;
+  openInterestUsd: number;
+  volume24hUsd: number;
+  maxLeverage: number;
+};
+
+export type PositionRisk = {
+  perpId: number;
+  symbol: string;
+  side: "long" | "short";
+  notional: number;
+  /** Collateral plus unrealised P&L and funding. */
+  equity: number;
+  /** Notional over equity: the leverage the position runs at now, not at entry. */
+  effectiveLeverage: number | null;
+  liquidationPrice: number | null;
+  /** Signed move from the mark to the liquidation price, as a ratio (−0.25 = a 25% fall). */
+  liquidationDistance: number | null;
+  /** Equity over the maintenance requirement: liquidated at 1. */
+  health: number | null;
+  /** What funding at today's rate costs per day (negative: it pays). */
+  fundingPerDay: number;
+  /** P&L if the mark moves 10% against the position. */
+  pnlAt10PctAdverse: number;
+};
+
+type FundingPoint = { at: { t: number }; rate: number };
+type Candle = { t: number; c: number; h: number; l: number };
+
+let riskCache: { at: number; value: MarketRisk[] } | null = null;
+
+async function perplJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${perpl().api}${path}`, { signal: AbortSignal.timeout(8_000), cache: "no-store" });
+  if (!response.ok) throw new Error(`Perpl answered ${response.status} for ${path.split("/").slice(0, 4).join("/")}`);
+  return (await response.json()) as T;
+}
+
+/**
+ * Every market's risk from Perpl's public data: the live context, each
+ * market's funding payments and hourly candles over the last day. Held for a
+ * minute — funding is paid every ~43 minutes and the candles are hourly.
+ */
+export async function perpMarketRisk(nowMs = Date.now()): Promise<MarketRisk[]> {
+  if (riskCache && nowMs - riskCache.at < 60_000) return riskCache.value;
+  const markets = await perpMarkets();
+  const from = nowMs - 24 * 3_600_000;
+  const value = await Promise.all(
+    markets.map(async (market): Promise<MarketRisk> => {
+      const scale = 10 ** market.priceDecimals;
+      const [funding, candles] = await Promise.all([
+        perplJson<{ d: FundingPoint[] }>(`/v1/market-data/${market.id}/funding/${from}-${nowMs}`).then((r) => r.d),
+        perplJson<{ d: Candle[] }>(`/v1/market-data/${market.id}/candles/3600/${from}-${nowMs}`).then((r) => r.d),
+      ]);
+      // Funding is reported in micros per interval, as in the context.
+      const funding24h = funding
+        .map((point) => ({ t: point.at.t, rate: point.rate / 1_000_000 }))
+        .filter((point) => point.t >= from)
+        .sort((a, b) => a.t - b.t);
+      const closes = candles.sort((a, b) => a.t - b.t).map((candle) => candle.c / scale);
+      const returns = closes.slice(1).map((close, i) => Math.log(close / closes[i])).filter(Number.isFinite);
+      const mean = returns.reduce((sum, r) => sum + r, 0) / (returns.length || 1);
+      const variance = returns.reduce((sum, r) => sum + (r - mean) ** 2, 0) / Math.max(1, returns.length - 1);
+      const intervalsPerYear = (365 * 24 * 3600) / Math.max(1, market.fundingIntervalSec);
+      return {
+        id: market.id,
+        symbol: market.symbol,
+        mark: market.mark,
+        premium: market.oracle > 0 ? (market.mark - market.oracle) / market.oracle : null,
+        fundingRate: market.fundingRate,
+        fundingAnnualized: market.fundingRate * intervalsPerYear,
+        funding24h,
+        fundingCost24hPer1kLong: funding24h.reduce((sum, point) => sum + point.rate, 0) * 1_000,
+        volatility: returns.length >= 6 ? Math.sqrt(variance) * Math.sqrt(24 * 365) : null,
+        high24h: candles.length ? Math.max(...candles.map((candle) => candle.h)) / scale : null,
+        low24h: candles.length ? Math.min(...candles.map((candle) => candle.l)) / scale : null,
+        openInterestUsd: market.openInterestUsd,
+        volume24hUsd: market.volume24hUsd,
+        maxLeverage: market.maxLeverage,
+      };
+    }),
+  );
+  riskCache = { at: nowMs, value };
+  return value;
+}
+
+/** An account's open positions, each measured against its market. */
+export function positionRisk(positions: PerpPosition[], markets: MarketRisk[], intervals: Map<number, number>): PositionRisk[] {
+  return positions.map((position) => {
+    const market = markets.find((m) => m.id === position.perpId);
+    const mark = position.markPrice;
+    const notional = position.size * mark;
+    const equity = position.collateral + position.pnl;
+    const long = position.side === "long";
+    const fraction = maintenance.get(position.perpId);
+    // As in readPosition: the maintenance requirement is the notional at entry over (fraction / 100).
+    const requirement = fraction ? (position.entryPrice * position.size) / (fraction / 100) : null;
+    const rate = market?.fundingRate ?? 0;
+    const perDay = (24 * 3600) / Math.max(1, intervals.get(position.perpId) ?? 3600);
+    return {
+      perpId: position.perpId,
+      symbol: position.symbol,
+      side: position.side,
+      notional,
+      equity,
+      effectiveLeverage: equity > 0 ? notional / equity : null,
+      liquidationPrice: position.liquidationPrice,
+      liquidationDistance: position.liquidationPrice !== null && mark > 0 ? (position.liquidationPrice - mark) / mark : null,
+      health: requirement && requirement > 0 ? equity / requirement : null,
+      // Positive funding: longs pay, shorts receive.
+      fundingPerDay: (long ? -1 : 1) * rate * perDay * notional,
+      pnlAt10PctAdverse: position.pnl - 0.1 * notional,
+    };
+  });
+}
+
+/** The risk view: every market, and the owner's positions when an owner is given. */
+export async function perpRisk(owner?: Address): Promise<{ markets: MarketRisk[]; positions: PositionRisk[] | null; at: number }> {
+  const [markets, account, context] = await Promise.all([
+    perpMarketRisk(),
+    owner ? perpAccount(owner) : Promise.resolve(null),
+    perpMarkets(),
+  ]);
+  const intervals = new Map(context.map((market) => [market.id, market.fundingIntervalSec]));
+  return { markets, positions: account ? positionRisk(account.positions, markets, intervals) : null, at: Date.now() };
+}
+
+/* ------------------------------------------------------------------ */
+/* Collateral on testnet: Agora's AUSD faucet                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Agora's AUSD faucet on Monad testnet — the same AUSD Perpl takes as
+ * collateral. It has no page of its own; anyone may call
+ * `requestFunds(recipient)`. Its rules are public views: one drip of
+ * `faucetDripAmount` at most every `maxDripFrequency` seconds *across
+ * everyone*, and only while the recipient holds under `maxAmountToOwn`.
+ * Mainnet AUSD has no faucet.
+ */
+const AGORA_AUSD_FAUCET: Address = "0xd236c18D274E54FAccC3dd9DDA4b27965a73ee6C";
+
+const agoraFaucetAbi = parseAbi([
+  "function requestFunds(address recipient)",
+  "function faucetDripAmount() view returns (uint256)",
+  "function maxDripFrequency() view returns (uint256)",
+  "function lastDripTimestamp() view returns (uint256)",
+  "function maxAmountToOwn() view returns (uint256)",
+]);
+
+export function ausdFaucetAddress(): Address | null {
+  return isMainnet() ? null : AGORA_AUSD_FAUCET;
+}
+
+/**
+ * The faucet call for `owner`, after checking each of the faucet's rules, so
+ * a refusal is a sentence before signing rather than a revert after it.
+ */
+export async function ausdFaucetCall(owner: Address, nowSec = Math.floor(Date.now() / 1000)): Promise<{ call: ContractCall; amount: number }> {
+  const faucet = ausdFaucetAddress();
+  if (!faucet) throw new PerpRejected("AUSD has no faucet on mainnet.");
+  const { ausd } = perpl();
+  const client = publicClient();
+  const read = <T>(functionName: "faucetDripAmount" | "maxDripFrequency" | "lastDripTimestamp" | "maxAmountToOwn") =>
+    withRetry(() => client.readContract({ address: faucet, abi: agoraFaucetAbi, functionName })) as Promise<T>;
+  const [drip, every, last, cap, held, stock] = await Promise.all([
+    read<bigint>("faucetDripAmount"),
+    read<bigint>("maxDripFrequency"),
+    read<bigint>("lastDripTimestamp"),
+    read<bigint>("maxAmountToOwn"),
+    withRetry(() => client.readContract({ address: ausd, abi: junoTokenAbi, functionName: "balanceOf", args: [owner] })),
+    withRetry(() => client.readContract({ address: ausd, abi: junoTokenAbi, functionName: "balanceOf", args: [faucet] })),
+  ]);
+  const amount = Number(drip) / CNS;
+  if (stock < drip) throw new PerpRejected("Agora's AUSD faucet is empty right now.");
+  if (held + drip > cap) {
+    throw new PerpRejected(
+      `This wallet holds ${(Number(held) / CNS).toLocaleString("en-US")} AUSD; Agora's faucet only tops wallets up to ${(Number(cap) / CNS).toLocaleString("en-US")}.`,
+    );
+  }
+  const wait = Number(last + every) - nowSec;
+  if (wait > 0) {
+    throw new PerpRejected(
+      `Agora's faucet sends once every ${every} seconds across everyone. Try again in ${wait} second${wait === 1 ? "" : "s"}.`,
+    );
+  }
+  return {
+    amount,
+    call: {
+      to: faucet,
+      data: encodeFunctionData({ abi: agoraFaucetAbi, functionName: "requestFunds", args: [owner] }),
+      value: 0n,
+      label: `Getting ${amount.toLocaleString("en-US")} AUSD from Agora's faucet`,
+    },
+  };
 }
 
 export function perpExchange(): Address {

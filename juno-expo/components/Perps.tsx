@@ -3,7 +3,7 @@ import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextI
 
 import { BottomSheet } from "./BottomSheet";
 import { Button, Caption, Label, Mono, Pill, Segmented, Skeleton } from "./kit";
-import { juno, type PerpAccount, type PerpMarket, type PerpPosition } from "../lib/api";
+import { juno, type MarketRisk, type PerpAccount, type PerpMarket, type PerpPosition, type PositionRisk } from "../lib/api";
 import { money, useApi } from "../lib/useApi";
 import { useWallet } from "../lib/wallet";
 import { theme } from "../theme";
@@ -34,6 +34,7 @@ export function PerpsPanel() {
   );
   const [trading, setTrading] = useState<PerpMarket | null>(null);
   const [depositing, setDepositing] = useState(false);
+  const [view, setView] = useState<"markets" | "risk">("markets");
 
   const refresh = () => {
     markets.refresh();
@@ -62,10 +63,14 @@ export function PerpsPanel() {
         />
       ) : null}
 
-      {markets.loading ? (
+      <Segmented items={VIEWS} value={view} onChange={setView} />
+
+      {view === "risk" ? (
+        <RiskPanel owner={wallet.address ?? null} />
+      ) : markets.loading ? (
         [0, 1, 2].map((i) => <Skeleton key={i} h={64} round={theme.radius.lg} />)
       ) : markets.error ? (
-        <Caption>Perpl&apos;s market data did not answer. Pull to retry.</Caption>
+        <Caption>Perpl&apos;s market data did not answer. It is asked again every 10 seconds.</Caption>
       ) : (
         (markets.data?.markets ?? []).map((market) => (
           <MarketRow key={market.id} market={market} onPress={() => setTrading(market)} />
@@ -91,6 +96,132 @@ export function PerpsPanel() {
         }}
       />
     </ScrollView>
+  );
+}
+
+const VIEWS = [
+  { id: "markets", label: "Markets" },
+  { id: "risk", label: "Risk" },
+] as const;
+
+/**
+ * Risk on Perpl, live: what each market is charging and how fast it moves,
+ * and for each open position how far it is from liquidation.
+ *
+ * Funding is the cost of holding, so it is shown as a rate, as a year, and as
+ * what the last 24 hours actually cost a $1,000 long. Premium is the mark
+ * against Perpl's oracle — a book trading rich or cheap. Volatility is
+ * realised, from the last day's hourly closes. Re-read every 15 seconds.
+ */
+function RiskPanel({ owner }: { owner: string | null }) {
+  const risk = useApi(() => juno.perpRisk(owner), [owner]);
+  useEffect(() => {
+    const timer = setInterval(risk.poll, 15_000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [owner]);
+
+  if (risk.loading && !risk.data) return <Skeleton h={220} round={theme.radius.lg} />;
+  if (!risk.data) {
+    return <Caption>Perpl&apos;s risk data did not answer. It is asked again every 15 seconds.</Caption>;
+  }
+  const { markets, positions } = risk.data;
+  return (
+    <View style={{ gap: 12 }}>
+      {positions && positions.length > 0 ? (
+        <View style={styles.card}>
+          <Label style={{ fontWeight: "800" }}>Your positions</Label>
+          {positions.map((position) => (
+            <PositionRiskRow key={position.perpId} risk={position} />
+          ))}
+        </View>
+      ) : owner ? (
+        <Caption style={{ paddingHorizontal: 4 }}>No open positions. Open one from Markets to see its risk here.</Caption>
+      ) : null}
+
+      <View style={styles.card}>
+        <Label style={{ fontWeight: "800" }}>Markets</Label>
+        <Caption>Funding a year at today&apos;s rate · what the last 24h cost a $1,000 long · premium to the oracle · realised volatility.</Caption>
+        {markets.map((market) => (
+          <MarketRiskRow key={market.id} risk={market} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PositionRiskRow({ risk }: { risk: PositionRisk }) {
+  const distance = risk.liquidationDistance;
+  // Closer than a fifth of the price is worth a colour; closer than a tenth, a warning.
+  const tone = distance === null ? theme.colors.muted : Math.abs(distance) < 0.1 ? theme.colors.neg : Math.abs(distance) < 0.2 ? theme.colors.ink : theme.colors.pos;
+  return (
+    <View style={{ gap: 2, paddingTop: 8 }}>
+      <View style={styles.between}>
+        <Label style={{ fontWeight: "700" }}>
+          {risk.symbol} {risk.side} · {risk.effectiveLeverage !== null ? `${risk.effectiveLeverage.toFixed(1)}x on equity` : "no equity left"}
+        </Label>
+        <Mono style={{ color: tone, fontWeight: "700" }}>
+          {distance === null ? "—" : `${pct(distance, 1)} to liquidation`}
+        </Mono>
+      </View>
+      <Caption>
+        {money(risk.notional, "USD", { compact: false })} notional · equity {money(risk.equity, "USD", { compact: false })}
+        {risk.health !== null ? ` · margin ${risk.health.toFixed(1)}× maintenance` : ""} · funding{" "}
+        {money(risk.fundingPerDay, "USD", { compact: false })}/day · a 10% move against it:{" "}
+        {money(risk.pnlAt10PctAdverse, "USD", { compact: false })}
+      </Caption>
+    </View>
+  );
+}
+
+function MarketRiskRow({ risk }: { risk: MarketRisk }) {
+  const paying = risk.fundingAnnualized > 0;
+  return (
+    <View style={{ gap: 2, paddingTop: 8 }}>
+      <View style={styles.between}>
+        <Label style={{ fontWeight: "700" }}>{risk.symbol}-PERP</Label>
+        <Mono style={{ color: paying ? theme.colors.neg : theme.colors.pos, fontWeight: "700" }}>
+          {pct(risk.fundingAnnualized, 1)} a year
+        </Mono>
+      </View>
+      <FundingBars points={risk.funding24h} />
+      <Caption>
+        24h funding {money(risk.fundingCost24hPer1kLong, "USD", { compact: false })} per $1k long · premium{" "}
+        {pct(risk.premium, 3)} · volatility {risk.volatility === null ? "—" : pct(risk.volatility, 0)} · range{" "}
+        {risk.low24h !== null && risk.high24h !== null
+          ? `${money(risk.low24h, "USD", { compact: false })}–${money(risk.high24h, "USD", { compact: false })}`
+          : "—"}
+      </Caption>
+    </View>
+  );
+}
+
+/** The last day's funding payments as bars: up for longs paying, down for longs paid. */
+function FundingBars({ points }: { points: Array<{ t: number; rate: number }> }) {
+  const peak = Math.max(...points.map((point) => Math.abs(point.rate)), 0);
+  if (points.length === 0 || peak === 0) return <Caption>No funding paid in the last 24 hours.</Caption>;
+  return (
+    <View
+      style={{ flexDirection: "row", alignItems: "center", height: 24, gap: 2 }}
+      accessibilityRole="image"
+      accessibilityLabel={`Funding over the last 24 hours: ${points.length} payments, ${points.filter((p) => p.rate > 0).length} with longs paying`}
+    >
+      {points.map((point) => {
+        const h = Math.max(1, (Math.abs(point.rate) / peak) * 12);
+        const bar = { height: h, borderRadius: 1 };
+        // Two halves around a midline: longs paying above it, longs paid below.
+        return (
+          <View key={point.t} style={{ flex: 1, height: 24 }}>
+            <View style={{ height: 12, justifyContent: "flex-end" }}>
+              {point.rate > 0 ? <View style={[bar, { backgroundColor: theme.colors.neg }]} /> : null}
+            </View>
+            <View style={{ height: 12, justifyContent: "flex-start" }}>
+              {point.rate < 0 ? <View style={[bar, { backgroundColor: theme.colors.pos }]} /> : null}
+            </View>
+          </View>
+        );
+      })}
+    </View>
   );
 }
 
@@ -136,16 +267,19 @@ function AccountCard({
   const wallet = useWallet();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
 
   if (loading && !account) return <Skeleton h={96} round={theme.radius.lg} />;
   if (!account) return null;
 
-  const run = async (key: string, build: () => Promise<{ steps: Parameters<typeof wallet.signAndSubmit>[0] }>) => {
+  const run = async (key: string, build: () => Promise<{ steps: Parameters<typeof wallet.signAndSubmit>[0] }>, done?: string) => {
     setBusy(key);
     setError(null);
+    setNote(null);
     try {
       const { steps } = await build();
       const results = await wallet.signAndSubmit(steps);
+      if (done) setNote(done);
       const perp = results[results.length - 1]?.perp;
       if (perp?.unfilledLots && perp.unfilledLots === perp.totalLots) {
         setError("Nothing filled inside 1.5% of the mark. The position is unchanged.");
@@ -183,12 +317,25 @@ function AccountCard({
         </View>
       </View>
 
-      {account.accountId === null && account.walletAusd === 0 ? (
-        <Caption>
-          Perpl takes AUSD as collateral, {account.minimumOpen} to open an account. On testnet it comes from Agora&apos;s
-          faucet contract; if it is dry, Perpl&apos;s Discord can help.
-        </Caption>
+      {account.ausdFaucet && account.walletAusd < account.minimumOpen ? (
+        <View style={{ gap: 8 }}>
+          <Caption>
+            Perpl takes AUSD as collateral, {account.minimumOpen} to open an account. On testnet it comes from
+            Agora&apos;s faucet: 10,000 test AUSD to your wallet, one request a minute across everyone.
+          </Caption>
+          <Button
+            label={busy === "faucet" ? "Getting AUSD…" : "Get 10,000 test AUSD"}
+            variant="lime"
+            loading={busy === "faucet"}
+            onPress={() =>
+              void run("faucet", () => juno.perpFaucet({ owner: wallet.address! }), "10,000 AUSD arrived from Agora's faucet.")
+            }
+          />
+        </View>
+      ) : account.accountId === null && account.walletAusd === 0 ? (
+        <Caption>Perpl takes AUSD as collateral, {account.minimumOpen} to open an account.</Caption>
       ) : null}
+      {note ? <Caption style={{ color: theme.colors.pos }}>{note}</Caption> : null}
 
       {account.positions.map((position) => (
         <PositionRow

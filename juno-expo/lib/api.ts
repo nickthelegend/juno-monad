@@ -287,6 +287,41 @@ export type PerpAccount = {
   walletAusd: number;
   positions: PerpPosition[];
   minimumOpen: number;
+  /** Agora's AUSD faucet exists here (testnet). Absent from older servers. */
+  ausdFaucet?: boolean;
+};
+
+/** One Perpl market's risk: funding, premium to the oracle, realised volatility. */
+export type MarketRisk = {
+  id: number;
+  symbol: string;
+  mark: number;
+  premium: number | null;
+  fundingRate: number;
+  fundingAnnualized: number;
+  funding24h: Array<{ t: number; rate: number }>;
+  fundingCost24hPer1kLong: number;
+  volatility: number | null;
+  high24h: number | null;
+  low24h: number | null;
+  openInterestUsd: number;
+  volume24hUsd: number;
+  maxLeverage: number;
+};
+
+/** An open position measured against its market. */
+export type PositionRisk = {
+  perpId: number;
+  symbol: string;
+  side: "long" | "short";
+  notional: number;
+  equity: number;
+  effectiveLeverage: number | null;
+  liquidationPrice: number | null;
+  liquidationDistance: number | null;
+  health: number | null;
+  fundingPerDay: number;
+  pnlAt10PctAdverse: number;
 };
 
 /** A limit order resting on a Kuru book, as the book holds it now. */
@@ -1211,6 +1246,14 @@ export const juno = {
     api.post<{ steps: UnsignedTransaction[] }>("/api/juno/perps/deposit", input),
   perpWithdraw: (input: { owner: string; amount: number }) =>
     api.post<{ steps: UnsignedTransaction[] }>("/api/juno/perps/withdraw", input),
+  /** Risk on Perpl: every market, and the owner's open positions. */
+  perpRisk: (owner?: string | null) =>
+    api.get<{ markets: MarketRisk[]; positions: PositionRisk[] | null; at: number }>(
+      `/api/juno/perps/risk${owner ? `?owner=${owner}` : ""}`,
+    ),
+  /** Testnet AUSD from Agora's faucet: the one call to sign, or a 400 naming the rule that refuses it. */
+  perpFaucet: (input: { owner: string }) =>
+    api.post<{ steps: UnsignedTransaction[]; amount: number }>("/api/juno/perps/faucet", input),
   perpOpen: (input: { owner: string; perpId: number; side: "long" | "short"; collateral: number; leverage: number }) =>
     api.post<{ steps: UnsignedTransaction[]; size: number; mark: number; limitPrice: number }>("/api/juno/perps/open", input),
   perpClose: (input: { owner: string; perpId: number }) =>

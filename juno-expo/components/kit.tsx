@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Animated, Pressable, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Platform, Pressable, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import styled, { css } from "styled-components/native";
 
@@ -17,6 +17,9 @@ import { theme } from "../theme";
 /* ------------------------------------------------------------------ */
 /* Surfaces                                                            */
 /* ------------------------------------------------------------------ */
+
+/** How to ask again: a phone pulls the list down; a browser has no such gesture. */
+export const RETRY_HINT = Platform.OS === "web" ? "Reload the page to retry." : "Pull to retry.";
 
 export const Screen = styled.View`
   flex: 1;

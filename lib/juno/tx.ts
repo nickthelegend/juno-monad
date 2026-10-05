@@ -62,6 +62,7 @@ import {
 import { chainId, launchpadAddress, requireLaunchpad, swapRouterAddress } from "./network";
 import {
   PerpRejected,
+  ausdFaucetCall,
   perpAccount,
   perpCloseCall,
   perpDepositCalls,
@@ -1168,6 +1169,13 @@ export async function buildKuruWithdrawAll(request: { token: string; owner: stri
 function perpRejected(error: unknown): never {
   if (error instanceof PerpRejected) throw new CallerError(error.message);
   throw error;
+}
+
+/** Testnet AUSD from Agora's faucet, for Perpl collateral. Refusals are sentences, before signing. */
+export async function buildAusdFaucet(request: { owner: string }): Promise<{ steps: UnsignedTransaction[]; amount: number }> {
+  const owner = requireWallet(request.owner, "owner");
+  const { call, amount } = await ausdFaucetCall(owner).catch(perpRejected);
+  return { steps: await prepare(owner, [call]), amount };
 }
 
 /** Collateral into Perpl: opens the account on first use (at least the minimum). */

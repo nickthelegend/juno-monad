@@ -11,29 +11,7 @@ import { SignerChoice } from "../../components/SignerChoice";
 import { TradeList } from "../../components/TradeList";
 import { WalletCard } from "../../components/WalletCard";
 import { Handle } from "../../components/Handle";
-import {
-  Body,
-  Button,
-  Caption,
-  Card,
-  Col,
-  Delta,
-  DeltaBadge,
-  Display,
-  Entry,
-  Heading,
-  Label,
-  Ledger,
-  Mono,
-  Pill,
-  Placeholder,
-  Progress,
-  Row,
-  Segmented,
-  Skeleton,
-  Stat,
-  Tabs,
-} from "../../components/kit";
+import { Body, Button, Caption, Card, Col, Delta, DeltaBadge, Display, Entry, Heading, Label, Ledger, Mono, Pill, Placeholder, Progress, RETRY_HINT, Row, Segmented, Skeleton, Stat, Tabs } from "../../components/kit";
 import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, networkLabel, type Plan, type WatchItem } from "../../lib/api";
 import { useLinkedState } from "../../lib/linked";
@@ -322,7 +300,7 @@ export default function ProfileScreen() {
             <Card>
               <Body muted>
                 {data.partial
-                  ? "Some pools would not load, so whether this wallet holds anything is unknown. Pull to retry."
+                  ? `Some pools would not load, so whether this wallet holds anything is unknown. ${RETRY_HINT}`
                   : "Nothing held yet. Buy a coin from the Trade tab and it shows up here."}
               </Body>
             </Card>
