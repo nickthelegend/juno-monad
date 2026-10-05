@@ -145,13 +145,6 @@ Then by hand, on a phone browser:
 
 ## 8. Video, 3 minutes or less (owner records, from the hosted app)
 
-| Time | Shot |
-|---|---|
-| 0:00–0:15 | The feed: reels and photo posts, each with a price; "every post is a market on Monad" |
-| 0:15–0:40 | Create a passkey account (one prompt, Mera). Get MON. Buy a post: the receipt says confirmed on Monad in under a second, with the MonadVision link. |
-| 0:40–1:05 | Launch a photo post: one transaction opens its curve. The live tape shows Proposed → Voted → Finalized. |
-| 1:05–1:30 | A coin that graduated into its own Kuru order book: bid, ask, a limit order placed and cancelled |
-| 1:30–1:55 | Perps on Perpl with Agora AUSD: faucet, open, the Risk view (liquidation distance, funding), close |
-| 1:55–2:20 | Pre-IPO trackers: OpenAI marked by Tessera, the band, "Attested on Monad by Chainlink CRE" |
-| 2:20–2:40 | Autopilot with Privy: turn on (session signer under a policy), a plan bought with gas paid by Privy |
-| 2:40–3:00 | Terminal: `mm juno ask "buy 1 MON of the coin closest to graduating"`, Kimi plans, the Agent Wallet signs. Close on the repo and the tests. |
+The shot list, with timestamps and narration, is the demo script in
+[SUBMISSION.md](SUBMISSION.md#demo-script-3-minutes). Record it once
+steps 1–7 pass. Then put the links in SUBMISSION.md's project table.

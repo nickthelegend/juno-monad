@@ -212,6 +212,9 @@ const LIFECYCLE: Launch[] = [
 async function launch(config: Config, progress: Progress, item: Launch, account: PrivateKeyAccount) {
   if (progress.launched[item.key]) return progress.launched[item.key];
   const still = item.media.poster ?? item.media.cid;
+  // Token metadata is pinned on the API's Pinata key. A server without one (a
+  // local demo) answers 503: the coin then launches with no metadata URI, said
+  // here, and its media still comes from Juno's own records.
   const metadata = await call<{ uri: string }>("/metadata", {
     name: item.name,
     symbol: item.symbol,
@@ -219,6 +222,10 @@ async function launch(config: Config, progress: Progress, item: Launch, account:
     curvePreset: item.preset,
     imageUrl: `${IPFS}/${still}`,
     mimeType: "image/jpeg",
+  }).catch((error: Error) => {
+    if (!/^\/metadata 503/.test(error.message)) throw error;
+    console.log(`  ${item.key}: token metadata not pinned (the API has no PINATA_JWT); launching without a metadata URI`);
+    return { uri: "" };
   });
   const built = await call<{ steps: Step[]; token: Hex }>("/tx/launch", {
     creator: account.address,

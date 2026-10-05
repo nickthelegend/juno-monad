@@ -150,3 +150,54 @@ jobs:
       - name: Typecheck
         working-directory: juno-expo
         run: npx tsc --noEmit
+
+  plugin:
+    name: MetaMask plugin and Kimi agent (types, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mm-plugin-juno/package-lock.json
+
+      - name: Install
+        working-directory: mm-plugin-juno
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: mm-plugin-juno
+        run: npm run type-check
+
+      # Kimi's side of the agent loop is a scripted test double here; the
+      # live model needs MOONSHOT_API_KEY and is never called from CI.
+      - name: Tests
+        working-directory: mm-plugin-juno
+        run: npm test
+
+  cre:
+    name: Chainlink CRE workflow (types, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Install
+        working-directory: cre/juno-nav
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: cre/juno-nav
+        run: bun run typecheck
+
+      # On the CRE SDK's test runtime: EVM and HTTP capabilities are mocks.
+      - name: Tests
+        working-directory: cre/juno-nav
+        run: bun test

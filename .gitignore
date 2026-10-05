@@ -46,3 +46,5 @@ npm-debug.log*
 
 # Python bytecode (scripts/demo)
 __pycache__/
+/juno-expo/dist-fork
+/juno-expo/dist-local

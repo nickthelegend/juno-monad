@@ -27,6 +27,27 @@ passkey prompt.
 | **API** | <https://juno-api-production-04ea.up.railway.app> · [`app/api/juno/`](app/api/juno/) — the Next.js server the app talks to. [docs/API.md](docs/API.md). |
 | **Indexer** | [`indexer/`](indexer/) — Envio HyperIndex over the launchpad's events. |
 | **Deep dive** | [JUNO.md](JUNO.md) — the curve, the contracts, what is and is not built. |
+| **For judges** | [docs/SUBMISSION.md](docs/SUBMISSION.md) — the track, each bounty with its evidence, and a 3-minute demo script. |
+
+## Run all of it locally, in one command
+
+```bash
+git clone --recurse-submodules https://github.com/nickthelegend/juno-monad && cd juno-monad
+npm install && (cd juno-expo && npm install)
+npm run demo:local
+```
+
+This forks Monad testnet with anvil, so Juno's deployed contracts, Kuru,
+Perpl, Agora's AUSD, Pyth and Chainlink's feeds are all there. It makes a
+fresh Postgres and Mongo, builds the API for production, and seeds the demo
+content through the API as real signed transactions: twelve coins, trades,
+comments, and one coin graduated into Uniswap v2 and one into Kuru. Then it
+serves the web app at <http://localhost:8183>. It takes about ten minutes the
+first time and needs no keys.
+
+It needs Foundry, Node 22+, PostgreSQL 16 (running) and MongoDB 7 on PATH.
+`npm run demo:local -- stop` stops everything it started. The script is
+[`scripts/local-demo.sh`](scripts/local-demo.sh).
 
 ## Install it
 
@@ -140,6 +161,89 @@ read fails the app says so — it does not print a zero it never measured.
   from receipts as they land, a single log cursor tails the launchpad for the
   rest, and the Envio indexer serves full history.
 
+## Why Monad
+
+- **A buy that lands mid-scroll.** The server submits with
+  `eth_sendRawTransactionSync`, and the receipt comes back in the same call.
+  The trade receipt shows the confirmation time it measured, and the live
+  tape follows each trade through Monad's commit states (Proposed → Voted →
+  Finalized) over its WebSocket.
+- **Cheap enough to price a single post.** A launch is one transaction of
+  about 2M gas: the token, the curve, the lock on its future pair and the
+  creator's first buy.
+- **Native venues to graduate into.** Kuru's on-chain order book is on Monad,
+  so a coin that fills can open its own spot market, seeded and locked. Perpl's
+  perps and Agora's AUSD sit beside it in the same app and wallet.
+- **Built for Monad's rules.** Monad charges the gas limit, not the gas used,
+  so every limit is an estimate plus a measured margin. Juno's faucet never
+  pays out below Monad's 10 MON sender reserve. The public
+  RPC answers `eth_getLogs` over 100 blocks only, so history comes from
+  receipts, one log cursor and Envio.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Phone["Juno app (Expo: iOS, Android, web)"]
+    UI[Feed · Reels · Trade · Create · Profile]
+    W["Wallet: Mera passkey, device key or Privy embedded wallet"]
+  end
+  subgraph API["Juno API (Next.js, app/api/juno)"]
+    B["Builds unsigned transactions: curve, v2 pair or Kuru book; Perpl orders"]
+    S["Submits signed txs (eth_sendRawTransactionSync), records receipts"]
+    AP["Autopilot runner: Privy wallet API, policies, sponsored gas"]
+  end
+  subgraph Data[Stores]
+    PG[("Postgres: trades, pools, log cursor")]
+    MG[("Mongo: social, plans, drafts as ciphertext")]
+  end
+  subgraph Monad["Monad testnet (10143)"]
+    LP["JunoLaunchpad + JunoToken + CurveMath"]
+    G2["UniswapV2Graduator → v2 pair"]
+    GK["KuruGraduator → new Kuru market"]
+    R[JunoSwapRouter]
+    PP[Perpl exchange]
+    AU[Agora AUSD]
+    PY["Pyth · Chainlink USDC/USD"]
+    NO[JunoNavOracle]
+  end
+  EN[Envio HyperIndex] --> PG
+  CRE["Chainlink CRE: juno-nav workflow"] -->|"reads Tessera, Pyth, Chainlink → signed report"| NO
+  MM["MetaMask Agent Wallet: mm juno buy/sell/ask, Kimi"] -->|"builds via"| B
+  BOT[Perpl bot] --> PP
+  AP -->|"via Privy, gas sponsored"| LP
+  UI --> B
+  W -->|signs| S
+  S --> LP & R & GK & PP & AU
+  LP -->|graduates| G2 & GK
+  API --> PG & MG
+  B -.->|reads| PY & NO
+  Monad -.->|events| EN
+  T["Tessera marks"] --> B
+```
+
+Every number on screen is read from the chain, Postgres, Mongo, Pyth,
+Tessera or Perpl. The server never holds a person's key: it builds, the
+wallet signs, the server submits and records what the receipt says.
+
+## Sponsor integrations
+
+| Sponsor | What Juno does with it | Code | Proof |
+|---|---|---|---|
+| **Kuru** | A coin whose creator picks Kuru opens its **own Kuru spot market** when its curve fills (v1 `Router.deployProxy`), seeded from the raise and locked. The app then trades it on the book: market orders, limit orders, cancel, withdraw. | [`KuruGraduator.sol`](contracts/src/graduators/KuruGraduator.sol), [`lib/juno/kuru.ts`](lib/juno/kuru.ts) | Fork tests against Kuru's live contracts; E2E F1–F4 |
+| **Perpl** | Perps in the Trade tab with AUSD margin; a **Risk** view (funding, premium, volatility, liquidation distance, margin health); a funding-carry and position-guard **bot** on Perpl's API | [`lib/juno/perpl.ts`](lib/juno/perpl.ts), [`scripts/perpl-bot.ts`](scripts/perpl-bot.ts) | E2E G5 and X1 (a real BTC short opened and closed on a fork) |
+| **Agora** | AUSD from Agora's faucet in the app, used as Perpl margin, with Mera sign-in | [`lib/juno/perpl.ts`](lib/juno/perpl.ts) | E2E on real testnet, 5 Oct ([E2E-HOSTED.md](docs/E2E-HOSTED.md)) |
+| **Mera** | A passkey is the whole account, with signing sessions; **sealed drafts** use a second PRF salt to encrypt a post's words to the passkey | [`juno-expo/lib/mera.ts`](juno-expo/lib/mera.ts) | E2E P1–P4 |
+| **Privy** | Embedded wallets (web, iOS, Android); **autopilot**: Juno's session signer under a per-wallet policy, plans run through Privy's wallet API with **gas sponsorship** | [`lib/juno/autopilot.ts`](lib/juno/autopilot.ts), [`lib/juno/privy-policy.ts`](lib/juno/privy-policy.ts) | Unit tests; live run awaits the owner's Privy signer ([AUTOPILOT.md](docs/AUTOPILOT.md)) |
+| **Chainlink** | CRE workflow `juno-nav` attests tracker NAVs on Monad (Tessera over HTTP with consensus, Pyth, Chainlink USDC/USD) into `JunoNavOracle` | [`cre/juno-nav/`](cre/juno-nav/), [`JunoNavOracle.sol`](contracts/src/cre/JunoNavOracle.sol) | Workflow and receiver tests; a report through Monad's MockKeystoneForwarder on a fork |
+| **MetaMask** | Agent Wallet plugin: `mm juno markets / coin / buy / sell / portfolio / ask` | [`mm-plugin-juno/`](mm-plugin-juno/) | 20 tests; installs in `mm` 7.0.0; 11-check fork E2E of the trade path |
+| **Kimi** | `mm juno ask "…"`: Kimi K2.6 plans a trade with tool calls that execute on Monad, inside a spend cap | [`mm-plugin-juno/src/lib/agent.ts`](mm-plugin-juno/src/lib/agent.ts) | Tool-loop tests; live run needs a Moonshot key |
+| **Envio** | HyperIndex over the launchpad, tokens, Kuru markets and v2 pairs, with derived positions, pool stats and open orders; self-hosted | [`indexer/`](indexer/) | Handler tests; hosted on Railway since 1 Oct |
+| **Pyth, Tessera** | Stock trackers marked against Pyth on Monad; pre-IPO trackers against Tessera's marks | [`lib/juno/pyth.ts`](lib/juno/pyth.ts), [`lib/juno/tessera.ts`](lib/juno/tessera.ts) | E2E G1–G2 |
+
+What has run on real Monad testnet and what has run only on a local fork is
+listed item by item in [docs/TEST-PLAN-ZERO-MOCK.md](docs/TEST-PLAN-ZERO-MOCK.md).
+
 ## Layout
 
 | Path | What |
@@ -152,9 +256,10 @@ read fails the app says so — it does not print a zero it never measured.
 | `cre/` | Chainlink CRE workflow `juno-nav` (tracker NAV oracle). |
 | `mm-plugin-juno/` | MetaMask Agent Wallet plugin: `mm juno …`, with Kimi. |
 | `scripts/juno-*.ts` | Launch, trade, claim, graduate from the command line; `scripts/perpl-bot.ts`, the Perpl bot. |
+| `scripts/local-demo.sh`, `scripts/fork/` | The one-command local demo, and the keeper that keeps Perpl's marks live on a fork. |
 | `docs/` | API reference and hackathon notes. |
 
-## Run it
+## Run it for development
 
 ```bash
 git clone --recurse-submodules <this repo> && cd juno-monad
@@ -170,25 +275,41 @@ npx expo start                         # i = iOS simulator, a = Android, w = web
 Contracts: `cd contracts && forge test`. Unit tests: `npm run test:unit`.
 Deploying the contracts and the app: [DEPLOY.md](DEPLOY.md).
 
-## Provenance, and how this was built
+## Built in the Metropolis window (1 Sep – 13 Oct 2026)
 
-Juno began on **16 September 2026** as a Solana app — Meteora's Dynamic Bonding
-Curve for the curves, DAMM v2 for graduation — and that version's history is in
-[nickthelegend/zorr-solana](https://github.com/nickthelegend/zorr-solana). This
-repository is its port to Monad, started on **24 September 2026**, inside the
-Metropolis build window. What carried over and what is new:
+**Nothing predates the window.** Juno's first line was written on
+**16 September 2026**, as a Solana app: Meteora's Dynamic Bonding Curve for
+the curves and DAMM v2 for graduation. That version's history is in
+[nickthelegend/zorr-solana](https://github.com/nickthelegend/zorr-solana),
+and it is the base this repository was ported from. The port to Monad
+started on **24 September 2026**, and its whole history is in this
+repository: no commit was squashed.
 
-| Carried over from the Solana version | New for Monad |
+| Date | What was built |
 |---|---|
-| The Expo app's screens and design | `JunoLaunchpad`, `JunoToken`, `CurveMath`, `UniswapV2Graduator` — the curve, fees, graduation and their Foundry tests are Juno's own contracts now, not a third-party program |
-| The four curve presets and their weights | The TypeScript curve builder, rewritten against Juno's own arithmetic, with a Solidity parity test |
-| The social layer (follows, likes, comments, names, plans) | Wallet, signing and submission on EVM; EIP-191 name claims |
-| The API's shape and its "never print an unmeasured zero" rules | Trade history from `Trade` events: receipt recording, a launchpad log cursor, the Envio indexer |
-| | Pyth read from its contract on Monad; the testnet faucet in MON |
+| 16–23 Sep (Solana repo) | The Expo app's screens and design; the four curve presets and their weights; the social layer (follows, likes, comments, names, plans); the API's shape and its "never print an unmeasured zero" rules |
+| 24 Sep | Juno's own contracts on Monad (`JunoLaunchpad`, `JunoToken`, `CurveMath`, `UniswapV2Graduator`, `KuruGraduator`, `JunoSwapRouter`) and their Foundry tests; the TypeScript curve builder with a Solidity parity test; the EVM wallet, signing and submission; trade history from receipts, a log cursor and Envio; Perpl perps; Monad's commit states on the live tape |
+| 29 Sep – 1 Oct | Trading after graduation (v2 and Kuru); Privy on iOS and Android; native builds; a full end-to-end pass; **deployed and verified on Monad testnet**, with the API, indexer and app hosted |
+| 5 Oct | Track 01: Agora's AUSD faucet, the Perpl risk view, Kuru's markets on the Trade tab, Mera passkey accounts and sealed drafts |
+| 6 Oct | The Perpl bot; Privy autopilot (policies, session signers, gas sponsorship); Chainlink CRE `juno-nav` and `JunoNavOracle`; the MetaMask Agent Wallet plugin with Kimi; native Mera; zero-mock verification on a production build; lint |
 
-**AI disclosure.** This port was written with AI coding assistance (Claude
-Code). Every contract is covered by Foundry tests, including fuzzed invariants,
-and the numbers the app shows are read from the chain, not generated.
+**External code**, all under its own licence: OpenZeppelin Contracts, Uniswap
+v2-core (GPL-3.0, compiled unmodified for testnet's v2 factory through
+[`contracts/src/vendor/UniswapV2Core.sol`](contracts/src/vendor/UniswapV2Core.sol))
+and forge-std, as git submodules in `contracts/lib`; and Chainlink's
+`ReceiverTemplate` and `IReceiver`, copied from the CRE docs into
+[`contracts/src/cre/vendor/`](contracts/src/cre/vendor/). The Kuru interface
+is written from Kuru's SDK ABIs and its deployed contracts. Demo media is
+free-licence Pexels footage.
+
+**AI tools.** Most of the code and docs in this repository were written with
+**Claude Code** (Anthropic's coding agent), directed by the author. Nothing
+the app shows is generated: every number is read from the chain or a named
+source. The contracts are covered by 83 Foundry tests, including fuzzed
+invariants, and each sponsor integration has its own tests. The zero-mock
+run on a production build is recorded in
+[docs/TEST-PLAN-ZERO-MOCK.md](docs/TEST-PLAN-ZERO-MOCK.md). Kimi is part of
+the product (`mm juno ask`), not a build tool.
 
 ## License
 

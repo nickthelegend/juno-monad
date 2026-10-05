@@ -30,7 +30,8 @@
     "juno:compare-presets": "tsx scripts/juno-compare-presets.ts",
     "juno:demo": "dotenv -e .env.local -- tsx scripts/juno-demo.ts",
     "juno:perpl-bot": "dotenv -e .env.local -- tsx scripts/perpl-bot.ts",
-    "juno:privy-setup": "dotenv -e .env.local -- tsx scripts/privy-setup.ts"
+    "juno:privy-setup": "dotenv -e .env.local -- tsx scripts/privy-setup.ts",
+    "demo:local": "bash scripts/local-demo.sh"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

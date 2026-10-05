@@ -60,16 +60,19 @@ innovation. Bounties are judged 40% on meeting the stated requirement. So:
 | 1.10 | Kuru orders without an indexer | List and cancel resting orders without Envio | F3 on a prod build, unit test | DONE |
 | 2.1 | Remove autopilot's fixture mode | Only `privy` or `off`; off shows "not set up" | Grep for `fixture` in the product path; app shows the state | DONE: product is Privy-only; the card shows "Not set up"; 6 unit tests on doubles (`tests/unit/juno-autopilot.test.ts`) |
 | 2.2 | Remove the Kimi fixture planner from the command | `ask` without a key says the key is missing | Run `mm juno ask` without the key | DONE: the planner lives in `mm-plugin-juno/test/`; the command names `MOONSHOT_API_KEY` |
-| 3.1 | Screen walk at 375px on a prod build | Every screen renders; no overflow; empty, loading and error states present; console clean | `tests/e2e/walk.mjs` (committed) | NOT STARTED |
-| 4.1 | Zero-mock test plan, every item run | PASS / FAIL / UNTESTED per item; 0 console or network errors | `docs/TEST-PLAN-ZERO-MOCK.md` | NOT STARTED |
-| 5.1 | Quality gate | All suites green; tsc clean; lint clean; Slither; no secrets tracked | Commands recorded below | NOT STARTED |
-| 6.1 | README judge package | One-command demo; new vs pre-existing; AI disclosure; why Monad; architecture diagram; sponsors | Read | IN PROGRESS |
-| 6.2 | SUBMISSION.md | Portal fields per bounty, evidence links, 3-minute demo script with timestamps | Read | IN PROGRESS |
-| 6.3 | `docs/DEPLOY-LATER.md` | Ordered runbook: addresses and MON, keys and where set, deploy and verify, hosting, smoke test, shot list | Read; under 1 hour | NOT STARTED |
+| 3.1 | Screen walk at 375px on a prod build | Every screen renders; no overflow; empty, loading and error states present; console clean | `tests/e2e/walk.mjs` (committed) | DONE: 43/43 screens and tabs, 0 console or network problems |
+| 4.1 | Zero-mock test plan, every item run | PASS / FAIL / UNTESTED per item; 0 console or network errors | `docs/TEST-PLAN-ZERO-MOCK.md` | DONE: 0 FAIL; every UNTESTED item names its blocker |
+| 5.1 | Quality gate | All suites green; tsc clean; lint clean; Slither; no secrets tracked | Commands recorded below | DONE |
+| 6.1 | README judge package | One-command demo; new vs pre-existing; AI disclosure; why Monad; architecture diagram; sponsors | Read; `npm run demo:local` run from a clean state | DONE |
+| 6.2 | SUBMISSION.md | Portal fields per bounty, evidence links, 3-minute demo script with timestamps | Read | DONE (video links and the `JunoNavOracle` address wait for 7.1–7.2) |
+| 6.3 | `docs/DEPLOY-LATER.md` | Ordered runbook: addresses and MON, keys and where set, deploy and verify, hosting, smoke test, shot list | Read; under 1 hour | DONE (about 50 minutes) |
 | 7.1 | Fund deployers; deploy `JunoNavOracle`; redeploy API, indexer and web | Hosted app on HEAD | Post-deploy smoke test | **BLOCKED**: testnet go and MON |
 | 7.2 | Video, 3 minutes or less | Recorded from the shot list | — | **BLOCKED**: testnet go (hosted app on HEAD) |
 
 ## Gap audit (from the code, 6 Oct)
+
+Status at the end of the pipeline: the two P1 mock paths and the missing
+linter are closed. The rest wait on the owner (see *Final*).
 
 The grep for `mock|stub|fake|dummy|placeholder|TODO|FIXME|hardcod|fixture`
 over `lib/`, `app/`, `juno-expo/`, `mm-plugin-juno/src`, `cre/` and
@@ -117,4 +120,41 @@ The 100% checklist (30 items, equal weight):
   - runbook, README and SUBMISSION (partial);
   - hosted on HEAD (blocked).
 
-**Final:** see the end of this file once the pipeline completes.
+**Final (6 Oct, end of this pipeline): 25 / 30 = 83%.** That is every
+item that can be finished without the owner. The 5 left are each blocked on
+a key, an account or the testnet go:
+
+| Item | Blocked on |
+|---|---|
+| Mera native (wallets) | An Apple Developer team id with Associated Domains; the Android release certificate's SHA-256 |
+| Privy beyond login, live (bounty) | `PRIVY_APP_SECRET` on the API, `npm run juno:privy-setup`, gas sponsorship on in Privy's dashboard, and the testnet go (Privy broadcasts to testnet itself) |
+| Chainlink CRE simulate (bounty) | `cre login`; then `--broadcast` after the testnet go |
+| Kimi, live (agent bounty) | `MOONSHOT_API_KEY` (and `mm login`) |
+| Hosted on HEAD, with the video (ship) | The testnet go and MON (`docs/DEPLOY-LATER.md`, about 50 minutes) |
+
+Newly done in this pipeline:
+- no fixture modes in the product (autopilot is Privy-only, `ask` is
+  Kimi-only);
+- zero-mock verification on a production build;
+- the quality gate, with Biome lint added;
+- the runbook;
+- README and SUBMISSION, including `npm run demo:local`.
+
+Results are in [`docs/TEST-PLAN-ZERO-MOCK.md`](docs/TEST-PLAN-ZERO-MOCK.md).
+
+### Quality gate (6 Oct, commands)
+
+| Gate | Command | Result |
+|---|---|---|
+| Contracts | `cd contracts && forge test` | 83 passed, 1 skipped (env-gated Kuru fork suite) |
+| Slither | `slither .` with CI's filters and `--fail-medium` (`.github/workflows/ci.yml`) | 0 medium or high findings |
+| Server unit tests | `npx vitest run tests/unit` | 399 passed |
+| Plugin and Kimi agent | `cd mm-plugin-juno && npm test` | 20 passed |
+| CRE workflow | `cd cre/juno-nav && bun test` | 7 passed |
+| Indexer | `cd indexer && pnpm test` | 10 passed |
+| Typecheck | `tsc --noEmit` in the root, `juno-expo`, `mm-plugin-juno`, `cre/juno-nav` | clean |
+| Lint | `npm run lint` (Biome 2.2.4) | clean |
+| Production build | `next build --webpack`; `expo export --platform web` | built |
+| Secrets | grep for keys, JWTs, mnemonics and `.env` files over `git ls-files` | none tracked (the only matches are the public Pyth feed id and CI's placeholder `JUNO_KEY_SECRET`) |
+| 375 px | `tests/e2e/walk.mjs` | 43/43 |
+| Failure states | E2E A4, B4, E9, E10, E20, I (refusals with a sentence), the walk's unknown coin and bad address | PASS |
