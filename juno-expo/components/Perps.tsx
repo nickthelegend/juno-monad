@@ -66,7 +66,11 @@ export function PerpsPanel() {
       <Segmented items={VIEWS} value={view} onChange={setView} />
 
       {view === "risk" ? (
-        <RiskPanel owner={wallet.address ?? null} />
+        <RiskPanel
+          owner={wallet.address ?? null}
+          // Re-read the moment a position opens, changes or closes, not on the next tick.
+          stamp={(account.data?.positions ?? []).map((p) => `${p.perpId}:${p.size}`).join(",")}
+        />
       ) : markets.loading ? (
         [0, 1, 2].map((i) => <Skeleton key={i} h={64} round={theme.radius.lg} />)
       ) : markets.error ? (
@@ -113,8 +117,8 @@ const VIEWS = [
  * against Perpl's oracle — a book trading rich or cheap. Volatility is
  * realised, from the last day's hourly closes. Re-read every 15 seconds.
  */
-function RiskPanel({ owner }: { owner: string | null }) {
-  const risk = useApi(() => juno.perpRisk(owner), [owner]);
+function RiskPanel({ owner, stamp }: { owner: string | null; stamp: string }) {
+  const risk = useApi(() => juno.perpRisk(owner), [owner, stamp]);
   useEffect(() => {
     const timer = setInterval(risk.poll, 15_000);
     return () => clearInterval(timer);
@@ -187,7 +191,7 @@ function MarketRiskRow({ risk }: { risk: MarketRisk }) {
       <FundingBars points={risk.funding24h} />
       <Caption>
         24h funding {money(risk.fundingCost24hPer1kLong, "USD", { compact: false })} per $1k long · premium{" "}
-        {pct(risk.premium, 3)} · volatility {risk.volatility === null ? "—" : pct(risk.volatility, 0)} · range{" "}
+        {pct(risk.premium, 3)} · volatility {risk.volatility === null ? "—" : `${(risk.volatility * 100).toFixed(0)}%`} · range{" "}
         {risk.low24h !== null && risk.high24h !== null
           ? `${money(risk.low24h, "USD", { compact: false })}–${money(risk.high24h, "USD", { compact: false })}`
           : "—"}
@@ -268,6 +272,12 @@ function AccountCard({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // A success line is news once; it should not outlive the next thing done here.
+  useEffect(() => {
+    if (!note) return;
+    const timer = setTimeout(() => setNote(null), 6_000);
+    return () => clearTimeout(timer);
+  }, [note]);
 
   if (loading && !account) return <Skeleton h={96} round={theme.radius.lg} />;
   if (!account) return null;
