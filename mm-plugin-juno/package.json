@@ -1,7 +1,7 @@
 {
   "name": "mm-plugin-juno",
   "version": "0.1.0",
-  "description": "MetaMask Agent Wallet (mm) plugin: trade Juno's creator coins on Monad — curves, Uniswap v2 pairs and Kuru books",
+  "description": "MetaMask Agent Wallet (mm) plugin: trade Juno's creator coins on Monad (curves, Uniswap v2 pairs and Kuru books), or say what to trade and let Kimi plan it",
   "license": "MIT",
   "type": "module",
   "keywords": [
@@ -78,6 +78,16 @@
       },
       {
         "id": "juno:sell",
+        "capabilities": [
+          "wallet-read",
+          "wallet-submit"
+        ],
+        "dataAccess": [
+          "accounts"
+        ]
+      },
+      {
+        "id": "juno:ask",
         "capabilities": [
           "wallet-read",
           "wallet-submit"
