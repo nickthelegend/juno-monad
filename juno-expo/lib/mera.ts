@@ -11,10 +11,12 @@ import { toViemAccount } from "@category-labs/mera/viem";
 import { HDKey } from "@scure/bip32";
 import { entropyToMnemonic, mnemonicToSeedSync } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
+import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import type { LocalAccount } from "viem";
 
 import type { Address } from "./api";
+import { passkeysSupported, webAuthnClient } from "./mera-client";
 import type { Signer, SignerSource } from "./wallet";
 
 /**
@@ -40,15 +42,25 @@ import type { Signer, SignerSource } from "./wallet";
  * soon as the key is derived; only the address and the credential id are
  * stored, and neither is a secret.
  *
- * Web only for now: a phone build needs the passkey domain wired into the app
- * (associated domains on iOS, asset links on Android). Elsewhere `available`
- * is false and the option is not offered.
+ * On iOS and Android the ceremonies go through Mera's React Native client
+ * (`mera-client.native.ts`) against `PASSKEY_RP_ID`, the web app's domain, so
+ * the same passkey is the same account in the browser and on the phone. That
+ * needs the domain associated with the app (an Apple team for the iOS
+ * entitlement, the release signing certificate for Android's asset links;
+ * see `scripts/passkey-domain.mjs`). Sealed drafts stay web-only: Mera's
+ * secret vaults call `navigator.credentials` directly.
  */
 
 /** How long a session signs without asking again. */
 export const SESSION_MS = 15 * 60_000;
 
 const STORE_KEY = "juno.mera.v1";
+
+/**
+ * The relying party on a phone: the web app's domain, which the app is
+ * associated with. `EXPO_PUBLIC_PASSKEY_RP_ID` overrides it.
+ */
+export const PASSKEY_RP_ID = process.env.EXPO_PUBLIC_PASSKEY_RP_ID?.trim() || "juno-monad-app.vercel.app";
 const PATH = "m/44'/60'/0'/0/0";
 
 type Stored = { address: Address; credentialId: string };
@@ -65,12 +77,22 @@ const listeners = new Set<(state: MeraSessionState) => void>();
 
 /** Whether this platform can run Mera's passkey ceremonies (WebAuthn with PRF). */
 export function meraAvailable(): boolean {
-  return Platform.OS === "web" && typeof globalThis.PublicKeyCredential !== "undefined" && Boolean(globalThis.navigator?.credentials);
+  return passkeysSupported();
 }
+
+/** Where the account's (public) address and credential id live: the browser's storage, or the keychain on a phone. */
+const store = {
+  get: (): string | null =>
+    Platform.OS === "web" ? (globalThis.localStorage?.getItem(STORE_KEY) ?? null) : SecureStore.getItem(STORE_KEY.replace(/[^\w.-]/g, "_")),
+  set: (value: string) =>
+    Platform.OS === "web" ? globalThis.localStorage?.setItem(STORE_KEY, value) : SecureStore.setItem(STORE_KEY.replace(/[^\w.-]/g, "_"), value),
+  remove: () =>
+    Platform.OS === "web" ? globalThis.localStorage?.removeItem(STORE_KEY) : void SecureStore.deleteItemAsync(STORE_KEY.replace(/[^\w.-]/g, "_")),
+};
 
 function readStored(): Stored | null {
   try {
-    const raw = globalThis.localStorage?.getItem(STORE_KEY);
+    const raw = store.get();
     const parsed = raw ? (JSON.parse(raw) as Partial<Stored>) : null;
     return parsed?.address && parsed.credentialId ? { address: parsed.address, credentialId: parsed.credentialId } : null;
   } catch {
@@ -80,8 +102,8 @@ function readStored(): Stored | null {
 
 function writeStored(value: Stored | null) {
   try {
-    if (value) globalThis.localStorage?.setItem(STORE_KEY, JSON.stringify(value));
-    else globalThis.localStorage?.removeItem(STORE_KEY);
+    if (value) store.set(JSON.stringify(value));
+    else store.remove();
   } catch {
     // Private browsing: the account still works for this visit, and the passkey brings it back next time.
   }
@@ -112,7 +134,7 @@ export function endMeraSession() {
 }
 
 function relyingPartyId(): string {
-  return globalThis.location?.hostname ?? "localhost";
+  return Platform.OS === "web" ? (globalThis.location?.hostname ?? "localhost") : PASSKEY_RP_ID;
 }
 
 /** PRF output → the account's private key, wiping every intermediate. */
@@ -144,9 +166,21 @@ function open(prfOutput: Uint8Array, credentialId: string): Address {
 function explain(error: unknown): Error {
   if (isMeraError(error)) {
     if (error.code === "PRF_UNAVAILABLE") {
-      return new Error("This browser's passkeys can't make a Mera account (no PRF). Try Safari with iCloud Keychain, or Chrome with Google Password Manager.");
+      return new Error(
+        Platform.OS === "ios"
+          ? "This iPhone's passkeys can't make a Mera account (no PRF). It needs iOS 18 or later with iCloud Keychain."
+          : Platform.OS === "android"
+            ? "This phone's passkeys can't make a Mera account (no PRF). Use Google Password Manager as the passkey provider."
+            : "This browser's passkeys can't make a Mera account (no PRF). Try Safari with iCloud Keychain, or Chrome with Google Password Manager.",
+      );
     }
-    if (error.code === "PASSKEY_OPERATION_FAILED") return new Error("The passkey prompt was closed or failed. Try again.");
+    if (error.code === "PASSKEY_OPERATION_FAILED") {
+      return new Error(
+        Platform.OS === "web"
+          ? "The passkey prompt was closed or failed. Try again."
+          : `The passkey prompt was closed or failed. If it keeps failing, this build is not yet associated with ${PASSKEY_RP_ID}.`,
+      );
+    }
   }
   return error instanceof Error ? error : new Error(String(error));
 }
@@ -157,6 +191,7 @@ export async function createMeraAccount(): Promise<Address> {
     const created = await createPasskeyWithPrfOutput({
       rp: { id: relyingPartyId(), name: "Juno" },
       user: { name: `Juno account ${new Date().toISOString().slice(0, 10)}`, displayName: "Juno" },
+      webAuthnClient,
     });
     return open(created.prfOutput, created.credentialId);
   } catch (error) {
@@ -172,7 +207,7 @@ export async function createMeraAccount(): Promise<Address> {
 export async function unlockMeraAccount(expected?: Address | null): Promise<Address> {
   let result;
   try {
-    result = await getPasskeyPrfOutput({ rpId: relyingPartyId() });
+    result = await getPasskeyPrfOutput({ rpId: relyingPartyId(), webAuthnClient });
   } catch (error) {
     throw explain(error);
   }
@@ -195,7 +230,13 @@ export async function unlockMeraAccount(expected?: Address | null): Promise<Addr
  * them is the wallet's. Returns the vault as JSON text — ciphertext, nonce,
  * salt and the passkey's id; nothing in it opens without the passkey.
  */
+/** Whether sealed drafts work here: Mera's secret vaults run in the browser only. */
+export function sealedDraftsAvailable(): boolean {
+  return Platform.OS === "web" && meraAvailable();
+}
+
 export async function sealSecret(secret: Uint8Array): Promise<string> {
+  if (!sealedDraftsAvailable()) throw new Error("Sealed drafts open in the web app for now.");
   const stored = readStored();
   if (!stored) throw new Error("Make or unlock a passkey account first.");
   try {
@@ -212,6 +253,7 @@ export async function sealSecret(secret: Uint8Array): Promise<string> {
 
 /** Open a vault sealed by `sealSecret`: one prompt, on any device that has the passkey. */
 export async function openSecret(vaultJson: string): Promise<Uint8Array> {
+  if (!sealedDraftsAvailable()) throw new Error("Sealed drafts open in the web app for now.");
   try {
     return await decryptSecretVaultWithPasskey({ rpId: relyingPartyId(), vault: parseSecretVault(vaultJson) });
   } catch (error) {

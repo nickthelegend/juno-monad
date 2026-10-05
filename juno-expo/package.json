@@ -34,6 +34,7 @@
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-get-random-values": "~1.11.0",
+    "react-native-passkey": "^3.6.1",
     "react-native-passkeys": "^0.4.2",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -54,7 +55,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "postinstall": "patch-package",
-    "export:web": "expo export --platform web --clear && node scripts/web-meta.mjs && cp vercel.web.json dist/vercel.json"
+    "export:web": "expo export --platform web --clear && node scripts/web-meta.mjs && node scripts/passkey-domain.mjs && cp vercel.web.json dist/vercel.json"
   },
   "private": true
 }

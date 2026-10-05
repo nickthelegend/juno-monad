@@ -69,6 +69,7 @@ rough chance of winning it; credits count low.
 | Bounty | Now |
 |---|---|
 | Privy beyond authentication | **Built**: autopilot (`AUTOPILOT.md`). Per-wallet **Privy policies** (Juno trades paid out to the wallet, a MON cap, an expiry), **session signers** added from the app (web and native), the server running due plans through Privy's wallet API, and **native gas sponsorship** (`sponsor: true`) for those and for the person's own trades. Real SDK calls are tested against a stubbed Privy API, including the authorization signature. Fixture mode (fork, no keys) passes a 21-check E2E and a UI run. Needs the owner's `PRIVY_APP_SECRET`, `scripts/privy-setup.ts`, and sponsorship enabled in the dashboard. |
+| Agora Mobile (native Mera) | **Wired, short of signing**: the app's Mera account runs on iOS and Android through Mera's own React Native client (`react-native-passkey` 3.6.1). The rp is the web app's domain, so it is one account on web and phone; the record is kept in the keychain. The iOS `webcredentials` entitlement is in app.json, and the AASA and assetlinks files are generated from the owner's Apple Team ID and Android certificate fingerprint. A unit test covers the native path; web Mera is unchanged (E2E 0 problems). A native ceremony needs those signing identities (`MOBILE-PASSKEYS.md`). |
 | Kimi | **Built**: `mm juno ask "…"`. Kimi (`kimi-k2.6`, `MOONSHOT_API_KEY`) plans a trade with tool calls over the plugin's own functions (markets, coin, portfolio, buy, sell). The buys and sells are real transactions on Monad through the Agent Wallet, bounded by a per-request spend cap, dry run and a step limit. `reasoning_content` is sent back each turn. 9 tests. On the fork the agent loop bought on chain, using the labelled fixture planner because there is no key. Needs the owner's Moonshot key for a run with Kimi itself. |
 | MetaMask Agent Wallet plugin | **Built**: `mm-plugin-juno` adds `mm juno markets | coin | buy | sell | portfolio`. Juno's server builds each trade for the selected wallet (curve, v2 pair or Kuru book, with approvals). The Agent Wallet's `walletExecutor` signs it with a stated intent. Capabilities are per command, and the manifest is validated against MetaMask's schema. 11 unit tests pass, plus an 8-check fork E2E of the trade path. It installs and runs in the real `mm` 7.0.0; buying needs the owner's `mm login`. |
 | Chainlink CRE | **Built**: `cre/juno-nav`, a NAV oracle for tracker coins. A cron trigger reads Tessera marks over HTTP with median consensus, plus Pyth on Monad, Chainlink's USDC/USD feed and `JunoLaunchpad` through EVM reads. It computes the premium to NAV in integers and writes a report to `JunoNavOracle` (on `ReceiverTemplate`, replay-safe). There are 7 workflow tests and 9 receiver tests, and it compiles to WASM. On the fork, a report went through the MockKeystoneForwarder into the receiver, and the app shows the attestation. `cre workflow simulate` is ready but needs the owner's `cre login` (`cre/README.md`). |
@@ -94,3 +95,16 @@ rough chance of winning it; credits count low.
   if those bounties are wanted.
 - Mera on native: Apple team / Android signing for the passkey domain.
 - Confirm the one-project-per-participant rule across the six entries.
+
+## What only the owner can do (as of 6 Oct)
+
+Keys and accounts only. Each one unblocks something already built:
+
+| Item | Unblocks |
+|---|---|
+| `PRIVY_APP_SECRET`, then `npm run juno:privy-setup`; gas sponsorship on for Monad testnet in the Privy dashboard; `PRIVY_SPONSOR_GAS=1`, `JUNO_CRON_SECRET` | Autopilot in `privy` mode (`AUTOPILOT.md`) |
+| `cre login` | `cre workflow simulate juno-nav` (`cre/README.md`) |
+| `mm login` (a MetaMask Agent Wallet account) | a live `mm juno buy` / `ask` |
+| `MOONSHOT_API_KEY` | `mm juno ask` on Kimi itself, instead of the labelled fixture |
+| Apple Developer team id, with Associated Domains on; the Android release certificate's SHA-256 | Native Mera passkeys (`MOBILE-PASSKEYS.md`) |
+| MON for the hosted demo and faucet; the go-ahead to redeploy | Everything above, on the hosted testnet app |
