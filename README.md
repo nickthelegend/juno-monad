@@ -11,24 +11,29 @@ The same machinery issues **pre-IPO and stock trackers**: curves shaped like
 issuances and marked against a real reference — **Tessera** marks for OpenAI,
 Kalshi and SpaceX, **Pyth** feeds for AAPL, NVDA, TSLA and friends.
 
-Built for Monad's **Metropolis** hackathon — Track 03, *Social, Attention &
-Culture*: a feed where curation is paid for by the people who benefit from it.
+Built for Monad's **Metropolis** hackathon — Track 01, *Onchain Finance &
+Trading*: a creator launchpad whose coins graduate into real on-chain order
+books, with perps on Perpl and pre-IPO trackers beside them.
+
+**Try it:** <https://juno-monad-app.vercel.app> — Monad testnet, nothing to
+install. Profile → *Sign with* → **Passkey** makes an account from one
+passkey prompt.
 
 | | |
 |---|---|
 | **Network** | Monad **testnet** (chain 10143). No real money. |
-| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad`, `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`, `JunoSwapRouter`. Addresses are filled in by [`contracts/deploy.sh`](contracts/deploy.sh); see [DEPLOY.md](DEPLOY.md). |
-| **App** | [`juno-expo/`](juno-expo/) — Expo (iOS, Android, web). |
-| **Download** | [Release v1.1.0](https://github.com/nickthelegend/juno-monad/releases/tag/v1.1.0): the Android APK (arm64) and an iOS Simulator build. Both talk to a Juno API on your own machine until one is hosted — see *Install it*. |
-| **API** | [`app/api/juno/`](app/api/juno/) — the Next.js server the app talks to. [docs/API.md](docs/API.md). |
+| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad` [`0xa8b0…5c81`](https://testnet.monadvision.com/address/0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81), `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`, `JunoSwapRouter`, all verified on MonadVision; every address in [`contracts/deployments/10143.json`](contracts/deployments/10143.json). |
+| **App** | <https://juno-monad-app.vercel.app> · [`juno-expo/`](juno-expo/) — Expo (iOS, Android, web). |
+| **API** | <https://juno-api-production-04ea.up.railway.app> · [`app/api/juno/`](app/api/juno/) — the Next.js server the app talks to. [docs/API.md](docs/API.md). |
 | **Indexer** | [`indexer/`](indexer/) — Envio HyperIndex over the launchpad's events. |
 | **Deep dive** | [JUNO.md](JUNO.md) — the curve, the contracts, what is and is not built. |
 
 ## Install it
 
-The 1.1.0 builds point at an API on the machine running them, because none is
-hosted yet: set up the stack as *Run it* below says, and start the API on
-port 3100 with `npm run dev -- --port 3100`.
+The web app is live at <https://juno-monad-app.vercel.app> against the hosted
+API — nothing to install. To run a phone build against your own stack, set it
+up as *Run it* below says and start the API on port 3100 with
+`npm run dev -- --port 3100`.
 
 - **Android emulator:** `adb install juno-monad-1.1.0-arm64.apk`. The APK
   reaches the host at `http://10.0.2.2:3100`; plain HTTP is allowed to that
@@ -80,21 +85,31 @@ read fails the app says so — it does not print a zero it never measured.
   way into Kuru — orders, vault deposits, router swaps — so nobody can price it
   there first. After graduation the app keeps trading the coin on its Kuru
   market (quoted free through Kuru's own `eth_call` path), and the indexer
-  follows it there. Testnet only: Kuru's mainnet Router lets only Kuru create
-  markets.
+  follows it there. Trade → **Kuru** lists every market Juno has opened.
+  Testnet only: Kuru's mainnet Router lets only Kuru create markets.
 - **Perps beside the posts.** The Trade tab carries Perpl's perpetual markets —
   BTC, ETH, SOL, MON and more, isolated margin in AUSD — with live marks,
   funding and open interest, and opens and closes positions through the same
   wallet and server-built transactions as everything else
   ([`lib/juno/perpl.ts`](lib/juno/perpl.ts)). Kuru has no perps; Perpl is
-  Monad's perps exchange. Testnet AUSD is not publicly mintable, so the order
-  path is proven by simulation against live testnet
-  ([`scripts/perps-simulate.ts`](scripts/perps-simulate.ts)).
+  Monad's perps exchange. Collateral comes from **Agora's AUSD faucet** in the
+  app (10,000 test AUSD a request), and a **Risk** view reads Perpl's public
+  API for each market's funding (now, annualised, the last day's payments),
+  premium to the oracle and realised volatility, and for each position its
+  leverage on equity, distance to liquidation and margin health.
 - **Fees that decay, paid to the poster.** A launch fee that blunts snipers
   decays exponentially to a resting fee over sixty periods. The creator takes
   the trading fees, claimable any time.
 - **One transaction per action.** Launch — token, curve, the lock on its AMM pair and the
   creator's optional first buy — is one call. Selling needs no approval.
+- **A passkey is the whole account (Mera).** One passkey prompt makes a
+  wallet: Mera's WebAuthn PRF output becomes a standard BIP-39/BIP-44 key, so
+  the same passkey brings back the same address on any device or after the
+  browser is cleared, and nothing secret is stored. An unlock opens a
+  15-minute **signing session** — trades sign with no prompt, a countdown on
+  the profile, *End session* wipes the key — and the passkey does a second
+  job: **sealed drafts**, a post's words encrypted to it under their own PRF
+  salt and kept on the server as ciphertext ([`juno-expo/lib/mera.ts`](juno-expo/lib/mera.ts)).
 - **Keys never leave the device — or sign in with Privy.** The server builds
   unsigned transactions; the wallet signs; the server submits and records
   what the receipt says. The wallet is a device key by default, or a Privy
