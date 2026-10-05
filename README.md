@@ -118,6 +118,23 @@ read fails the app says so — it does not print a zero it never measured.
   email code in Juno's own sheet. An X account linked in Privy can be
   shown on the creator's profile once the server has verified it with Privy
   ([`lib/juno/privy.ts`](lib/juno/privy.ts)).
+- **Autopilot: plans that buy themselves, gas paid by Privy.** A Privy
+  wallet can add Juno's key as a session signer, under a Privy policy
+  written for that wallet. The policy allows only Juno trades paid out to
+  it, caps the MON per trade, and expires. Recurring buys then run on
+  schedule, sent through Privy's wallet API with native gas sponsorship
+  ([`docs/AUTOPILOT.md`](docs/AUTOPILOT.md)).
+- **Tracker NAVs attested on chain by Chainlink CRE.** The `juno-nav`
+  workflow does three things on each run. It reads Tessera marks with DON
+  consensus, plus Pyth and Chainlink's USDC/USD feed on Monad. It compares
+  them with each tracker's curve. It writes the premium to `JunoNavOracle`,
+  and the coin page shows the attestation ([`cre/README.md`](cre/README.md)).
+- **Trade Juno from an agent.** `mm juno buy/sell` brings Juno's curves,
+  pairs and Kuru books to the MetaMask Agent Wallet. `mm juno ask "…"` lets
+  Kimi plan the trade with tool calls, inside a spend cap
+  ([`mm-plugin-juno/`](mm-plugin-juno/README.md)).
+- **A Perpl bot.** Funding carry and a position guard on Perpl's API, with
+  caps, a daily loss limit and a kill switch ([`docs/PERPL-BOT.md`](docs/PERPL-BOT.md)).
 - **History without hammering the RPC.** Monad's public RPC answers
   `eth_getLogs` over 100 blocks — thirty seconds of chain. Trades are recorded
   from receipts as they land, a single log cursor tails the launchpad for the
@@ -132,7 +149,9 @@ read fails the app says so — it does not print a zero it never measured.
 | `app/api/juno/` | The API the app calls. |
 | `lib/juno/` | Curves, the launchpad client, trade history, Pyth, Tessera, portfolio. |
 | `indexer/` | Envio HyperIndex: trades, pools, positions. |
-| `scripts/juno-*.ts` | Launch, trade, claim, graduate from the command line. |
+| `cre/` | Chainlink CRE workflow `juno-nav` (tracker NAV oracle). |
+| `mm-plugin-juno/` | MetaMask Agent Wallet plugin: `mm juno …`, with Kimi. |
+| `scripts/juno-*.ts` | Launch, trade, claim, graduate from the command line; `scripts/perpl-bot.ts`, the Perpl bot. |
 | `docs/` | API reference and hackathon notes. |
 
 ## Run it

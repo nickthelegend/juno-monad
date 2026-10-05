@@ -42,12 +42,18 @@ claimed before it is true. Where the track and bounties come from:
   post has a price, a chart and a buy button; iOS, Android and web from one
   Expo codebase; a trade receipt with the transaction and its measured
   confirmation time.
-- **Technical excellence.** Juno's own contracts (`JunoLaunchpad`,
-  `CurveMath`, `JunoToken`, the Uniswap v2 and Kuru graduators, `JunoSwapRouter`):
-  74 Foundry tests with fuzzed invariants, a Solidity ↔ TypeScript parity test
-  for every curve preset, 7 fork tests against Kuru's live testnet contracts,
-  Slither clean at medium and above in CI. 312 unit tests for the server;
-  Envio handler tests.
+- **Technical excellence.**
+  - **Contracts:** Juno's own (`JunoLaunchpad`, `CurveMath`, `JunoToken`, the
+    Uniswap v2 and Kuru graduators, `JunoSwapRouter`) and the CRE receiver
+    `JunoNavOracle`. 83 Foundry tests with fuzzed invariants, a Solidity ↔
+    TypeScript parity test for every curve preset, fork tests against Kuru's
+    live testnet contracts, and Slither clean at medium and above in CI.
+  - **Server:** 392 unit tests.
+  - **Plugin and workflow:** 20 tests for the MetaMask plugin and Kimi agent,
+    and 7 for the CRE workflow on Chainlink's SDK test runtime.
+  - **Envio:** handler tests.
+  - **Fork E2E:** autopilot (21 checks), the plugin's trade path (11), the
+    Perpl bot, and a CRE report through Monad's forwarder.
 - **Monad integration.** See *Why Monad*; Pyth read from its contract on
   Monad; Envio HyperIndex for full history because public `eth_getLogs` covers
   100 blocks.
