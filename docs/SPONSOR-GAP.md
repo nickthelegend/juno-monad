@@ -68,6 +68,7 @@ rough chance of winning it; credits count low.
 
 | Bounty | Now |
 |---|---|
+| Privy beyond authentication | **Built**: autopilot (`AUTOPILOT.md`). Per-wallet **Privy policies** (Juno trades paid out to the wallet, a MON cap, an expiry), **session signers** added from the app (web and native), the server running due plans through Privy's wallet API, and **native gas sponsorship** (`sponsor: true`) for those and for the person's own trades. Real SDK calls are tested against a stubbed Privy API, including the authorization signature. Fixture mode (fork, no keys) passes a 21-check E2E and a UI run. Needs the owner's `PRIVY_APP_SECRET`, `scripts/privy-setup.ts`, and sponsorship enabled in the dashboard. |
 | Perpl Best use of the API | **Built**: `scripts/perpl-bot.ts`, a funding-carry and position-guard bot on Perpl's public API and `execOrder`. Caps per trade, notional, positions and daily loss, a kill switch, a mainnet refusal, state that survives restarts, and 429 retry. Decisions are pure and unit-tested (10 tests). Opened and closed a real BTC short on a fork of testnet. See `PERPL-BOT.md`. |
 
 ## What gets built now (no owner action needed)

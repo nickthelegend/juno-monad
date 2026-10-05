@@ -7,6 +7,7 @@ import { BottomSheet } from "./BottomSheet";
 import { Tappable } from "./Press";
 import { Body, Button, Caption, Col, Label, Pill, Progress, Row, Segmented } from "./kit";
 import { juno, type Coin, type Plan } from "../lib/api";
+import { autopilotConfig, cachedAutopilot } from "../lib/autopilot-relay";
 import { tradesInApp } from "../lib/markets";
 import { money, tokens } from "../lib/useApi";
 import { theme } from "../theme";
@@ -21,13 +22,13 @@ import { theme } from "../theme";
  * ## What is real here and what is not
  *
  * The watch and the alert are rows in Postgres, and the alert resolves against
- * the price this screen already read from the chain. The plan is also a row —
- * and it does **not** execute itself. Signing a swap on someone's behalf needs
- * a delegate or a session key with spending authority, which this project does
- * not have and will not pretend to: the plan says when it is due, and the buy
- * is the same device-signed transaction as any other buy. `contributed` moves
- * only after a transaction lands, and is recorded with its hash, so the
- * progress bar is a record of transactions rather than of intentions.
+ * the price this screen already read from the chain. The plan is also a row.
+ * By itself it does not execute: the plan says when it is due, and the buy is
+ * the same device-signed transaction as any other buy. With **autopilot** on
+ * (`components/Autopilot.tsx`), a Privy session signer under a per-wallet
+ * policy, the server buys it when due. `contributed` moves only after a
+ * transaction lands, and is recorded with its hash, so the progress bar is a
+ * record of transactions rather than of intentions.
  *
  * ## Units
  *
@@ -518,10 +519,7 @@ export function PlanSheet({
       <SheetBody>
         <Col gap={4}>
           <Label muted>Buy {coin.symbol} on a schedule</Label>
-          <Caption>
-            Juno cannot spend from your wallet, so nothing happens without you. This says how much
-            and how often, and tells you when it is due.
-          </Caption>
+          <Caption>{planNote(wallet)}</Caption>
         </Col>
 
         <Field>
@@ -589,6 +587,18 @@ export function PlanSheet({
 
 /** The coin page's own price format, duplicated rather than imported to keep
  *  this component free of a dependency on the screen that hosts it. */
+/** What the plan sheet promises, which depends on whether autopilot will act on it. */
+function planNote(wallet: string | null): string {
+  if (cachedAutopilot(wallet)?.status === "active") {
+    return "Autopilot is on: Juno buys this for you each time it comes due, inside your autopilot policy.";
+  }
+  const mode = autopilotConfig()?.mode ?? "off";
+  if (mode !== "off") {
+    return "This says how much and how often, and tells you when it is due. Turn on autopilot (Profile → Plans) and Juno buys it for you.";
+  }
+  return "Juno cannot spend from your wallet, so nothing happens without you. This says how much and how often, and tells you when it is due.";
+}
+
 function price(value: number, currency: string): string {
   return money(value, currency, { compact: false });
 }

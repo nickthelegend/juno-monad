@@ -7,6 +7,7 @@ import styled from "styled-components/native";
 import { AreaChart, RANGES, withinRange, type Range } from "../../components/AreaChart";
 import { CoinArt, Identicon } from "../../components/art";
 import { Tappable } from "../../components/Press";
+import { AutopilotCard } from "../../components/Autopilot";
 import { SignerChoice } from "../../components/SignerChoice";
 import { TradeList } from "../../components/TradeList";
 import { WalletCard } from "../../components/WalletCard";
@@ -345,7 +346,10 @@ export default function ProfileScreen() {
             onOpen={(token) => router.push(`/coin/${token}`)}
           />
         ) : tab === "plans" ? (
-          <PlansTab state={savings} onOpen={(token) => router.push(`/coin/${token}`)} />
+          <>
+            <AutopilotCard />
+            <PlansTab state={savings} onOpen={(token) => router.push(`/coin/${token}`)} />
+          </>
         ) : tab === "activity" ? (
           <TradeList positions={data?.positions ?? []} />
         ) : (
@@ -506,7 +510,8 @@ function PlansTab({
       <Card>
         <Body muted>
           No recurring buys yet. Set one from a coin&rsquo;s page to put the same
-          amount in every week — it tells you when it is due and you sign each one.
+          amount in every week. It tells you when a buy is due and you sign it, or
+          autopilot buys it for you.
         </Body>
       </Card>
     );

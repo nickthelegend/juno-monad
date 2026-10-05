@@ -36,12 +36,13 @@ export const OPTIONS = junoOptions;
 /**
  * Recurring buys.
  *
- * Deliberately not a bot. Executing a swap on someone's behalf needs a delegate
- * or a session key with spending authority, which this project does not have —
- * so a plan stores the intent and says when it is due, and the buy is the same
- * server-built, device-signed transaction as any other. `contributed` only
- * moves when a buy confirms, and the transaction is checked on the way in, so
- * the progress bar records transactions rather than intentions.
+ * A plan stores the intent and says when it is due. The buy is either the
+ * same server-built, device-signed transaction as any other, or, for a wallet
+ * on autopilot (`lib/juno/autopilot.ts`), sent by the server through the
+ * wallet's Privy session signer, inside a policy that allows only Juno trades
+ * paid out to that wallet. `contributed` only moves when a buy confirms, and
+ * the transaction is checked on the way in, so the progress bar records
+ * transactions rather than intentions.
  */
 export async function GET(request: Request) {
   return junoHandler(async () => {

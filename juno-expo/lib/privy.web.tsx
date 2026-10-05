@@ -4,6 +4,7 @@ import {
   useLogin,
   usePrivy,
   useSignMessage,
+  useSigners,
   useSignTransaction,
   type User,
 } from "@privy-io/react-auth";
@@ -65,6 +66,8 @@ export function usePrivyWallet(): PrivyState {
       login: () => Promise.reject(new Error("Privy is not configured on this build")),
       logout: () => Promise.resolve(),
       getAccessToken: () => Promise.resolve(null),
+      addSigner: () => Promise.reject(new Error("Privy is not configured on this build")),
+      removeSigners: () => Promise.resolve(),
     }
   );
 }
@@ -93,6 +96,7 @@ function Bridge({ children }: { children: ReactNode }) {
   const { createWallet } = useCreateWallet();
   const { signTransaction } = useSignTransaction();
   const { signMessage } = useSignMessage();
+  const { addSigners, removeSigners } = useSigners();
 
   /*
    * A `SignerSource` is a plain object the wallet provider holds on to, while
@@ -100,8 +104,8 @@ function Bridge({ children }: { children: ReactNode }) {
    * through refs, so it stays one stable object — a new one each render
    * would restart the provider every time Privy re-rendered.
    */
-  const latest = useRef({ privy, createWallet, signTransaction, signMessage });
-  latest.current = { privy, createWallet, signTransaction, signMessage };
+  const latest = useRef({ privy, createWallet, signTransaction, signMessage, addSigners, removeSigners });
+  latest.current = { privy, createWallet, signTransaction, signMessage, addSigners, removeSigners };
 
   // Promises waiting on Privy: for it to load, and for a login to finish.
   const readyWaiters = useRef<Array<() => void>>([]);
@@ -158,6 +162,7 @@ function Bridge({ children }: { children: ReactNode }) {
         const { signature } = await latest.current.signMessage({ message }, { address });
         return signature as Hex;
       },
+      accessToken: () => latest.current.privy.getAccessToken(),
     });
 
     return {
@@ -205,6 +210,15 @@ function Bridge({ children }: { children: ReactNode }) {
             }),
       logout: () => latest.current.privy.logout(),
       getAccessToken: () => latest.current.privy.getAccessToken(),
+      addSigner: async (signerId, policyId) => {
+        const address = embeddedWallet(latest.current.privy.user);
+        if (!address) throw new Error("Make your Privy wallet first.");
+        await latest.current.addSigners({ address, signers: [{ signerId, policyIds: [policyId] }] });
+      },
+      removeSigners: async () => {
+        const address = embeddedWallet(latest.current.privy.user);
+        if (address) await latest.current.removeSigners({ address });
+      },
     }),
     [privy.ready, privy.authenticated, privy.user, source],
   );

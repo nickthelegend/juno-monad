@@ -47,7 +47,8 @@ export function privyConfigured(): boolean {
 
 let client: PrivyClient | null = null;
 
-function privy(): PrivyClient {
+/** The server's Privy client (app id and secret). Throws a 503 when Privy is not configured. */
+export function privy(): PrivyClient {
   if (!privyConfigured()) throw new CallerError("Privy is not configured on this server", 503);
   client ??= new PrivyClient({
     appId: process.env.NEXT_PUBLIC_PRIVY_APP_ID!.trim(),

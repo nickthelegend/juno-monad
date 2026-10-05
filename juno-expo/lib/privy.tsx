@@ -34,6 +34,12 @@ export type PrivyState = {
   logout: () => Promise<void>;
   /** The session's access token, for the server to verify who this is. */
   getAccessToken: () => Promise<string | null>;
+  /**
+   * Add a session signer to the embedded wallet: a key the server holds,
+   * limited by a Privy policy (autopilot). Removing takes every signer off.
+   */
+  addSigner: (signerId: string, policyId: string) => Promise<void>;
+  removeSigners: () => Promise<void>;
 };
 
 const UNAVAILABLE: PrivyState = {
@@ -46,6 +52,8 @@ const UNAVAILABLE: PrivyState = {
   login: () => Promise.reject(new Error("Privy sign-in is on the web build for now")),
   logout: () => Promise.resolve(),
   getAccessToken: () => Promise.resolve(null),
+  addSigner: () => Promise.reject(new Error("Privy is not available here")),
+  removeSigners: () => Promise.resolve(),
 };
 
 export function PrivyBridge({ children }: { children: ReactNode }) {

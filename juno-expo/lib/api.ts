@@ -246,7 +246,57 @@ export type ChainConfig = {
    * (the deployment has Juno's swap router). Absent on an older server.
    */
   v2Trading?: boolean;
+  /** Privy session signers and gas sponsorship. Absent on an older server. */
+  autopilot?: AutopilotConfig;
 };
+
+/**
+ * Autopilot: Juno sends trades for a Privy wallet, inside a Privy policy
+ * written for that wallet, and Privy pays the gas. `fixture` is a local fork
+ * standing in for Privy (no keys), and says so on screen.
+ */
+export type AutopilotConfig = {
+  mode: "privy" | "fixture" | "off";
+  /** The key quorum the app adds to the wallet as a signer. */
+  signerId: string | null;
+  /** Privy pays the gas for autopilot's transactions. */
+  sponsor: boolean;
+  maxPerTradeMon: number;
+  days: number;
+};
+
+export type AutopilotRun = {
+  wallet: string;
+  kind: "plan" | "trade";
+  planId: string | null;
+  label: string;
+  hash: Hex | null;
+  via: "privy" | "fixture";
+  sponsored: boolean;
+  error: string | null;
+  at: string;
+};
+
+export type AutopilotStatus = {
+  mode: AutopilotConfig["mode"];
+  status: "off" | "pending" | "active" | "expired";
+  expiresAt: string | null;
+  policyId: string | null;
+  signerId: string | null;
+  sponsor: boolean;
+  maxPerTradeMon: number;
+  /** The policy's rules by name: everything Juno may send for this wallet. */
+  allows: string[];
+  runs: AutopilotRun[];
+};
+
+/** A Privy session, or (fixture mode) the wallet's signature over `autopilotMessage`. */
+export type AutopilotProof = { accessToken?: string; issuedAt?: string; signature?: Hex };
+
+/** The text a wallet signs in fixture mode. Must match `lib/juno/autopilot.ts`. */
+export function autopilotMessage(action: "start" | "stop" | "send", wallet: string, issuedAt: string): string {
+  return `Juno autopilot: ${action}\nWallet: ${wallet}\nIssued: ${issuedAt}`;
+}
 
 /** A Perpl perpetual market, live. Prices USD; `fundingRate` per interval as a ratio. */
 export type PerpMarket = {
@@ -1281,6 +1331,14 @@ export const juno = {
       /** Exact, in the smallest unit, as a decimal string. */
       raw: string | null;
     }>(`/api/juno/tx/balance?wallet=${wallet}&token=${token}`),
+
+  /** Whether autopilot acts for this wallet, what its policy allows, and its last runs. */
+  autopilot: (wallet: string) => api.get<AutopilotStatus>(`/api/juno/autopilot?wallet=${wallet}`),
+  autopilotAction: (input: { action: "start" | "confirm" | "stop"; wallet: string } & AutopilotProof) =>
+    api.post<AutopilotStatus>("/api/juno/autopilot", input, 60_000),
+  /** Send server-built steps through autopilot (Privy pays the gas). Answers like `submit`, one result per step. */
+  autopilotSend: (input: { wallet: string; steps: Array<{ to: string; data: Hex; value: Hex; label: string }> } & AutopilotProof) =>
+    api.post<{ results: Array<SubmitResult & { via: "privy" | "fixture"; sponsored: boolean }> }>("/api/juno/autopilot/send", input, 120_000),
 
   /** Broadcast one signed transaction and wait for its receipt. */
   submit: (input: { signed: Hex }) =>

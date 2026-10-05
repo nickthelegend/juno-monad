@@ -1,4 +1,5 @@
 import { junoJson, junoOptions } from "@/lib/juno/api";
+import { autopilotConfig } from "@/lib/juno/autopilot";
 import { QUOTE_TOKENS } from "@/lib/juno/launchpad";
 import {
   chain,
@@ -18,7 +19,7 @@ export const OPTIONS = junoOptions;
 /**
  * Which chain this server talks to, and where to look things up on it.
  *
- * `GET` → `{ network, chainId, rpcUrl, localFork, launchpad, explorer, quoteTokens, faucet, venues }`.
+ * `GET` → `{ network, chainId, rpcUrl, localFork, launchpad, explorer, quoteTokens, faucet, venues, autopilot }`.
  *
  * The app reads this once at start rather than compiling any of it in, so one
  * build can follow a server from testnet to mainnet. Nothing here is a secret
@@ -54,6 +55,8 @@ export async function GET() {
     faucet: network() === "testnet",
     // Graduated coins trade in the app when the deployment has Juno's router.
     v2Trading: swapRouterAddress() !== null,
+    // Privy session signers and gas sponsorship (lib/juno/autopilot.ts).
+    autopilot: autopilotConfig(),
     venues: [
       { id: "uniswap-v2", name: "Uniswap v2", quotes: QUOTE_TOKENS.map((token) => token.address) },
       ...(kuruGraduatorAddress()

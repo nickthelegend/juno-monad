@@ -10,6 +10,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { sameAddress } from "./address";
 import { juno, type Address, type Hex, type SubmitResult, type UnsignedTransaction } from "./api";
+import { autopilotUnavailable, sponsoredSend } from "./autopilot-relay";
 
 /**
  * The wallet.
@@ -55,6 +56,8 @@ export interface Signer {
   signTransaction(transaction: TransactionSerializableEIP1559): Promise<Hex>;
   /** EIP-191 `personal_sign` of UTF-8 text. */
   signMessage(message: string): Promise<Hex>;
+  /** A Privy wallet's session token, so the server can act for it (autopilot). Privy signers only. */
+  accessToken?: () => Promise<string | null>;
 }
 
 /** Where a signer comes from, and where it goes when the person signs out. */
@@ -353,6 +356,24 @@ export function WalletProvider({
       onLanded?: (result: SubmitResult, step: { index: number; total: number; label: string }) => void,
     ) => {
       const total = steps.length;
+
+      // A Privy wallet on autopilot while Privy sponsors gas: Juno sends the
+      // steps for it, inside its policy, and the person needs no MON. If
+      // autopilot has since been switched off or expired, sign as usual.
+      const sponsored = steps.length > 0 && sameAddress(steps[0].request.from, current.current?.address ?? "")
+        ? sponsoredSend(current.current!)
+        : null;
+      if (sponsored) {
+        onStep?.({ index: 0, total, label: steps[0].label, phase: "submitting" });
+        try {
+          const results = await sponsored(steps);
+          results.forEach((result, index) => onLanded?.(result, { index, total, label: steps[index].label }));
+          return results;
+        } catch (caught) {
+          if (!autopilotUnavailable(caught)) throw caught;
+        }
+      }
+
       const signed: Hex[] = [];
       for (const [index, step] of steps.entries()) {
         onStep?.({ index, total, label: step.label, phase: "signing" });

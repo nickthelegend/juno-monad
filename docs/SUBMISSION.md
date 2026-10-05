@@ -10,7 +10,7 @@ claimed before it is true. Where the track and bounties come from:
 | Project | Juno — every post is a market |
 | One-liner | Post a photo or a reel and it launches its own bonding curve on Monad; when the curve fills it graduates into its own Kuru order-book market (or a Uniswap v2 pair), with perps on Perpl and pre-IPO trackers beside it. |
 | Primary track | 01 — Onchain Finance & Trading |
-| Bounties to add | Kuru — New Assets and Markets · Kuru — Consumer Trading App · Perpl — Analytics/Risk Tool · Perpl — Best use of the API (funding-carry and guard bot, [PERPL-BOT.md](PERPL-BOT.md)) · Agora — Mobile Trading App (Mera sign-in + AUSD + Perpl, working in the web app; native Mera pending) · Mera — Best UX · Mera — One Passkey, Many Keys · Envio · Privy |
+| Bounties to add | Kuru — New Assets and Markets · Kuru — Consumer Trading App · Perpl — Analytics/Risk Tool · Perpl — Best use of the API (funding-carry and guard bot, [PERPL-BOT.md](PERPL-BOT.md)) · Agora — Mobile Trading App (Mera sign-in + AUSD + Perpl, working in the web app; native Mera pending) · Mera — Best UX · Mera — One Passkey, Many Keys · Envio · Privy (autopilot: session signers under per-wallet policies, gas sponsorship, [AUTOPILOT.md](AUTOPILOT.md)) |
 | Repo | <https://github.com/nickthelegend/juno-monad> (MIT) |
 | Live app | <https://juno-monad-app.vercel.app> (API <https://juno-api-production-04ea.up.railway.app>) |
 | Contracts (Monad testnet) | `JunoLaunchpad` `0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81`, `UniswapV2Graduator` `0x6924937d7DDDD7D1c931Dc7a9779bD32F807FeAA`, `KuruGraduator` `0xBeFD5740896D157A3E9821939e5ba213BEf50F99`, `JunoSwapRouter` `0x648c6E84F779Cf20730Db26d49B7B950ca256366`, v2 factory `0xA81f5D4884d56B7F648bCAb6e6fcdc8b8f54fb81` — all verified on MonadVision ([`contracts/deployments/10143.json`](../contracts/deployments/10143.json)) |
@@ -89,6 +89,10 @@ claimed before it is true. Where the track and bounties come from:
    the live tape shows it move Proposed → Voted → Finalized.
 7. + → Post a photo → launch: one transaction. A passkey account can also
    *Seal this draft* — encrypted to the passkey, opened on any device with it.
-8. The Perpl bot, from a clone: `npm run juno:perpl-bot -- status` shows the
+8. Signed in with Privy: Profile → Plans → **Turn on autopilot**. Juno's
+   signer goes on the wallet under a policy that allows only Juno trades paid
+   out to it. Plans then buy themselves when due, and Privy pays the gas
+   ([AUTOPILOT.md](AUTOPILOT.md)).
+9. The Perpl bot, from a clone: `npm run juno:perpl-bot -- status` shows the
    markets it watches and what it would do; `run --dry-run --once` decides
    without signing ([PERPL-BOT.md](PERPL-BOT.md)).

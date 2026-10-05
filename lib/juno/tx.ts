@@ -807,6 +807,27 @@ export async function submitSigned(params: { signed: Hex }): Promise<SubmitResul
 }
 
 /**
+ * A transaction something else broadcast (Privy, sending for autopilot): wait
+ * for its receipt and record what it did, as `submitSigned` does for a
+ * transaction the device signed. `from` is the wallet it acted for; with gas
+ * sponsorship the outer sender can be Privy's relayer.
+ */
+export async function settleSent(hash: Hex, from: Address, startedAt = performance.now()): Promise<SubmitResult> {
+  let receipt: TransactionReceipt;
+  try {
+    receipt = await publicClient().waitForTransactionReceipt({ hash, timeout: RECEIPT_TIMEOUT_MS });
+  } catch {
+    throw new CallerError(`The network accepted this transaction but it has not confirmed yet. It is ${hash}.`, 504);
+  }
+  const confirmedInMs = Math.round(performance.now() - startedAt);
+  if (receipt.status !== "success") {
+    const reason = await revertReason(hash, receipt).catch(() => null);
+    throw new CallerError(`${reason ?? "The transaction reverted."} It is on-chain as ${hash}.`, 422);
+  }
+  return { ...(await describeReceipt(receipt, from)), confirmedInMs };
+}
+
+/**
  * The endpoint does not implement the method, or not in the form it was
  * called — either way the transaction was never broadcast, so falling back to
  * a plain send cannot submit it twice. A refusal of the transaction itself

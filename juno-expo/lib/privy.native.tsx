@@ -4,6 +4,7 @@ import {
   useEmbeddedWallet,
   useLoginWithEmail,
   usePrivy,
+  useSigners,
 } from "@privy-io/expo";
 import * as Application from "expo-application";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -90,6 +91,8 @@ export function usePrivyWallet(): PrivyState {
       login: () => Promise.reject(new Error("Privy is not ready")),
       logout: () => Promise.resolve(),
       getAccessToken: () => Promise.resolve(null),
+      addSigner: () => Promise.reject(new Error("Privy is not ready")),
+      removeSigners: () => Promise.resolve(),
     }
   );
 }
@@ -134,8 +137,9 @@ function Bridge({ children }: { children: ReactNode }) {
 
   // Hooks hand back new objects every render; the source below is one stable
   // object that reads the latest of them through this ref.
-  const latest = useRef({ user, isReady, wallet, ethereum, walletState, email, logout, getAccessToken });
-  latest.current = { user, isReady, wallet, ethereum, walletState, email, logout, getAccessToken };
+  const { addSigners, removeSigners } = useSigners();
+  const latest = useRef({ user, isReady, wallet, ethereum, walletState, email, logout, getAccessToken, addSigners, removeSigners });
+  latest.current = { user, isReady, wallet, ethereum, walletState, email, logout, getAccessToken, addSigners, removeSigners };
 
   const [sheet, setSheet] = useState(false);
   const readyWaiters = useRef<Array<() => void>>([]);
@@ -259,6 +263,7 @@ function Bridge({ children }: { children: ReactNode }) {
         if (typeof signature !== "string") throw new Error("Privy returned no signature");
         return signature as Hex;
       },
+      accessToken: () => latest.current.getAccessToken(),
     });
 
     return {
@@ -328,6 +333,15 @@ function Bridge({ children }: { children: ReactNode }) {
       login: () => (latest.current.user && latest.current.wallet ? Promise.resolve() : signIn()),
       logout: () => latest.current.logout(),
       getAccessToken: () => latest.current.getAccessToken(),
+      addSigner: async (signerId, policyId) => {
+        const held = latest.current.wallet;
+        if (!held) throw new Error("Your Privy wallet is not ready yet");
+        await latest.current.addSigners({ address: held.address, signers: [{ signerId, policyIds: [policyId] }] });
+      },
+      removeSigners: async () => {
+        const held = latest.current.wallet;
+        if (held) await latest.current.removeSigners({ address: held.address });
+      },
     }),
     [isReady, user, wallet, source, signIn],
   );
