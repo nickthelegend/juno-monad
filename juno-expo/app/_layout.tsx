@@ -56,6 +56,7 @@ export default function RootLayout() {
             <Stack.Screen name="coin/[token]" />
             <Stack.Screen name="trader/[wallet]" />
             <Stack.Screen name="post/[id]" />
+            <Stack.Screen name="inbox" />
           </Stack>
         </PortalHost>
         </WalletRoot>

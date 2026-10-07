@@ -4,6 +4,7 @@ import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
+import { Bell } from "../../components/Bell";
 import { CoinArt } from "../../components/art";
 import { CommentsSheet } from "../../components/CommentsSheet";
 import { FeedCard, type Buyers } from "../../components/FeedCard";
@@ -147,6 +148,7 @@ export default function SocialScreen() {
         <JunoMark size={28} color={theme.colors.text} />
         <Text style={styles.wordmark}>juno</Text>
         <View style={{ flex: 1 }} />
+        {wallet.address ? <Bell wallet={wallet.address} /> : null}
         {/* Whose posts, not what kind. Absent without a wallet, because there
             is no following list to have. */}
         {wallet.address ? (
