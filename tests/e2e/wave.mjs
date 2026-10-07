@@ -185,13 +185,36 @@ for (const viewport of ["mobile", "desktop"]) {
   if (WANT.includes("first-trade")) {
     const { context, page } = await open(viewport);
     await check(`First trade · ${viewport}`, async () => {
-      await fundedVisitor(page);
-      await openBuy(page);
-      // The sheet's first quick amount, as a newcomer would tap it.
-      await page.getByTestId("quick-amount").first().click().catch(async () => page.getByText("$2", { exact: true }).first().click());
+      if (MODE === "before") {
+        await fundedVisitor(page);
+        await openBuy(page);
+        // The sheet's first quick amount, as a newcomer would tap it.
+        await page.getByText("$2", { exact: true }).first().click();
+        await wait(page, 2500);
+        await shot(page, "first-trade", viewport);
+        return [];
+      }
+      // A newcomer with nothing: no wallet, no MON. Everything happens in the one sheet.
+      const problems = [];
+      await page.goto(`${APP}/social`, { waitUntil: "domcontentloaded" });
+      await settle(page, 1500);
+      if (!(await until(page, /mcap/, 15_000))) problems.push("the feed's figure is not labelled");
+      await page.getByRole("button", { name: /^Buy/ }).first().click();
+      await wait(page, 1500);
+      await page.getByRole("button", { name: "Create a wallet to trade" }).first().click();
+      await wait(page, 2500);
+      await page.getByRole("button", { name: "Get testnet MON" }).first().click();
+      if (!(await until(page, /arrived from Juno's faucet/, 30_000))) return [...problems, "the faucet did not pay out in the sheet"];
+      await wait(page, 2500);
+      const labels = await page.getByTestId("quick-amount").allInnerTexts();
+      const amounts = labels.map((label) => Number(label.match(/[\d.]+/)?.[0])).filter((n) => Number.isFinite(n));
+      if (amounts.length < 3 || amounts.some((n) => n > 0.5)) problems.push(`quick amounts ${JSON.stringify(labels)} do not fit 0.5 MON`);
+      await page.getByTestId("quick-amount").first().click();
       await wait(page, 2500);
       await shot(page, "first-trade", viewport);
-      return [];
+      await page.getByRole("button", { name: /^Buy$/ }).last().click();
+      if (!(await until(page, /Done/, 25_000))) problems.push("the first trade did not reach Done");
+      return problems;
     });
     await context.close();
   }

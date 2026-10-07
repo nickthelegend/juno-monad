@@ -46,6 +46,10 @@ export function QuickTrade({
       quoteBalance={spendable.data?.balance ?? null}
       holding={held.data?.balance ?? null}
       feeBalance={coin.quote.native ? null : (mon.data?.balance ?? null)}
+      onFunded={() => {
+        spendable.refresh();
+        mon.refresh();
+      }}
       onClose={onClose}
       onDone={onDone}
     />

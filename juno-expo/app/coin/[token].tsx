@@ -632,6 +632,10 @@ function CoinDetail({ token }: { token: string }) {
               holding={holding}
               quoteBalance={spendable.data?.balance ?? null}
               feeBalance={quoteNative ? null : (feeMon.data?.balance ?? null)}
+              onFunded={() => {
+                spendable.refresh();
+                feeMon.refresh();
+              }}
               initialAmount={sheet === "buy" && contributing ? String(contributing.amount) : ""}
               onFilled={(spent, txHash) => void recordFill(contributing, spent, txHash)}
               onCommented={() => comments.refresh()}

@@ -4,6 +4,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import styled from "styled-components/native";
 
 import { SpeedReceipt } from "./SpeedReceipt";
+import { quickBuySizes } from "../lib/quick-sizes";
 import { Tappable } from "./Press";
 import { Button, Caption, Col, ExternalGlyph, Label, Row } from "./kit";
 import { sameAddress } from "../lib/address";
@@ -44,10 +45,6 @@ import { theme } from "../theme";
  * one of them moved money.
  */
 
-/** Dollar sizes, converted at the quote token's rate. The fourth pill is Max. */
-const QUICK_USD = [2, 20, 50];
-/** What a buy offers when no USD feed answered, in quote units. */
-const QUICK_QUOTE = [0.1, 0.25, 0.5];
 /** A sell is a fraction of what you hold; absolute sizes mean nothing there. */
 const QUICK_SELL = [0.25, 0.5, 0.75, 1];
 /** Exact-out sizes, in tokens. Every Juno coin is minted with a one-billion supply. */
@@ -115,6 +112,7 @@ export function TradeSheet({
   onFilled,
   onCommented,
   feeBalance = null,
+  onFunded,
 }: {
   coin: Coin;
   side: "buy" | "sell";
@@ -124,6 +122,8 @@ export function TradeSheet({
   holding?: number | null;
   /** Quote-token balance, for a buy. Null when unknown. */
   quoteBalance?: number | null;
+  /** Juno's faucet sent MON from inside the sheet: re-read the balances passed in. */
+  onFunded?: () => void;
   /**
    * Pre-filled amount, for a buy opened from somewhere that already knows the
    * size — a recurring-buy contribution. Editable: it is a starting point, not
@@ -179,6 +179,10 @@ export function TradeSheet({
   const [quoting, setQuoting] = useState(false);
   const [stage, setStage] = useState<Stage>("entry");
   const [error, setError] = useState<string | null>(null);
+  /** Juno's faucet, asked from inside the sheet: busy, what arrived, or why not. */
+  const [funding, setFunding] = useState(false);
+  const [funded, setFunded] = useState<string | null>(null);
+  const [fundError, setFundError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   /** Which step is signing or landing, when there is more than one. */
   const [progress, setProgress] = useState<string | null>(null);
@@ -307,7 +311,7 @@ export function TradeSheet({
       if (side === "sell") return { text: `You hold ${tokens(balance)} ${coin.symbol}.` };
       if (native) {
         return {
-          text: `You have ${tokens(balance)} MON.${testnet ? " Get testnet MON from your profile." : ""}`,
+          text: `You have ${tokens(balance)} MON.${testnet ? " Get testnet MON below." : ""}`,
         };
       }
       return testnet && coin.quote.symbol === "USDC"
@@ -327,11 +331,39 @@ export function TradeSheet({
         text:
           spending > 0
             ? `Leave about ${GAS_RESERVE_MON} MON for gas.`
-            : `You need a little MON for gas.${testnet ? " Get testnet MON from your profile." : ""}`,
+            : `You need a little MON for gas.${testnet ? " Get testnet MON below." : ""}`,
       };
     }
     return null;
   }, [valid, balance, spend, side, coin.symbol, coin.quote.symbol, native, testnet, quoteBalance, feeBalance]);
+
+  /*
+   * Short of MON on testnet: Juno's faucet, right here. The first trade used
+   * to send people to another tab for it; this keeps a newcomer in the one
+   * sheet from "Create a wallet" to "Done".
+   */
+  const spendableMon = native ? (quoteBalance === null ? null : quoteBalance - GAS_RESERVE_MON) : null;
+  const offerFaucet =
+    testnet &&
+    !!wallet.address &&
+    side === "buy" &&
+    (blocker?.gas === true ||
+      (native && spendableMon !== null && (spendableMon <= 0 || (spend !== null && spend > spendableMon))));
+
+  const fund = async () => {
+    if (!wallet.address || funding) return;
+    setFunding(true);
+    setFundError(null);
+    try {
+      const result = await juno.faucet(wallet.address);
+      setFunded(`${tokens(result.amount)} ${result.symbol} arrived from Juno's faucet.`);
+      onFunded?.();
+    } catch (caught) {
+      setFundError(caught instanceof Error ? caught.message : "Juno's faucet did not answer.");
+    } finally {
+      setFunding(false);
+    }
+  };
 
   const usdEquivalent = useMemo(() => {
     if (!valid) return null;
@@ -572,12 +604,11 @@ export function TradeSheet({
       }));
     }
     if (exactOut) return QUICK_TOKENS.map((size) => ({ label: tokens(size), amount: size, share: null }));
-    const spendable = balance === null ? null : native ? balance - GAS_RESERVE_MON : balance;
-    const max = { label: "Max", amount: spendable !== null && spendable > 0 ? spendable : null, share: null };
-    if (rate === null || rate <= 0) {
-      return [...QUICK_QUOTE.map((size) => ({ label: `${size} ${coin.quote.symbol}`, amount: size, share: null })), max];
-    }
-    return [...QUICK_USD.map((dollars) => ({ label: `$${dollars}`, amount: dollars / rate, share: null })), max];
+    return quickBuySizes({
+      spendable: balance === null ? null : native ? balance - GAS_RESERVE_MON : balance,
+      rate,
+      symbol: coin.quote.symbol,
+    });
   }, [side, exactOut, balance, rate, native, coin.quote.symbol]);
 
   const done = stage === "done" && txHash !== null;
@@ -707,6 +738,7 @@ export function TradeSheet({
               {quickSizes.map((preset) => (
                 <Quick
                   key={preset.label}
+                  testID="quick-amount"
                   disabled={preset.amount === null}
                   // A size is a button to a screen reader too; without the role
                   // these read as plain text that happened to be tappable.
@@ -718,7 +750,9 @@ export function TradeSheet({
                       : setSize(trimTrailingZeros(preset.amount), preset.share)
                   }
                 >
-                  <QuickLabel $off={preset.amount === null}>{preset.label}</QuickLabel>
+                  <QuickLabel $off={preset.amount === null} numberOfLines={1}>
+                    {preset.label}
+                  </QuickLabel>
                 </Quick>
               ))}
             </Row>
@@ -908,6 +942,18 @@ export function TradeSheet({
                 style={{ alignSelf: "stretch" }}
               />
             )}
+
+            {offerFaucet ? (
+              <Button
+                label="Get testnet MON"
+                variant="ink"
+                onPress={() => void fund()}
+                loading={funding}
+                style={{ alignSelf: "stretch" }}
+              />
+            ) : null}
+            {funded ? <HintText>{funded}</HintText> : null}
+            {fundError ? <ErrorText>{fundError}</ErrorText> : null}
 
             {/* The button is a spinner while this runs, so the step it is
                 on has to be said beside it rather than on it. */}
@@ -1196,6 +1242,7 @@ const Quick = styled.Pressable`
 const QuickLabel = styled.Text<{ $off?: boolean }>`
   font-size: ${(p) => p.theme.type.label.size}px;
   font-weight: 700;
+  text-align: center;
   color: ${(p) => (p.$off ? p.theme.colors.faint : p.theme.colors.text)};
 `;
 

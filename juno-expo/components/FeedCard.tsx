@@ -166,10 +166,18 @@ export function FeedCard({
       {/* Worth, heart, replies, share — and Buy */}
       <View style={styles.actions}>
         <Tappable onPress={onOpen} to={0.94} accessibilityRole="button" accessibilityLabel="Market cap">
-          <View style={styles.worth}>
-            {change === null ? null : <TriangleGlyph up={change >= 0} color={tone} size={11} />}
-            <Text style={[styles.worthText, { color: tone }]}>
-              {money(coin.marketCap, coin.marketCapCurrency)}
+          {/* Labelled: unlabelled, the market cap read as a price, and the
+              coin page leads with the price, so one coin showed two. */}
+          <View>
+            <View style={styles.worth}>
+              {change === null ? null : <TriangleGlyph up={change >= 0} color={tone} size={11} />}
+              <Text style={[styles.worthText, { color: tone }]}>
+                {money(coin.marketCap, coin.marketCapCurrency)}
+              </Text>
+            </View>
+            <Text style={styles.worthLabel}>
+              mcap
+              {change === null ? "" : ` · ${change >= 0 ? "+" : "−"}${Math.abs(change * 100) >= 100 ? Math.round(Math.abs(change * 100)).toLocaleString("en-US") : Math.abs(change * 100).toFixed(1)}% 24h`}
             </Text>
           </View>
         </Tappable>
@@ -394,6 +402,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", alignItems: "center", gap: 16, paddingHorizontal: 14, paddingTop: 12 },
   worth: { flexDirection: "row", alignItems: "center", gap: 5 },
   worthText: { fontSize: 17, fontWeight: "800", letterSpacing: -0.3, fontVariant: ["tabular-nums"] },
+  worthLabel: { fontSize: 11, fontWeight: "600", color: theme.colors.muted, marginTop: 1, fontVariant: ["tabular-nums"] },
   action: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 },
   actionText: { fontSize: 14, fontWeight: "700", color: theme.colors.text, fontVariant: ["tabular-nums"] },
   buy: {
