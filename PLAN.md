@@ -68,7 +68,7 @@ innovation. Bounties are judged 40% on meeting the stated requirement. So:
 | 6.3 | `docs/DEPLOY-LATER.md` | Ordered runbook: addresses and MON, keys and where set, deploy and verify, hosting, smoke test, shot list | Read; under 1 hour | DONE (about 50 minutes) |
 | 7.1 | Fund deployers; deploy `JunoNavOracle`; redeploy API, indexer and web | Hosted app on HEAD | Post-deploy smoke test | **BLOCKED**: testnet go and MON |
 | 7.2 | Video, 3 minutes or less | Recorded from the shot list | — | **BLOCKED**: testnet go (hosted app on HEAD) |
-| 8.1 | Creator profile, Instagram style (user, 7 Oct) | Header with avatar, name, @handle, signed bio and link; posts, followers, following; Follow / Buy / Share; highlights; Posts, Reels, Coins, Backed tabs; 3-column square grid with price change; own (Edit profile, Wallet tab) and visitor views; loading, empty and error states; 390 px first | `tests/e2e/profile.mjs` (12 checks), `walk.mjs` 50/50, the app regression 59/60 (B7 as before), API 88/88, passkeys and drafts clean; before and after screenshots in `docs/screens/profile/` | DONE |
+| 8.1 | Creator profile, Instagram style (user, 7 Oct) | Header with avatar, name, @handle, signed bio and link; posts, followers, following; Follow / Buy / Share; highlights; Posts (photos and reels, a reel badged, the header count equal to the grid), Reels, Coins, Backed tabs; 3-column square grid with price change; own (Edit profile, Wallet tab) and visitor views; loading, empty and error states; 390 px first | `tests/e2e/profile.mjs` (12 checks), `walk.mjs` 50/50, the app regression 59/60 (B7 as before), API 88/88, passkeys and drafts clean; before and after screenshots in `docs/screens/profile/` | DONE |
 
 ## Gap audit (from the code, 6 Oct)
 

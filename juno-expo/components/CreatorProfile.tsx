@@ -89,7 +89,13 @@ export function CreatorProfile({
   useRefreshOnFocus(() => profile.refresh());
 
   const created = data?.coins ?? [];
-  const posts = useMemo(() => created.filter((coin) => coin.format === "post" && !coin.reference), [created]);
+  // The main grid is every post, photos and reels together, newest first, as
+  // Instagram's is; a reel carries its badge. Trackers are coins, not posts,
+  // and are listed under Coins. The header's count is this grid's length.
+  const posts = useMemo(
+    () => created.filter((coin) => !coin.reference && (coin.format === "post" || coin.format === "reel")),
+    [created],
+  );
   const reels = useMemo(() => created.filter((coin) => coin.format === "reel"), [created]);
   const createdSet = useMemo(() => new Set(created.map((coin) => coin.address.toLowerCase())), [created]);
 
@@ -217,7 +223,7 @@ export function CreatorProfile({
                 <Identicon seed={wallet} size={84} />
               </AvatarRing>
               <Row style={{ flex: 1 }}>
-                <Stat value={String(posts.length + reels.length)} label="Posts" />
+                <Stat value={String(posts.length)} label="Posts" />
                 <Stat value={followers === null ? "—" : count(followers)} label={followers === 1 ? "Follower" : "Followers"} />
                 <Stat value={count(data.following)} label="Following" />
               </Row>
@@ -319,7 +325,7 @@ export function CreatorProfile({
           posts.length === 0 ? (
             <Empty
               title="No posts yet"
-              detail={own ? "A photo you post launches its own coin. People buy into it as they scroll." : "Nothing posted yet."}
+              detail={own ? "A photo or reel you post launches its own coin. People buy into it as they scroll." : "Nothing posted yet."}
               action={own ? <Button label="Post your first" onPress={() => router.push("/(tabs)/post" as never)} /> : undefined}
             />
           ) : (
@@ -428,7 +434,7 @@ function CoinTile({ coin, shape, onPress }: { coin: Coin; shape: "square" | "tal
         </View>
         {still ? <Image source={{ uri: still }} style={StyleSheet.absoluteFill} resizeMode="cover" /> : null}
         {coin.format === "reel" ? (
-          <View style={styles.tileBadge}>
+          <View style={styles.tileBadge} testID="reel-badge" accessibilityLabel="Reel">
             <ReelBadgeGlyph size={14} />
           </View>
         ) : coin.curve.graduated ? (

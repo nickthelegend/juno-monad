@@ -44,7 +44,8 @@ if (!creator) {
   console.log("FAIL no demo coins: seed with npm run demo:local");
   process.exit(1);
 }
-const posts = created.filter((coin) => coin.format === "post" && !coin.reference);
+// The Posts grid is photos and reels together (a reel with its badge); trackers are only under Coins.
+const posts = created.filter((coin) => !coin.reference && (coin.format === "post" || coin.format === "reel"));
 const reels = created.filter((coin) => coin.format === "reel");
 // The name the creator claimed (the coin rows carry only the short address).
 const named = (await (await fetch(`${API}/api/juno/profiles/${creator}`)).json()).name;
@@ -183,13 +184,17 @@ if (MODE === "after") {
   /* ---------------------------------------------------------------- behaviour */
   const { context, page } = await open("mobile", ownKey);
 
-  await check("Grid: one square tile per photo post, with its price change", async () => {
+  await check("Grid: one square tile per post (photos and reels), as many as the header counts, each with its price change", async () => {
     await page.goto(`${APP}/trader/${creator}`, { waitUntil: "domcontentloaded" });
     await settle(page, 2500);
     const tiles = page.getByTestId("profile-tile");
     const count = await tiles.count();
     const problems = [];
     if (count !== posts.length) problems.push(`${count} tiles for ${posts.length} posts`);
+    const counted = (await text(page)).match(/(^|\n)(\d+)\nPosts\n/)?.[2];
+    if (Number(counted) !== count) problems.push(`the header counts ${counted} posts, the grid has ${count}`);
+    const badges = await tiles.evaluateAll((els) => els.filter((el) => el.querySelector('[data-testid="reel-badge"]')).length);
+    if (badges !== reels.length) problems.push(`${badges} tiles carry a reel badge for ${reels.length} reels`);
     const boxes = await tiles.evaluateAll((els) => els.map((el) => el.getBoundingClientRect()).map((r) => [Math.round(r.width), Math.round(r.height), Math.round(r.left)]));
     if (boxes.some(([w, h]) => Math.abs(w - h) > 2)) problems.push(`not square: ${JSON.stringify(boxes.slice(0, 3))}`);
     if (new Set(boxes.slice(0, 3).map(([, , left]) => left)).size !== Math.min(3, boxes.length)) problems.push("not three columns");

@@ -88,7 +88,7 @@ are from this run. Items S, P, X and T are new.
 |---|---|---|
 | R1 | Visitor view at 1440 and 390 px: @handle, Posts, Followers, Following, Follow; no Edit profile | PASS |
 | R2 | Own view at 1440 and 390 px: Edit profile, Share profile, Posts, Reels, Coins, Backed and Wallet tabs; no Follow | PASS |
-| R3 | The Posts grid has one square tile per photo post the API lists, three to a row, each with its coin's price change | PASS |
+| R3 | The Posts grid has one square tile per post the API lists, photos and reels together (each reel with its badge), three to a row, each with its coin's price change; the header's Posts count equals the number of tiles | PASS |
 | R4 | Reels shows one tile per reel; Coins lists every coin launched; Backed shows the leaderboard record and other creators' coins held | PASS |
 | R5 | A tile opens its coin (click and touch tap) | PASS |
 | R6 | Edit profile saves a bio and link signed by the wallet; the server stores exactly them; a visitor sees both; a `javascript:` link cannot be saved | PASS |
