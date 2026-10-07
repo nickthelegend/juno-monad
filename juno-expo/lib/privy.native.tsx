@@ -9,7 +9,7 @@ import {
 import * as Application from "expo-application";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getAddress, parseTransaction, toHex, type Hex } from "viem";
-import { monad, monadTestnet } from "viem/chains";
+import { monadChain as monad, monadTestnetChain as monadTestnet } from "./chains";
 
 import { SignInSheet } from "../components/SignInSheet";
 import type { PrivyIdentity, PrivyState } from "./privy";

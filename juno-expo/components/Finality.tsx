@@ -66,7 +66,7 @@ export function FinalityTimeline({ txHash }: { txHash: string }) {
       intervalMs: 350,
       until: (snapshot) => snapshot.events.some((event) => event.stages.Finalized !== undefined),
       // The server follows the chain's own stream: Monad's, or on a local
-      // fork the fork node's. A block is final in about a second either way,
+      // fork the fork node's. A Monad block is final about 600 ms after it is proposed,
       // so fifteen seconds without it means the stream missed it and asking
       // again will not help.
       forMs: 15_000,

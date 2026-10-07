@@ -29,8 +29,32 @@ export function networkKey(): string {
   return isMainnet() ? "monad" : "monad-testnet";
 }
 
+/**
+ * viem's Monad chains, corrected.
+ *
+ * viem 2.57 still describes Monad as it was before MIP-12: 400 ms blocks and
+ * an old explorer. Blocks have been 300 ms since v0.15.0, with finality two
+ * slots (about 600 ms) later, and the explorer is MonadVision. Multicall3 is
+ * the canonical one at 0xcA11…CA11; viem's `blockCreated` for it predates
+ * testnet's reset of 16 Dec 2025, so it is dropped rather than trusted.
+ */
+export const MONAD_BLOCK_MS = 300;
+export const MONAD_FINALITY_MS = 600;
+
+const CORRECTED_TESTNET: Chain = {
+  ...monadTestnet,
+  blockTime: MONAD_BLOCK_MS,
+  blockExplorers: { default: { name: "MonadVision", url: "https://testnet.monadvision.com" } },
+  contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
+};
+const CORRECTED_MAINNET: Chain = {
+  ...monad,
+  blockTime: MONAD_BLOCK_MS,
+  blockExplorers: { default: { name: "MonadVision", url: "https://monadvision.com" } },
+};
+
 export function chain(): Chain {
-  return isMainnet() ? monad : monadTestnet;
+  return isMainnet() ? CORRECTED_MAINNET : CORRECTED_TESTNET;
 }
 
 export function chainId(): number {

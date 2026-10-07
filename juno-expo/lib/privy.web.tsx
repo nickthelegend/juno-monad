@@ -10,7 +10,7 @@ import {
 } from "@privy-io/react-auth";
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { parseTransaction, toHex, type Hex } from "viem";
-import { monad, monadTestnet } from "viem/chains";
+import { monadChain as monad, monadTestnetChain as monadTestnet } from "./chains";
 
 import type { PrivyIdentity, PrivyState } from "./privy";
 import type { Signer, SignerSource } from "./wallet";

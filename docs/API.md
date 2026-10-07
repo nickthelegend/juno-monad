@@ -97,7 +97,7 @@ limit confirms without a position, and this says so.
 `window.deadline` is unix seconds. A swap signed after it reverts on-chain with
 `Expired`, so the app re-quotes rather than submitting a stale build.
 
-`submit` waits for the receipt (Monad finalises in about a second), records any
+`submit` waits for the receipt (Monad blocks are 300 ms, final about 600 ms later), records any
 trades the transaction made, and answers with what it did. A launch's `launched`
 field is the confirmation to index the coin with `POST pools`.
 

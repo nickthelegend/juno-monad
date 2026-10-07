@@ -76,7 +76,7 @@ export function WalletCard({ address }: { address: string }) {
     try {
       const result = await juno.faucet(address);
       // The server answers once the transfer is in a block. Monad will not
-      // let a freshly funded account send for about a second after that,
+      // let a freshly funded account send for 3 blocks (about 0.9 s) after that,
       // which is less time than it takes to get from here to a Buy button.
       setMessage({ tone: "pos", text: `${result.amount} ${result.symbol} received.` });
       mon.refresh();

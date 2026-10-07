@@ -190,7 +190,7 @@ says so rather than presenting a prefix as the whole story.
 - **Freshly funded accounts** cannot send until the funding transaction is
   three blocks old; the faucet waits for that before it answers.
 - **Sub-second finality.** The server waits for the receipt before answering a
-  submit — about a second — so the app shows a confirmed trade, not a pending one.
+  submit (a 300 ms block, final about 600 ms later), so the app shows a confirmed trade, not a pending one.
 
 ---
 

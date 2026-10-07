@@ -719,7 +719,7 @@ export type SubmitResult = {
   };
 };
 
-/** How long to wait for a receipt. Monad finalises in about a second. */
+/** How long to wait for a receipt. Monad blocks are 300 ms and final two slots later, about 600 ms. */
 const RECEIPT_TIMEOUT_MS = 30_000;
 
 /**

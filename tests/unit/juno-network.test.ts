@@ -97,3 +97,16 @@ describe("launchpad address", () => {
     expect(launchpadDeployBlock()).toBe(0n);
   });
 });
+
+describe("chain: viem's Monad, corrected", () => {
+  it("says 300 ms blocks, links MonadVision, and keeps canonical Multicall3 without a pre-reset block", async () => {
+    const { chain, MONAD_BLOCK_MS, MONAD_FINALITY_MS } = await import("../../lib/juno/network");
+    const c = chain();
+    expect(c.blockTime).toBe(300);
+    expect(MONAD_BLOCK_MS).toBe(300);
+    expect(MONAD_FINALITY_MS).toBe(600);
+    expect(c.blockExplorers?.default.url).toMatch(/monadvision\.com$/);
+    expect(c.contracts?.multicall3?.address).toBe("0xcA11bde05977b3631167028862bE2a173976CA11");
+    expect(c.contracts?.multicall3?.blockCreated).toBeUndefined();
+  });
+});
