@@ -10,6 +10,7 @@ import { CreatorProfile } from "../../components/CreatorProfile";
 import { Tappable } from "../../components/Press";
 import { AutopilotCard } from "../../components/Autopilot";
 import { SignerChoice } from "../../components/SignerChoice";
+import { StakingCard } from "../../components/StakingCard";
 import { TradeList } from "../../components/TradeList";
 import { WalletCard } from "../../components/WalletCard";
 import { Body, Button, Caption, Card, Col, Delta, DeltaBadge, Display, Entry, Label, Ledger, Mono, Pill, Placeholder, Progress, RETRY_HINT, Row, Segmented, Skeleton, Stat, Tabs } from "../../components/kit";
@@ -188,6 +189,7 @@ function WalletTab({ address }: { address: string }) {
       </Identity>
 
       <WalletCard address={address} />
+      <StakingCard wallet={address} />
       {/*
         One statement, not two cards.
 
