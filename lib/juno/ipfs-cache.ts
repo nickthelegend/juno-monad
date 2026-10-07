@@ -56,3 +56,56 @@ export function recallContent(cid: string): Entry | null {
   s.entries.set(cid, entry);
   return entry;
 }
+
+/* ------------------------------------------------------------------ */
+/* Gateways, and warming                                               */
+/* ------------------------------------------------------------------ */
+
+const FALLBACK_GATEWAYS = [
+  "https://gateway.pinata.cloud/ipfs",
+  "https://ipfs.pinata.network/ipfs",
+  "https://w3s.link/ipfs",
+  "https://dweb.link/ipfs",
+];
+
+export const CID_V0 = /^[1-9A-HJ-NP-Za-km-z]{44,46}$/;
+export const CID_V1 = /^b[a-z2-7]{58}$/;
+
+/** A gateway's error or interstitial page, never the content itself. */
+export const NOT_CONTENT = /^(text\/html|application\/json|text\/plain)/i;
+
+export function ipfsGateways(): string[] {
+  const configured = process.env.NEXT_PUBLIC_IPFS_GATEWAY?.replace(/\/$/, "");
+  const list = configured ? [configured, ...FALLBACK_GATEWAYS] : FALLBACK_GATEWAYS;
+  return [...new Set(list)];
+}
+
+/**
+ * Fetch one piece of content into memory ahead of anyone asking for it.
+ * True when it is held afterwards (already, or now). Images and posters only
+ * in practice: anything over `MAX_CACHED_BYTES`, like most videos, is skipped.
+ */
+export async function warmContent(cid: string, fetchImpl: typeof fetch = fetch): Promise<boolean> {
+  if (!CID_V0.test(cid) && !CID_V1.test(cid)) return false;
+  if (recallContent(cid)) return true;
+  for (const gateway of ipfsGateways()) {
+    try {
+      const response = await fetchImpl(`${gateway}/${cid}`, { signal: AbortSignal.timeout(30_000), cache: "no-store" });
+      if (response.status !== 200) continue;
+      const type = response.headers.get("content-type") ?? "application/octet-stream";
+      const length = Number(response.headers.get("content-length") ?? NaN);
+      if (NOT_CONTENT.test(type) || (Number.isFinite(length) && length > MAX_CACHED_BYTES)) {
+        await response.body?.cancel().catch(() => undefined);
+        if (NOT_CONTENT.test(type)) continue;
+        return false;
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > MAX_CACHED_BYTES) return false;
+      rememberContent(cid, bytes, type);
+      return true;
+    } catch {
+      // The next gateway.
+    }
+  }
+  return false;
+}

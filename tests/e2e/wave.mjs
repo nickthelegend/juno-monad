@@ -225,7 +225,26 @@ for (const viewport of ["mobile", "desktop"]) {
       await page.goto(`${APP}/`, { waitUntil: "domcontentloaded" });
       await settle(page, 3000);
       await shot(page, "landing", viewport);
-      return [];
+      if (MODE === "before") return [];
+      const problems = [];
+      const stats = await (await fetch(`${API}/api/juno/stats`)).json();
+      const number = async (id) => Number((await page.getByTestId(id).first().innerText()).replace(/[^0-9]/g, ""));
+      if ((await number("stat-coins")) !== stats.coins) problems.push(`markets ${await number("stat-coins")} vs API ${stats.coins}`);
+      if ((await number("stat-trades")) !== stats.trades24h) problems.push(`trades ${await number("stat-trades")} vs API ${stats.trades24h}`);
+      if (Boolean(stats.confirmation) !== (await page.getByTestId("stat-confirm").count()) > 0) problems.push("confirmation figure shown without a measurement, or missing with one");
+      const first = await number("stat-block");
+      await wait(page, 6_000);
+      const later = await number("stat-block");
+      if (!(later > first)) problems.push(`block did not tick (${first} → ${later})`);
+      // The landing starts warming the feed's pictures; the server says how many it holds.
+      let warm = false;
+      for (let i = 0; i < 30 && !warm; i++) {
+        const pictures = (await (await fetch(`${API}/api/juno/stats`)).json()).pictures;
+        warm = pictures !== null && pictures.total > 0 && pictures.held === pictures.total;
+        if (!warm) await wait(page, 2_000);
+      }
+      if (!warm) problems.push("feed pictures were not warmed within a minute of landing");
+      return problems;
     });
     await context.close();
   }

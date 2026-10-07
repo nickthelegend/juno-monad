@@ -20,6 +20,7 @@ import {
   type TransactionReceipt,
 } from "viem";
 
+import { recordConfirmation } from "./speed-log";
 import { junoLaunchpadAbi, junoTokenAbi, kuruGraduatorAbi, kuruOrderBookAbi } from "./abi";
 import { CallerError } from "./api";
 import { publicClient } from "./client";
@@ -804,6 +805,7 @@ export async function submitSigned(params: { signed: Hex }): Promise<SubmitResul
     );
   }
 
+  recordConfirmation(confirmedInMs, Number(receipt.blockNumber));
   return { ...(await describeReceipt(receipt, from)), confirmedInMs };
 }
 

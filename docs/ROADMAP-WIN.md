@@ -80,3 +80,4 @@ Done means:
 3. A no-wallet profile that previews what you get, with a one-tap passkey account (weakness 10).
 4. A shareable receipt card: an image of the speed receipt, for posting.
 5. First-run coach marks on the feed (tap a post to trade it; hold to peek).
+6. Record Kuru fills from the receipts Juno submits, as curve and pair fills already are. Then a Kuru coin's activity, and the landing's trade count, include them without an indexer.

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { MAX_CACHED_BYTES, recallContent, rememberContent } from "@/lib/juno/ipfs-cache";
+import { CID_V0, CID_V1, MAX_CACHED_BYTES, NOT_CONTENT, ipfsGateways as gateways, recallContent, rememberContent } from "@/lib/juno/ipfs-cache";
 
 /**
  * The app's own IPFS gateway.
@@ -22,26 +22,7 @@ import { MAX_CACHED_BYTES, recallContent, rememberContent } from "@/lib/juno/ipf
  * answered from memory for content held here.
  */
 
-const FALLBACK_GATEWAYS = [
-  "https://gateway.pinata.cloud/ipfs",
-  "https://ipfs.pinata.network/ipfs",
-  "https://w3s.link/ipfs",
-  "https://dweb.link/ipfs",
-];
-
-const CID_V0 = /^[1-9A-HJ-NP-Za-km-z]{44,46}$/;
-const CID_V1 = /^b[a-z2-7]{58}$/;
-
-/** A gateway's error or interstitial page, never the content itself. */
-const NOT_CONTENT = /^(text\/html|application\/json|text\/plain)/i;
-
 const IMMUTABLE = "public, max-age=31536000, immutable";
-
-function gateways(): string[] {
-  const configured = process.env.NEXT_PUBLIC_IPFS_GATEWAY?.replace(/\/$/, "");
-  const list = configured ? [configured, ...FALLBACK_GATEWAYS] : FALLBACK_GATEWAYS;
-  return [...new Set(list)];
-}
 
 /** `bytes=a-b`, `bytes=a-` or `bytes=-n` against a known length; null if unusable. */
 function parseRange(header: string, size: number): { start: number; end: number } | null {

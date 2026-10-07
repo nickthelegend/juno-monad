@@ -807,6 +807,21 @@ export type Trader = {
   followers: number;
 };
 
+/** `GET /api/juno/stats`. */
+export type JunoStats = {
+  network: string;
+  localFork: boolean;
+  coins: number | null;
+  trades24h: number | null;
+  traders24h: number | null;
+  block: { number: number; timestamp: number } | null;
+  /** Confirmation times the server measured; null before it has submitted anything. */
+  confirmation: { lastMs: number; lastAt: string; medianMs: number; samples: number } | null;
+  /** How many of the feed's pictures the server holds in memory, of how many. */
+  pictures: { held: number; total: number } | null;
+  at: string;
+};
+
 /** `GET /api/juno/tx/cost?hash=`. Dollar figures are null when their price feed was unreadable. */
 export type TxCost = {
   hash: string;
@@ -1123,6 +1138,9 @@ export const juno = {
     }>(`/api/juno/coins/${token}`),
 
   portfolio: (wallet: string) => api.get<Portfolio>(`/api/juno/portfolio/${wallet}`),
+
+  /** The landing's live figures. Each part is null when its read failed. */
+  stats: () => api.get<JunoStats>("/api/juno/stats"),
 
   /** What a confirmed transaction cost on Monad, and the same gas on Ethereum mainnet now. */
   txCost: (hash: string) => api.get<TxCost>(`/api/juno/tx/cost?hash=${hash}`),
