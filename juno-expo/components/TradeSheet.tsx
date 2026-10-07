@@ -3,7 +3,7 @@ import { Linking, Modal, Platform, TextInput } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import styled from "styled-components/native";
 
-import { FinalityTimeline } from "./Finality";
+import { SpeedReceipt } from "./SpeedReceipt";
 import { Tappable } from "./Press";
 import { Button, Caption, Col, ExternalGlyph, Label, Row } from "./kit";
 import { sameAddress } from "../lib/address";
@@ -186,6 +186,8 @@ export function TradeSheet({
   const [filledCurve, setFilledCurve] = useState(false);
   /** How long the last step took from broadcast to receipt, when the server measured it. */
   const [confirmedInMs, setConfirmedInMs] = useState<number | null>(null);
+  /** Signing on this device, measured here: from the first signature asked for to the first send. */
+  const [signedInMs, setSignedInMs] = useState<number | null>(null);
   /** When the chain confirmed it — shown beside the hash on the receipt. */
   const [landedAt, setLandedAt] = useState<Date | null>(null);
   const [note, setNote] = useState("");
@@ -486,11 +488,18 @@ export function TradeSheet({
         quotedAt.current = Date.now();
       }
 
+      let signingFrom: number | null = null;
+      let signedIn: number | null = null;
       const results = await wallet.signAndSubmit(live.steps, (step) => {
+        if (step.phase === "signing" && signingFrom === null) signingFrom = performance.now();
+        if (step.phase === "submitting" && signingFrom !== null && signedIn === null) {
+          signedIn = Math.round(performance.now() - signingFrom);
+        }
         // One step needs no running commentary; an approval then a buy does,
         // or the second wait looks like the first one hanging.
         if (step.total > 1) setProgress(`${step.label}… (${step.index + 1}/${step.total})`);
       });
+      setSignedInMs(signedIn);
       const landed = results[results.length - 1].hash;
       setConfirmedInMs(results[results.length - 1].confirmedInMs ?? null);
       setFilledCurve(results.some((result) => result.completed?.some((token) => sameAddress(token, coin.address))));
@@ -617,15 +626,12 @@ export function TradeSheet({
               {side === "buy"
                 ? `Bought ${receiving ?? ""}`
                 : `Sold ${tokens(value)} ${coin.symbol} for ${receiving ?? ""}`}{" "}
-              {onKuru ? "on Kuru " : onPair ? "on Uniswap v2 " : ""}— confirmed on{" "}
-              {juno.loadedConfig()?.localFork ? "a local fork of Monad testnet" : "Monad"}
-              {/* Measured on the server from broadcast to receipt — the one
-                  number that says why this runs on Monad. */}
-              {confirmedInMs !== null ? ` in ${(confirmedInMs / 1000).toFixed(confirmedInMs < 10_000 ? 1 : 0)}s` : ""}.
+              {onKuru ? "on Kuru" : onPair ? "on Uniswap v2" : "on its curve"}.
             </Label>
-            {/* Watch the block this trade landed in reach finality — the
-                node reports each stage and the dots fill as it does. */}
-            {txHash ? <FinalityTimeline txHash={txHash} /> : null}
+            {/* The measured time, the trade's own timeline, its finality and
+                what it cost against Ethereum: the receipt that says why this
+                runs on Monad. */}
+            {txHash ? <SpeedReceipt txHash={txHash} confirmedInMs={confirmedInMs} signedInMs={signedInMs} /> : null}
             {filledCurve ? (
               <Label muted style={{ textAlign: "center" }}>
                 {coin.venue === "kuru"

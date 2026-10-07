@@ -38,6 +38,7 @@ const MON_USD = PYTH_FEEDS["Crypto.MON/USD"];
 const SANE: Record<PythFeedName, [number, number]> = {
   "Crypto.MON/USD": [0.0001, 1_000],
   "Crypto.USDC/USD": [0.5, 1.5],
+  "Crypto.ETH/USD": [100, 100_000],
   "Equity.US.AAPL/USD": [10, 10_000],
   "Equity.US.NVDA/USD": [1, 10_000],
   "Equity.US.TSLA/USD": [10, 10_000],

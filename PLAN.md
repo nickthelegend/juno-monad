@@ -79,7 +79,7 @@ user key. Each is one commit with tests and before/after screenshots in
 
 | # | Feature | Acceptance (short) | Verify | Status |
 |---|---|---|---|---|
-| W1 | Monad speed receipt | Measured ms leads; signed / confirmed / block timeline; fee from the receipt (limit-billed on Monad); the same gas on Ethereum now from a live gas price, or no line | `tests/unit/juno-tx-cost.test.ts`; `tests/e2e/wave.mjs after receipt` | IN PROGRESS |
+| W1 | Monad speed receipt | Measured ms leads; signed / confirmed / block timeline; fee from the receipt (limit-billed on Monad); the same gas on Ethereum now from a live gas price, or no line | `tests/unit/juno-tx-cost.test.ts` (7); `tests/e2e/wave.mjs after receipt` (2/2) | DONE |
 | W2 | First trade in one sheet | Quick amounts never exceed spendable; Get testnet MON in the sheet; feed card labels its figure | `wave.mjs after first-trade` | NOT STARTED |
 | W3 | A live first minute | Landing shows live coins, trades, last confirmation ms, block height; images warmed after start | `wave.mjs after landing` | NOT STARTED |
 | W4 | Notifications | Bell with unread count; inbox of real events; read state per wallet | `wave.mjs after inbox` | NOT STARTED |

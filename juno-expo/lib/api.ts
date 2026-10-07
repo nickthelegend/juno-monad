@@ -807,6 +807,33 @@ export type Trader = {
   followers: number;
 };
 
+/** `GET /api/juno/tx/cost?hash=`. Dollar figures are null when their price feed was unreadable. */
+export type TxCost = {
+  hash: string;
+  blockNumber: number;
+  localFork: boolean;
+  monad: {
+    gasUsed: number;
+    gasLimit: number;
+    /** Monad bills the gas limit; an anvil fork bills the gas used. */
+    billed: "limit" | "used";
+    gasCharged: number;
+    gasPriceGwei: number;
+    feeMon: number;
+    feeUsd: number | null;
+  };
+  /** Null when Ethereum's gas price could not be read: no comparison is shown. */
+  ethereum: {
+    gasPriceGwei: number;
+    feeEth: number;
+    feeUsd: number | null;
+    ethUsd: number | null;
+    blockSeconds: number;
+    gasPriceSource: string;
+    ethUsdAgeSeconds: number | null;
+  } | null;
+};
+
 /** `GET /api/juno/profiles/<wallet>`. */
 export type CreatorProfile = {
   network: Network;
@@ -1096,6 +1123,9 @@ export const juno = {
     }>(`/api/juno/coins/${token}`),
 
   portfolio: (wallet: string) => api.get<Portfolio>(`/api/juno/portfolio/${wallet}`),
+
+  /** What a confirmed transaction cost on Monad, and the same gas on Ethereum mainnet now. */
+  txCost: (hash: string) => api.get<TxCost>(`/api/juno/tx/cost?hash=${hash}`),
 
   /** A creator's profile page: who they are, their follow graph, and every coin they launched. */
   profile: (wallet: string, viewer?: string | null) =>

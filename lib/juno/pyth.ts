@@ -83,6 +83,8 @@ export function pythWriteContract(): Address {
 export const PYTH_FEEDS = {
   "Crypto.MON/USD": "31491744e2dbf6df7fcf4ac0820d18a609b49076d45066d3568424e62f686cd1",
   "Crypto.USDC/USD": "eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a",
+  /** For the receipt's "the same gas on Ethereum" line, not for any market. */
+  "Crypto.ETH/USD": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
   "Equity.US.AAPL/USD": "49f6b65cb1de6b10eaf75e7c03ca029c306d0357e91b5311b175084a5ad55688",
   "Equity.US.NVDA/USD": "b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593",
   "Equity.US.TSLA/USD": "16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1",
