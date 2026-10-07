@@ -4,6 +4,7 @@ import { hydratePools } from "@/lib/juno/chain";
 import { CallerError, junoHandler, junoJson, junoOptions, junoRead, readJson, requireString } from "@/lib/juno/api";
 import { networkKey } from "@/lib/juno/network";
 import { identitiesFor } from "@/lib/juno/privy";
+import { passkeyLinkOf } from "@/lib/juno/passkey-link";
 import { profileOf, saveDetails } from "@/lib/juno/profiles";
 import { listPoolsByCreator } from "@/lib/juno/registry";
 import { followStats } from "@/lib/juno/social-graph";
@@ -35,12 +36,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ wall
     const viewerParam = new URL(request.url).searchParams.get("viewer");
     const viewer = viewerParam && isAddress(viewerParam) ? getAddress(viewerParam) : null;
 
-    const [profile, graph, identities, rows] = await Promise.all([
+    const [profile, graph, identities, rows, passkey] = await Promise.all([
       profileOf(wallet),
       followStats(wallet, viewer),
       // Optional: a read failure here must not cost the page.
       identitiesFor([wallet]).catch(() => ({}) as Awaited<ReturnType<typeof identitiesFor>>),
       listPoolsByCreator(wallet),
+      // A passkey proved on Monad's P256 precompile, if this wallet linked one.
+      passkeyLinkOf(wallet).catch(() => null),
     ]);
 
     // With each coin's history: a creator has a handful of coins, and the grid
@@ -69,6 +72,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ wall
       network: networkKey(),
       ...profile,
       identity: identities[wallet] ?? null,
+      passkey,
       followers: graph.followers,
       following: graph.following,
       viewerFollows: graph.viewerFollows,

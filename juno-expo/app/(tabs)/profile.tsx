@@ -10,6 +10,7 @@ import { CreatorProfile } from "../../components/CreatorProfile";
 import { Tappable } from "../../components/Press";
 import { AutopilotCard } from "../../components/Autopilot";
 import { SignerChoice } from "../../components/SignerChoice";
+import { PasskeyOnChain } from "../../components/PasskeyOnChain";
 import { StakingCard } from "../../components/StakingCard";
 import { TradeList } from "../../components/TradeList";
 import { WalletCard } from "../../components/WalletCard";
@@ -189,6 +190,7 @@ function WalletTab({ address }: { address: string }) {
       </Identity>
 
       <WalletCard address={address} />
+      {wallet.mode === "mera" ? <PasskeyOnChain wallet={address} /> : null}
       <StakingCard wallet={address} />
       {/*
         One statement, not two cards.

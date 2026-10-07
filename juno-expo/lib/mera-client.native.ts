@@ -22,3 +22,12 @@ export function passkeysSupported(): boolean {
     return false;
   }
 }
+
+/** The native client does not capture the new passkey's public key yet: passkeys on chain are web-only for now. */
+export function takeCreatedPublicKey(): Uint8Array | null {
+  return null;
+}
+
+export async function assertPasskey(_input: { rpId: string; credentialId: Uint8Array; challenge: Uint8Array }): Promise<never> {
+  throw new Error("Proving a passkey on Monad works in the web app for now.");
+}

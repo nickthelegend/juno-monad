@@ -42,7 +42,15 @@ vi.mock("../../juno-expo/node_modules/expo-secure-store/build/SecureStore.js", (
   setItem: (key: string, value: string) => void keychain.set(key, value),
   deleteItemAsync: async (key: string) => void keychain.delete(key),
 }));
-vi.mock("../../juno-expo/lib/mera-client", () => ({ webAuthnClient: nativeClient, passkeysSupported: () => true }));
+vi.mock("../../juno-expo/lib/mera-client", () => ({
+  webAuthnClient: nativeClient,
+  passkeysSupported: () => true,
+  // As mera-client.native.ts: the phone does not capture the passkey's public key yet.
+  takeCreatedPublicKey: () => null,
+  assertPasskey: async () => {
+    throw new Error("Proving a passkey on Monad works in the web app for now.");
+  },
+}));
 vi.mock("../../juno-expo/node_modules/@category-labs/mera/dist/index.js", async () => {
   const actual = await vi.importActual<Record<string, unknown>>("../../juno-expo/node_modules/@category-labs/mera/dist/index.js");
   return {

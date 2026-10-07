@@ -235,6 +235,9 @@ export function CreatorProfile({
                 <DisplayName numberOfLines={1}>{data.name ?? shortAddress(wallet)}</DisplayName>
                 {created.length > 0 ? <Pill label="Creator" tone="lime" /> : null}
                 {data.identity?.twitter ? <Pill label={`𝕏 @${data.identity.twitter}`} tone="ink" /> : null}
+                {data.passkey ? (
+                  <Pill label={data.passkey.where === "monad" ? "Passkey verified on Monad" : "Passkey verified (fork)"} tone="pos" />
+                ) : null}
               </Row>
               {/* The address, under a name; without one the name line already is it. */}
               {data.name || (totalCap && created.length > 0) ? (

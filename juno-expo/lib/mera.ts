@@ -16,7 +16,7 @@ import { Platform } from "react-native";
 import type { LocalAccount } from "viem";
 
 import type { Address } from "./api";
-import { passkeysSupported, webAuthnClient } from "./mera-client";
+import { assertPasskey, passkeysSupported, takeCreatedPublicKey, webAuthnClient } from "./mera-client";
 import type { Signer, SignerSource } from "./wallet";
 
 /**
@@ -63,7 +63,8 @@ const STORE_KEY = "juno.mera.v1";
 export const PASSKEY_RP_ID = process.env.EXPO_PUBLIC_PASSKEY_RP_ID?.trim() || "juno-monad-app.vercel.app";
 const PATH = "m/44'/60'/0'/0/0";
 
-type Stored = { address: Address; credentialId: string };
+/** `publicKey`: the passkey's P-256 point (0x04 ‖ x ‖ y, hex), captured at creation on the web; not secret. */
+type Stored = { address: Address; credentialId: string; publicKey?: string };
 
 export type MeraSessionState = {
   /** The account this browser last used, if any (not a secret). */
@@ -94,7 +95,9 @@ function readStored(): Stored | null {
   try {
     const raw = store.get();
     const parsed = raw ? (JSON.parse(raw) as Partial<Stored>) : null;
-    return parsed?.address && parsed.credentialId ? { address: parsed.address, credentialId: parsed.credentialId } : null;
+    return parsed?.address && parsed.credentialId
+      ? { address: parsed.address, credentialId: parsed.credentialId, ...(parsed.publicKey ? { publicKey: parsed.publicKey } : {}) }
+      : null;
   } catch {
     return null;
   }
@@ -149,7 +152,7 @@ function deriveKey(prfOutput: Uint8Array): Uint8Array {
   return key;
 }
 
-function open(prfOutput: Uint8Array, credentialId: string): Address {
+function open(prfOutput: Uint8Array, credentialId: string, publicKey?: string): Address {
   const key = deriveKey(prfOutput);
   const signing = createSecp256k1SigningSession({ privateKey: key });
   key.fill(0);
@@ -157,7 +160,10 @@ function open(prfOutput: Uint8Array, credentialId: string): Address {
   endMeraSession();
   const expiresAt = Date.now() + SESSION_MS;
   session = { account, end: () => signing.end(), expiresAt, timer: setTimeout(endMeraSession, SESSION_MS) };
-  writeStored({ address: account.address as Address, credentialId });
+  // The same passkey keeps the public key captured when it was made.
+  const previous = readStored();
+  const passkeyKey = publicKey ?? (previous?.credentialId === credentialId ? previous.publicKey : undefined);
+  writeStored({ address: account.address as Address, credentialId, ...(passkeyKey ? { publicKey: passkeyKey } : {}) });
   emit();
   return account.address as Address;
 }
@@ -193,7 +199,7 @@ export async function createMeraAccount(): Promise<Address> {
       user: { name: `Juno account ${new Date().toISOString().slice(0, 10)}`, displayName: "Juno" },
       webAuthnClient,
     });
-    return open(created.prfOutput, created.credentialId);
+    return open(created.prfOutput, created.credentialId, pointHex(takeCreatedPublicKey()));
   } catch (error) {
     throw explain(error);
   }
@@ -291,3 +297,52 @@ export const meraSource: SignerSource = {
     writeStored(null);
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* The passkey on chain                                                */
+/* ------------------------------------------------------------------ */
+
+const toHex = (b: Uint8Array) => Array.from(b, (v) => v.toString(16).padStart(2, "0")).join("");
+
+/** The uncompressed P-256 point from a SPKI public key (its last 65 bytes), as hex. */
+function pointHex(spki: Uint8Array | null): string | undefined {
+  if (!spki || spki.length < 65) return undefined;
+  const point = spki.slice(spki.length - 65);
+  return point[0] === 0x04 ? `0x${toHex(point)}` : undefined;
+}
+
+function fromBase64Url(value: string): Uint8Array {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+}
+
+/** This browser's passkey account, with the public key Monad can check its signatures against. */
+export function meraPasskey(): { address: Address; credentialId: string; x: string; y: string } | null {
+  const stored = readStored();
+  if (!stored?.publicKey || stored.publicKey.length !== 2 + 130) return null;
+  return { address: stored.address, credentialId: stored.credentialId, x: `0x${stored.publicKey.slice(4, 68)}`, y: `0x${stored.publicKey.slice(68)}` };
+}
+
+/** Have the passkey sign `challengeHex` (a WebAuthn assertion), as hex fields for the server. */
+export async function assertMeraPasskey(challengeHex: string) {
+  const passkey = meraPasskey();
+  if (!passkey) throw new Error("This passkey account's public key was not captured here, so Monad has nothing to check it against.");
+  const challenge = Uint8Array.from((challengeHex.slice(2).match(/../g) ?? []).map((byte) => Number.parseInt(byte, 16)));
+  try {
+    const assertion = await assertPasskey({ rpId: relyingPartyId(), credentialId: fromBase64Url(passkey.credentialId), challenge });
+    return {
+      credentialId: passkey.credentialId,
+      publicKey: { x: passkey.x, y: passkey.y },
+      authenticatorData: `0x${toHex(assertion.authenticatorData)}`,
+      clientDataJSON: `0x${toHex(assertion.clientDataJSON)}`,
+      signature: `0x${toHex(assertion.signature)}`,
+    };
+  } catch (error) {
+    throw explain(error);
+  }
+}
+
+/** The text the wallet signs to say this passkey key is its own. The server rebuilds it exactly (lib/juno/passkey-verify.ts). */
+export function passkeyLinkMessage(wallet: string, keyHex: string, challengeHex: string): string {
+  return `Juno passkey on Monad\nWallet: ${wallet}\nPasskey key: ${keyHex}\nChallenge: ${challengeHex}`;
+}

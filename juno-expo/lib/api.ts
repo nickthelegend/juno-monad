@@ -908,6 +908,8 @@ export type CreatorProfile = {
   link: string | null;
   /** An X account verified through Privy, when there is one. */
   identity: { twitter?: string; emailVerified: boolean; via: "privy"; verifiedAt: string } | null;
+  /** A passkey this wallet proved through Monad's P256 precompile; null when none. */
+  passkey?: { verifiedAt: string; where: "monad" | "local fork" } | null;
   followers: number;
   following: number;
   /** Null when no viewer was given. */
@@ -1192,6 +1194,20 @@ export const juno = {
   notifications: (wallet: string) => api.get<Inbox>(`/api/juno/notifications?wallet=${wallet}`),
   /** The inbox was opened: everything in it is read. */
   markNotificationsSeen: (wallet: string) => api.post<{ seenAt: string }>("/api/juno/notifications", { wallet }),
+
+  /** A five-minute challenge for this wallet's passkey to sign. */
+  passkeyChallenge: (wallet: string) => api.get<{ challenge: string; expiresAt: string }>(`/api/juno/passkey?wallet=${wallet}`),
+  /** Check a passkey assertion with Monad's P256 precompile and record the wallet's link to it. */
+  verifyPasskey: (input: {
+    wallet: string;
+    challenge: string;
+    credentialId: string;
+    publicKey: { x: string; y: string };
+    authenticatorData: string;
+    clientDataJSON: string;
+    signature: string;
+    walletSignature: string;
+  }) => api.post<{ wallet: string; verifiedAt: string; where: "monad" | "local fork" }>("/api/juno/passkey", input),
 
   /** What Monad's transaction pool says about a hash (`txpool_statusByHash`); a local fork has no txpool methods. */
   txStatus: (hash: string) =>

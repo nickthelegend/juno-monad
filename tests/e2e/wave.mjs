@@ -16,7 +16,7 @@ import { privateKeyToAccount } from "viem/accounts";
 const APP = (process.env.APP ?? "http://localhost:8183").replace(/\/$/, "");
 const API = (process.env.API ?? "http://localhost:3150").replace(/\/$/, "");
 const MODE = process.argv[2] === "after" ? "after" : "before";
-const ALL = ["receipt", "first-trade", "landing", "inbox", "analytics", "heartbeat", "staking", "txpool"];
+const ALL = ["receipt", "first-trade", "landing", "inbox", "analytics", "heartbeat", "staking", "txpool", "passkey"];
 const WANT = process.argv.slice(3).length ? process.argv.slice(3) : ALL;
 const SHOTS = path.resolve("docs/screens/wave");
 mkdirSync(SHOTS, { recursive: true });
@@ -374,6 +374,44 @@ for (const viewport of ["mobile", "desktop"]) {
       const problems = [];
       if (Math.abs(epoch - staking.epoch) > 1) problems.push(`epoch ${epoch} vs testnet ${staking.epoch}`);
       if (!/Proposing now: validator #\d+/.test(await text(page))) problems.push("no proposer");
+      return problems;
+    });
+    await context.close();
+  }
+
+  if (WANT.includes("passkey")) {
+    const { context, page } = await open(viewport);
+    await check(`Passkey proved on Monad's P256 precompile · ${viewport}`, async () => {
+      // Chrome's virtual authenticator with PRF, as the Mera e2e uses.
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("WebAuthn.enable");
+      await cdp.send("WebAuthn.addVirtualAuthenticator", {
+        options: { protocol: "ctap2", ctap2Version: "ctap2_1", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true, hasPrf: true },
+      });
+      await page.goto(`${APP}/profile?tab=wallet`, { waitUntil: "domcontentloaded" });
+      await settle(page, 2500);
+      await page.getByRole("tab", { name: "Passkey", exact: true }).click();
+      await wait(page, 1200);
+      await page.getByRole("button", { name: "Create a passkey account" }).click();
+      if (!(await until(page, /Signing session open/, 20_000))) return ["no passkey account"];
+      await page.getByTestId("passkey-on-chain").first().scrollIntoViewIfNeeded();
+      if (MODE === "before") {
+        await shot(page, "passkey", viewport);
+        return [];
+      }
+      await page.getByRole("button", { name: "Prove my passkey on Monad" }).click();
+      const verified = await until(page, /Verified by Monad's P256 precompile/, 25_000);
+      await wait(page, 800);
+      await shot(page, "passkey", viewport);
+      if (!verified) return [`not verified: ${(await text(page)).match(/Passkey on Monad[\s\S]{0,240}/)?.[0]}`];
+      const key = await page.evaluate(() => JSON.parse(window.localStorage.getItem("juno.mera.v1") ?? "{}"));
+      const profile = await (await fetch(`${API}/api/juno/profiles/${key.address}`)).json();
+      const problems = [];
+      if (!profile.passkey || profile.passkey.where !== "local fork") problems.push(`profile passkey ${JSON.stringify(profile.passkey)}`);
+      // Anyone looking at the profile sees it.
+      await page.goto(`${APP}/trader/${key.address}`, { waitUntil: "domcontentloaded" });
+      await settle(page, 2000);
+      if (!/Passkey verified/.test(await text(page))) problems.push("the profile has no passkey badge");
       return problems;
     });
     await context.close();
