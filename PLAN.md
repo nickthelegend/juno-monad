@@ -70,6 +70,21 @@ innovation. Bounties are judged 40% on meeting the stated requirement. So:
 | 7.2 | Video, 3 minutes or less | Recorded from the shot list | — | **BLOCKED**: testnet go (hosted app on HEAD) |
 | 8.1 | Creator profile, Instagram style (user, 7 Oct) | Header with avatar, name, @handle, signed bio and link; posts, followers, following; Follow / Buy / Share; highlights; Posts (photos and reels, a reel badged, the header count equal to the grid), Reels, Coins, Backed tabs; 3-column square grid with price change; own (Edit profile, Wallet tab) and visitor views; loading, empty and error states; 390 px first | `tests/e2e/profile.mjs` (12 checks), `walk.mjs` 50/50, the app regression 59/60 (B7 as before), API 88/88, passkeys and drafts clean; before and after screenshots in `docs/screens/profile/` | DONE |
 
+## Development wave (7 Oct): what wins
+
+From the judge's-eye review in [`docs/ROADMAP-WIN.md`](docs/ROADMAP-WIN.md),
+which also holds each item's full acceptance criteria. None needs MON or a
+user key. Each is one commit with tests and before/after screenshots in
+`docs/screens/wave/`.
+
+| # | Feature | Acceptance (short) | Verify | Status |
+|---|---|---|---|---|
+| W1 | Monad speed receipt | Measured ms leads; signed / confirmed / block timeline; fee from the receipt (limit-billed on Monad); the same gas on Ethereum now from a live gas price, or no line | `tests/unit/juno-tx-cost.test.ts`; `tests/e2e/wave.mjs after receipt` | IN PROGRESS |
+| W2 | First trade in one sheet | Quick amounts never exceed spendable; Get testnet MON in the sheet; feed card labels its figure | `wave.mjs after first-trade` | NOT STARTED |
+| W3 | A live first minute | Landing shows live coins, trades, last confirmation ms, block height; images warmed after start | `wave.mjs after landing` | NOT STARTED |
+| W4 | Notifications | Bell with unread count; inbox of real events; read state per wallet | `wave.mjs after inbox` | NOT STARTED |
+| W5 | Creator analytics | Earnings panel: claimable, claimed, volume, holders, per-post bars; Claim all | `wave.mjs after analytics` | NOT STARTED |
+
 ## Gap audit (from the code, 6 Oct)
 
 Status at the end of the pipeline: the two P1 mock paths and the missing
