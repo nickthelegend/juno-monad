@@ -160,6 +160,8 @@ JUNO_API_URL=$API npx tsx scripts/juno-demo.ts --api "$API" --rpc "$RPC" --round
 echo "8/8 Serving the web app"
 npx --yes serve juno-expo/dist-local -s -l "$APP_PORT" > "$RUN/logs/web.log" 2>&1 &
 echo $! > "$RUN/web.pid"
+for _ in $(seq 1 60); do curl -sf "$APP" >/dev/null && break; sleep 1; done
+curl -sf "$APP" >/dev/null || { echo "The web app did not start: see $RUN/logs/web.log" >&2; false; }
 
 cat <<EOF
 
