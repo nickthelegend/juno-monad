@@ -1,7 +1,7 @@
 # Autopilot: Privy session signers, policies and gas sponsorship
 
 Juno uses Privy for more than login. Someone signed in with Privy can turn on
-**autopilot** (Profile → Plans):
+**autopilot** (Profile → Wallet → Plans):
 
 1. Juno's server writes a **Privy policy for that one wallet**
    (`POST /v1/policies`). It allows only Juno trades:

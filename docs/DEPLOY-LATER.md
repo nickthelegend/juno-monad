@@ -136,12 +136,12 @@ APP=https://juno-monad-app.vercel.app node .juno/mera-e2e.mjs          # passkey
 ```
 
 Then by hand, on a phone browser:
-- Profile → Get testnet MON;
+- Profile → Wallet → Get testnet MON;
 - buy a post;
 - Trade → Perps → Get AUSD → open and close 2x;
 - Kuru → a market;
 - the OPENAIX page shows the CRE attestation;
-- Privy sign-in → Plans → Turn on autopilot.
+- Privy sign-in → Profile → Wallet → Plans → Turn on autopilot.
 
 ## 8. Video, 3 minutes or less (owner records, from the hosted app)
 

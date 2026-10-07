@@ -31,7 +31,7 @@ vi.mock("../../lib/juno/social", () => ({
   },
 }));
 
-import { claimName, nameMessage } from "../../lib/juno/profiles";
+import { BIO_MAX, claimName, detailsMessage, nameMessage, saveDetails } from "../../lib/juno/profiles";
 import { networkKey } from "../../lib/juno/network";
 
 /**
@@ -161,5 +161,75 @@ describe("claimName: success", () => {
     store.reachable = true;
     store.duplicate = true;
     await expect(claimName(await signed(fresh(), "taken"))).rejects.toThrow(/taken/);
+  });
+});
+
+/**
+ * A bio and a link, set the way a name is: signed by the wallet itself.
+ *
+ * A link is something other people tap, so anything but a plain https
+ * address is refused rather than repaired, and every refusal happens before
+ * the database is touched.
+ */
+async function details(account: PrivateKeyAccount, bio: string, link: string, issuedAt = new Date().toISOString()) {
+  const wallet = account.address;
+  const signature = await account.signMessage({ message: detailsMessage(wallet, bio, link, issuedAt) });
+  return { wallet: wallet as string, bio, link, issuedAt, signature: signature as string };
+}
+
+describe("detailsMessage", () => {
+  it("quotes both values, so a line break or a fake Link: cannot change what was signed", () => {
+    expect(detailsMessage("0xabc", 'a\nLink: "https://x.y"', "", "2026-10-07T00:00:00.000Z")).toBe(
+      'Juno profile\nWallet: 0xabc\nBio: "a\\nLink: \\"https://x.y\\""\nLink: ""\nIssued: 2026-10-07T00:00:00.000Z',
+    );
+  });
+});
+
+describe("saveDetails: refusals", () => {
+  it("refuses a signature from a different wallet, or over different words", async () => {
+    const owner = fresh();
+    const forged = { ...(await details(fresh(), "hi", "")), wallet: owner.address };
+    await expect(saveDetails(forged)).rejects.toThrow(/does not match this wallet/);
+    const swapped = { ...(await details(owner, "hi", "https://example.com")), link: "https://evil.example" };
+    await expect(saveDetails(swapped)).rejects.toThrow(/does not match this wallet/);
+  });
+
+  it("refuses a stale request", async () => {
+    const stale = await details(fresh(), "hi", "", new Date(Date.now() - 10 * 60_000).toISOString());
+    await expect(saveDetails(stale)).rejects.toThrow(/expired/);
+  });
+
+  it("refuses links that are not plain https addresses", async () => {
+    const owner = fresh();
+    for (const link of ["javascript:alert(1)", "http://example.com", "example.com", "https://localhost", "https://me:pw@example.com", `https://example.com/${"a".repeat(130)}`]) {
+      await expect(saveDetails(await details(owner, "", link))).rejects.toThrow(/https|open|at most/);
+    }
+  });
+
+  it("refuses a bio over the limit or with control characters", async () => {
+    const owner = fresh();
+    await expect(saveDetails(await details(owner, "x".repeat(BIO_MAX + 1), ""))).rejects.toThrow(/at most/);
+    await expect(saveDetails(await details(owner, "bell\u0007", ""))).rejects.toThrow(/control/);
+  });
+});
+
+describe("saveDetails: success", () => {
+  it("keeps the bio trimmed with its line breaks, and an empty link as empty", async () => {
+    store.reachable = true;
+    const owner = fresh();
+    const bio = "  Waterfalls,\r\n\n\n\nshot on Monad.  ";
+    const result = await saveDetails(await details(owner, bio, ""));
+    expect(result).toEqual({ wallet: owner.address, bio: "Waterfalls,\n\nshot on Monad.", link: "" });
+    expect(store.writes[0].filter).toEqual({ network: networkKey(), wallet: owner.address });
+    expect(store.writes[0].update).toMatchObject({ $set: { bio: "Waterfalls,\n\nshot on Monad.", link: "" } });
+  });
+
+  it("stores an https link as given, and counts a bio in characters, not bytes", async () => {
+    store.reachable = true;
+    const owner = fresh();
+    const bio = "🌊".repeat(BIO_MAX);
+    const result = await saveDetails(await details(owner, bio, "https://example.com/juno?x=1"));
+    expect(result.link).toBe("https://example.com/juno?x=1");
+    expect([...result.bio]).toHaveLength(BIO_MAX);
   });
 });

@@ -136,3 +136,12 @@ export function useHandle(wallet: string | null | undefined): string {
   if (!wallet) return "";
   return name ?? shortAddress(wallet);
 }
+
+/**
+ * The exact text a wallet signs to set its bio and link. The server rebuilds
+ * it character for character (`detailsMessage` in lib/juno/profiles.ts), so
+ * the two must not drift.
+ */
+export function detailsMessage(wallet: string, bio: string, link: string, issuedAt: string): string {
+  return `Juno profile\nWallet: ${wallet}\nBio: ${JSON.stringify(bio)}\nLink: ${JSON.stringify(link)}\nIssued: ${issuedAt}`;
+}

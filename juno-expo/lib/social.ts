@@ -186,14 +186,33 @@ function appUrl(): string {
 export async function shareCoin(
   coin: Pick<Coin, "address" | "name" | "symbol">,
 ): Promise<"shared" | "copied" | "cancelled" | "failed"> {
-  const url = coinLink(appUrl(), coin);
-  const message = `${coin.name} — $${coin.symbol} is live on Juno. Every post is a market.`;
+  return shareLink(
+    coinLink(appUrl(), coin),
+    coin.name,
+    `${coin.name} — $${coin.symbol} is live on Juno. Every post is a market.`,
+  );
+}
+
+/** Share a creator's profile, the same way a coin is shared. */
+export async function shareProfile(
+  wallet: string,
+  name: string | null,
+): Promise<"shared" | "copied" | "cancelled" | "failed"> {
+  const who = name ? `@${name}` : "This creator";
+  return shareLink(`${appUrl()}/trader/${wallet}`, name ? `@${name} on Juno` : "Juno", `${who} on Juno, where every post is a market.`);
+}
+
+async function shareLink(
+  url: string,
+  title: string,
+  message: string,
+): Promise<"shared" | "copied" | "cancelled" | "failed"> {
   try {
     if (Platform.OS === "web") {
       const nav = globalThis.navigator as Navigator | undefined;
       if (nav?.share) {
         try {
-          await nav.share({ title: coin.name, text: message, url });
+          await nav.share({ title, text: message, url });
           return "shared";
         } catch (error) {
           // Closing the share sheet is a choice, not a failure — copying the

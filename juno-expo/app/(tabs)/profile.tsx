@@ -1,18 +1,18 @@
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Platform, RefreshControl, ScrollView } from "react-native";
+import { Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import styled from "styled-components/native";
 
 import { AreaChart, RANGES, withinRange, type Range } from "../../components/AreaChart";
 import { CoinArt, Identicon } from "../../components/art";
+import { CreatorProfile } from "../../components/CreatorProfile";
 import { Tappable } from "../../components/Press";
 import { AutopilotCard } from "../../components/Autopilot";
 import { SignerChoice } from "../../components/SignerChoice";
 import { TradeList } from "../../components/TradeList";
 import { WalletCard } from "../../components/WalletCard";
-import { Handle } from "../../components/Handle";
-import { Body, Button, Caption, Card, Col, Delta, DeltaBadge, Display, Entry, Heading, Label, Ledger, Mono, Pill, Placeholder, Progress, RETRY_HINT, Row, Segmented, Skeleton, Stat, Tabs } from "../../components/kit";
+import { Body, Button, Caption, Card, Col, Delta, DeltaBadge, Display, Entry, Label, Ledger, Mono, Pill, Placeholder, Progress, RETRY_HINT, Row, Segmented, Skeleton, Stat, Tabs } from "../../components/kit";
 import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, networkLabel, type Plan, type WatchItem } from "../../lib/api";
 import { useLinkedState } from "../../lib/linked";
@@ -33,7 +33,64 @@ const TABS = [
 ];
 
 /**
- * Profile and portfolio.
+ * Your profile.
+ *
+ * The page other people see when they open you (`CreatorProfile`), with what
+ * only you see one tab over: the wallet, what it holds and what it costs,
+ * your watchlist, plans and fills. A visitor's view of the same wallet is
+ * `/trader/<wallet>`.
+ */
+export default function ProfileScreen() {
+  const wallet = useWallet();
+  const walletChoice = useWalletChoice();
+
+  if (!wallet.ready) {
+    return (
+      <Page edges={["top"]}>
+        <Padded>
+          <Skeleton h={160} round={26} />
+        </Padded>
+      </Page>
+    );
+  }
+
+  if (!wallet.address) {
+    return (
+      <Page edges={["top"]}>
+        <Padded>
+          <SignerChoice />
+        </Padded>
+        <Placeholder
+          title="No wallet yet"
+          detail={
+            walletChoice.choice === "privy"
+              ? "Sign in with Privy to get an embedded wallet for trading and launching."
+              : "Create one to trade and to launch your own coins. No sign-up."
+          }
+          action={
+            // Not `.then(portfolio.refresh)`: that refresh was captured before
+            // the wallet existed, re-ran the read with no address, and its
+            // null landed last — "Holdings could not be read" on a wallet
+            // created a second ago. The address change re-reads on its own.
+            <Button
+              label={walletChoice.choice === "privy" ? "Sign in with Privy" : "Create wallet"}
+              onPress={() => void wallet.connect().catch(() => undefined)}
+            />
+          }
+        />
+      </Page>
+    );
+  }
+
+  return (
+    <Page edges={["top"]}>
+      <CreatorProfile wallet={wallet.address} own walletTab={<WalletTab address={wallet.address} />} />
+    </Page>
+  );
+}
+
+/**
+ * The wallet and its portfolio.
  *
  * Holdings come from chain. Cost does not exist on-chain, so it is derived from
  * this wallet's own decoded trades — which means a position acquired any other
@@ -45,15 +102,14 @@ const TABS = [
  * per interval, because no price was observed in between and smoothing across
  * that gap would draw a line through numbers nobody paid.
  */
-export default function ProfileScreen() {
+function WalletTab({ address }: { address: string }) {
   const wallet = useWallet();
-  const walletChoice = useWalletChoice();
-  const identity = useIdentity(wallet.address);
+  const identity = useIdentity(address);
   const router = useRouter();
   /* Addressable, for the same reason the market list's segment is: a link, a
      share and a demo all want to land on a view rather than on a tap. */
   const [tab, setTab] = useLinkedState<Tab>(
-    "tab",
+    "view",
     TABS.map((option) => option.id),
     "holdings",
   );
@@ -66,23 +122,16 @@ export default function ProfileScreen() {
    * make the common case slower to serve the uncommon one.
    */
   const watching = useApi(
-    () =>
-      tab === "watching" && wallet.address
-        ? juno.watchlist(wallet.address)
-        : Promise.resolve(null),
-    [tab, wallet.address],
+    () => (tab === "watching" ? juno.watchlist(address) : Promise.resolve(null)),
+    [tab, address],
   );
   const savings = useApi(
-    () =>
-      tab === "plans" && wallet.address ? juno.plans(wallet.address) : Promise.resolve(null),
-    [tab, wallet.address],
+    () => (tab === "plans" ? juno.plans(address) : Promise.resolve(null)),
+    [tab, address],
   );
   const [range, setRange] = useState<Range>("ALL");
 
-  const portfolio = useApi(
-    async () => (wallet.address ? juno.portfolio(wallet.address) : null),
-    [wallet.address],
-  );
+  const portfolio = useApi(() => juno.portfolio(address), [address]);
   // A trade made on a coin page, or a plan set there, shows here on return.
   useRefreshOnFocus(() => {
     portfolio.refresh();
@@ -124,248 +173,190 @@ export default function ProfileScreen() {
     return series.map((point) => byTime.get(point.t) ?? 0);
   }, [data, series]);
 
-  if (!wallet.ready) {
-    return (
-      <Page edges={["top"]}>
-        <Padded>
-          <Skeleton h={160} round={26} />
-        </Padded>
-      </Page>
-    );
-  }
-
-  if (!wallet.address) {
-    return (
-      <Page edges={["top"]}>
-        <Padded>
-          <SignerChoice />
-        </Padded>
-        <Placeholder
-          title="No wallet yet"
-          detail={
-            walletChoice.choice === "privy"
-              ? "Sign in with Privy to get an embedded wallet for trading and launching."
-              : "Create one to trade and to launch your own coins. No sign-up."
-          }
-          action={
-            // Not `.then(portfolio.refresh)`: that refresh was captured before
-            // the wallet existed, re-ran the read with no address, and its
-            // null landed last — "Holdings could not be read" on a wallet
-            // created a second ago. The address change re-reads on its own.
-            <Button
-              label={walletChoice.choice === "privy" ? "Sign in with Privy" : "Create wallet"}
-              onPress={() => void wallet.connect().catch(() => undefined)}
-            />
-          }
-        />
-      </Page>
-    );
-  }
-
-
   return (
-    <Page edges={["top"]}>
-      <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 130, gap: 14 }}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={portfolio.refreshing}
-            onRefresh={portfolio.refresh}
-            tintColor={theme.colors.muted}
-          />
-        }
-      >
-        {/* Identity, as in the profile reference: avatar, handle, address. */}
-        <Identity>
-          <Identicon seed={wallet.address} size={72} />
-          <Heading>
-            <Handle wallet={wallet.address} />
-          </Heading>
-          <Caption>
-            {wallet.mode === "local"
-              ? `Device key · ${networkLabel(juno.loadedConfig()?.network ?? "monad-testnet")}`
-              : wallet.mode === "mera"
-                ? "Passkey wallet"
-                : `Privy embedded wallet · ${networkLabel(juno.loadedConfig()?.network ?? "monad-testnet")}`}
-          </Caption>
-          {identity?.twitter ? <Pill label={`𝕏 @${identity.twitter}`} tone="ink" /> : null}
-          <SignerChoice />
-        </Identity>
+    <>
+      <Identity>
+        <Caption>
+          {wallet.mode === "local"
+            ? `Device key · ${networkLabel(juno.loadedConfig()?.network ?? "monad-testnet")}`
+            : wallet.mode === "mera"
+              ? "Passkey wallet"
+              : `Privy embedded wallet · ${networkLabel(juno.loadedConfig()?.network ?? "monad-testnet")}`}
+        </Caption>
+        {identity?.twitter ? <Pill label={`𝕏 @${identity.twitter}`} tone="ink" /> : null}
+        <SignerChoice />
+      </Identity>
 
-        <WalletCard address={wallet.address} />
+      <WalletCard address={address} />
+      {/*
+        One statement, not two cards.
 
-        {/*
-          One statement, not two cards.
+        This was the hero-metric template: a three-up stat card, then a second
+        identical card with a big number and a badge. Two containers of the
+        same shape saying one thing, with the supporting figures *above* the
+        figure they support.
 
-          This was the hero-metric template: a three-up stat card, then a second
-          identical card with a big number and a badge. Two containers of the
-          same shape saying one thing, with the supporting figures *above* the
-          figure they support.
+        It is one sheet now, and it reads in the order someone asks the
+        questions: what is it worth, how has it moved, what is it made of.
+        The three figures sit under the value they belong to, ruled off — the
+        same ledger the rest of the app is set in.
 
-          It is one sheet now, and it reads in the order someone asks the
-          questions: what is it worth, how has it moved, what is it made of.
-          The three figures sit under the value they belong to, ruled off — the
-          same ledger the rest of the app is set in.
+        Three states, not two. `data` undefined is a read that failed.
+        `data.partial` with nothing found is a read that did not finish
+        looking, and "0 Positions, 0 Trades, $0" beside a badge admitting some
+        history could not be read is the screen contradicting itself. Only a
+        complete read of an empty wallet earns a zero.
+      */}
+      <Ledger>
+        <Entry $first>
+          <Centered>
+            <Caption>Portfolio</Caption>
+            {portfolio.loading ? (
+              <Skeleton h={42} w="60%" />
+            ) : (
+              // A wallet holding nothing really is worth $0 and should say
+              // so. A wallet whose pools could not all be read is not, and
+              // must not — the server nulls `totalValue` in exactly that case.
+              <Display>
+                {data && data.totalValue !== null
+                  ? money(data.totalValue, currency, { compact: false })
+                  : "—"}
+              </Display>
+            )}
+            <DeltaBadge pct={data?.totalPnlPct ?? null} />
+          </Centered>
 
-          Three states, not two. `data` undefined is a read that failed.
-          `data.partial` with nothing found is a read that did not finish
-          looking, and "0 Positions, 0 Trades, $0" beside a badge admitting some
-          history could not be read is the screen contradicting itself. Only a
-          complete read of an empty wallet earns a zero.
-        */}
-        <Ledger>
-          <Entry $first>
-            <Centered>
-              <Caption>Portfolio</Caption>
-              {portfolio.loading ? (
-                <Skeleton h={42} w="60%" />
-              ) : (
-                // A wallet holding nothing really is worth $0 and should say
-                // so. A wallet whose pools could not all be read is not, and
-                // must not — the server nulls `totalValue` in exactly that case.
-                <Display>
-                  {data && data.totalValue !== null
-                    ? money(data.totalValue, currency, { compact: false })
-                    : "—"}
-                </Display>
-              )}
-              <DeltaBadge pct={data?.totalPnlPct ?? null} />
-            </Centered>
+          <RangeRow>
+            <Segmented items={RANGES} value={range} onChange={setRange} />
+          </RangeRow>
 
-            <RangeRow>
-              <Segmented items={RANGES} value={range} onChange={setRange} />
-            </RangeRow>
-
-            <AreaChart
-              points={series}
-              bars={volumes}
-              format={(v) => money(v, currency, { compact: true })}
-              emptyLabel={
-                data?.partial
-                  ? "Some pools would not load — history unknown."
-                  : undefined
-              }
-            />
-          </Entry>
-
-          <Entry>
-            <Row>
-              <Stat value={counted(data?.positions.length, data?.partial)} label="Positions" />
-              <Stat
-                value={pnl === null ? "—" : money(pnl, currency)}
-                // Zero is neither a gain nor a loss, and it was rendering green.
-                tone={pnl === null || pnl === 0 ? undefined : pnl > 0 ? "pos" : "neg"}
-                label="P&L"
-              />
-              {/* The trades the Activity tab lists. `history` is the value
-                  series behind the chart — counting it counted chart points. */}
-              <Stat
-                value={counted(
-                  data?.positions.reduce((n, position) => n + position.trades.length, 0),
-                  data?.partial,
-                )}
-                label="Trades"
-              />
-            </Row>
-          </Entry>
-        </Ledger>
-
-        {data?.partial ? (
-          <Pill
-            label={
-              data.positions.length === 0
-                ? "Some pools could not be read — holdings unknown"
-                : "Some pools could not be read — this may not be everything"
+          <AreaChart
+            points={series}
+            bars={volumes}
+            format={(v) => money(v, currency, { compact: true })}
+            emptyLabel={
+              data?.partial
+                ? "Some pools would not load — history unknown."
+                : undefined
             }
-            tone="neg"
           />
-        ) : null}
+        </Entry>
 
-        <Tabs items={TABS} value={tab} onChange={setTab} />
+        <Entry>
+          <Row>
+            <Stat value={counted(data?.positions.length, data?.partial)} label="Positions" />
+            <Stat
+              value={pnl === null ? "—" : money(pnl, currency)}
+              // Zero is neither a gain nor a loss, and it was rendering green.
+              tone={pnl === null || pnl === 0 ? undefined : pnl > 0 ? "pos" : "neg"}
+              label="P&L"
+            />
+            {/* The trades the Activity tab lists. `history` is the value
+                series behind the chart — counting it counted chart points. */}
+            <Stat
+              value={counted(
+                data?.positions.reduce((n, position) => n + position.trades.length, 0),
+                data?.partial,
+              )}
+              label="Trades"
+            />
+          </Row>
+        </Entry>
+      </Ledger>
 
-        {tab === "holdings" ? (
-          portfolio.loading ? (
-            <Card>
-              <Skeleton h={16} w="70%" />
-            </Card>
-          ) : portfolio.error ? (
-            <Card>
-              <Body style={{ color: theme.colors.neg }}>{portfolio.error}</Body>
-            </Card>
-          ) : !data ? (
-            <Card>
-              <Body muted>Holdings could not be read.</Body>
-            </Card>
-          ) : data.positions.length === 0 ? (
-            <Card>
-              <Body muted>
-                {data.partial
-                  ? `Some pools would not load, so whether this wallet holds anything is unknown. ${RETRY_HINT}`
-                  : "Nothing held yet. Buy a coin from the Trade tab and it shows up here."}
-              </Body>
-            </Card>
-          ) : (
-            data!.positions.map((position) => (
-              // A holding opens its coin, as a watched coin and a plan do.
-              <Tappable
-                key={position.token}
-                onPress={() => router.push(`/coin/${position.token}` as never)}
-                to={0.985}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${position.name}`}
-              >
-              <Card>
-                <Row gap={12}>
-                  <Identicon seed={position.token} size={38} />
-                  <Col gap={3} style={{ flex: 1 }}>
-                    <Label style={{ fontWeight: "700" }} numberOfLines={1}>
-                      {position.name}
-                    </Label>
-                    <Caption>
-                      {tokens(position.balance)} ${position.symbol}
-                    </Caption>
-                  </Col>
-                  <Col gap={3} style={{ alignItems: "flex-end" }}>
-                    <Mono>{money(position.value, position.currency)}</Mono>
-                    <Delta pct={position.unrealisedPnlPct} />
-                  </Col>
-                </Row>
-                <Caption style={{ marginTop: 8 }}>
-                  {position.averageCost === null
-                    ? "No recorded cost for this holding"
-                    : `Avg cost ${money(position.averageCost, position.currency, { compact: false })}`}
-                </Caption>
-              </Card>
-              </Tappable>
-            ))
-          )
-        ) : tab === "watching" ? (
-          <WatchingTab
-            state={watching}
-            onOpen={(token) => router.push(`/coin/${token}`)}
-          />
-        ) : tab === "plans" ? (
-          <>
-            <AutopilotCard />
-            <PlansTab state={savings} onOpen={(token) => router.push(`/coin/${token}`)} />
-          </>
-        ) : tab === "activity" ? (
-          <TradeList positions={data?.positions ?? []} />
-        ) : (
+      {data?.partial ? (
+        <Pill
+          label={
+            data.positions.length === 0
+              ? "Some pools could not be read — holdings unknown"
+              : "Some pools could not be read — this may not be everything"
+          }
+          tone="neg"
+        />
+      ) : null}
+
+      <Tabs items={TABS} value={tab} onChange={setTab} />
+
+      {tab === "holdings" ? (
+        portfolio.loading ? (
+          <Card>
+            <Skeleton h={16} w="70%" />
+          </Card>
+        ) : portfolio.error ? (
+          <Card>
+            <Body style={{ color: theme.colors.neg }}>{portfolio.error}</Body>
+          </Card>
+        ) : !data ? (
+          <Card>
+            <Body muted>Holdings could not be read.</Body>
+          </Card>
+        ) : data.positions.length === 0 ? (
           <Card>
             <Body muted>
-              {Platform.OS === "web"
-                ? "This wallet lives in this browser's storage and signs here. It is a testnet key and is not recoverable — clearing site data deletes it, and Juno never sees it."
-                : "This wallet lives in the device keychain and signs on-device. It is a testnet key and is not recoverable — Juno never sees it."}
+              {data.partial
+                ? `Some pools would not load, so whether this wallet holds anything is unknown. ${RETRY_HINT}`
+                : "Nothing held yet. Buy a coin from the Trade tab and it shows up here."}
             </Body>
           </Card>
-        )}
-      </ScrollView>
-    </Page>
+        ) : (
+          data.positions.map((position) => (
+            // A holding opens its coin, as a watched coin and a plan do.
+            <Tappable
+              key={position.token}
+              onPress={() => router.push(`/coin/${position.token}` as never)}
+              to={0.985}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${position.name}`}
+            >
+            <Card>
+              <Row gap={12}>
+                <Identicon seed={position.token} size={38} />
+                <Col gap={3} style={{ flex: 1 }}>
+                  <Label style={{ fontWeight: "700" }} numberOfLines={1}>
+                    {position.name}
+                  </Label>
+                  <Caption>
+                    {tokens(position.balance)} ${position.symbol}
+                  </Caption>
+                </Col>
+                <Col gap={3} style={{ alignItems: "flex-end" }}>
+                  <Mono>{money(position.value, position.currency)}</Mono>
+                  <Delta pct={position.unrealisedPnlPct} />
+                </Col>
+              </Row>
+              <Caption style={{ marginTop: 8 }}>
+                {position.averageCost === null
+                  ? "No recorded cost for this holding"
+                  : `Avg cost ${money(position.averageCost, position.currency, { compact: false })}`}
+              </Caption>
+            </Card>
+            </Tappable>
+          ))
+        )
+      ) : tab === "watching" ? (
+        <WatchingTab
+          state={watching}
+          onOpen={(token) => router.push(`/coin/${token}`)}
+        />
+      ) : tab === "plans" ? (
+        <>
+          <AutopilotCard />
+          <PlansTab state={savings} onOpen={(token) => router.push(`/coin/${token}`)} />
+        </>
+      ) : tab === "activity" ? (
+        <TradeList positions={data?.positions ?? []} />
+      ) : (
+        <Card>
+          <Body muted>
+            {Platform.OS === "web"
+              ? "This wallet lives in this browser's storage and signs here. It is a testnet key and is not recoverable — clearing site data deletes it, and Juno never sees it."
+              : "This wallet lives in the device keychain and signs on-device. It is a testnet key and is not recoverable — Juno never sees it."}
+          </Body>
+        </Card>
+      )}
+    </>
   );
 }
-
 
 /**
  * Coins this wallet is keeping an eye on, and whether an alert has fired.

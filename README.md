@@ -43,8 +43,8 @@ fresh Postgres and Mongo, builds the API for production, and seeds the demo
 content through the API as real signed transactions: fourteen coins with
 trades and comments, one of them graduated into Uniswap v2 and one into Kuru.
 Then it serves the web app at <http://localhost:8183>. It needs no keys. A
-run on 6 Oct took 3½ minutes, and every screen then passed
-`tests/e2e/walk.mjs` (43/43).
+run on 6 Oct took 3½ minutes, and every screen passes `tests/e2e/walk.mjs`
+against it (50/50 on 7 Oct).
 
 It needs Foundry, Node 22+, PostgreSQL 16 (running) and MongoDB 7 on PATH.
 `npm run demo:local -- stop` stops everything it started. The script is
@@ -64,7 +64,7 @@ up as *Run it* below says and start the API on port 3100 with
   then `xcrun simctl install booted Juno.app && xcrun simctl launch booted app.launch.junomonad`.
 - **Web:** `cd juno-expo && EXPO_PUBLIC_API_URL=http://localhost:3100 npx expo start --web`.
 
-Profile → *Get testnet MON* funds a new wallet from Juno's faucet.
+Profile → **Wallet** → *Get testnet MON* funds a new wallet from Juno's faucet.
 
 ## Sixty seconds in the app
 
@@ -76,8 +76,13 @@ Profile → *Get testnet MON* funds a new wallet from Juno's faucet.
    Juno curve tracking each and how far its implied price sits from the mark.
 4. **+ → Post a photo** — pick a photo, name it, pick a curve shape; **one
    signature** later it is a live market with your post on it.
-5. **Profile** — fund the wallet from the testnet faucet, choose a name, see
-   holdings, cost basis and P&L; claim the fees your posts have earned.
+5. **Profile** — laid out like any creator profile people know: avatar,
+   name, bio and link (signed by the wallet), posts, followers and following,
+   highlights for reels and graduated coins, and a three-column grid of every
+   post with its coin's price change. Tabs for Reels, Coins and what they
+   back. On your own profile, *Edit profile*, and a **Wallet** tab: fund it
+   from the testnet faucet, see holdings, cost basis and P&L, watchlist and
+   plans.
 
 Every number is read from the chain, Postgres, Mongo, Pyth or Tessera. When a
 read fails the app says so — it does not print a zero it never measured.
@@ -293,6 +298,7 @@ repository: no commit was squashed.
 | 29 Sep – 1 Oct | Trading after graduation (v2 and Kuru); Privy on iOS and Android; native builds; a full end-to-end pass; **deployed and verified on Monad testnet**, with the API, indexer and app hosted |
 | 5 Oct | Track 01: Agora's AUSD faucet, the Perpl risk view, Kuru's markets on the Trade tab, Mera passkey accounts and sealed drafts |
 | 6 Oct | The Perpl bot; Privy autopilot (policies, session signers, gas sponsorship); Chainlink CRE `juno-nav` and `JunoNavOracle`; the MetaMask Agent Wallet plugin with Kimi; native Mera; zero-mock verification on a production build; lint |
+| 7 Oct | The creator profile, laid out like Instagram: signed bio and link, highlights, a grid of posts with their price change, Reels, Coins and Backed tabs, Edit profile, and the wallet in its own tab |
 
 **External code**, all under its own licence: OpenZeppelin Contracts, Uniswap
 v2-core (GPL-3.0, compiled unmodified for testnet's v2 factory through

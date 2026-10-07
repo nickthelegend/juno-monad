@@ -618,6 +618,8 @@ export type Position = {
   symbol: string;
   mediaUrl: string | null;
   mediaMime: string | null;
+  /** A reel's poster frame. Absent from a server older than 7 Oct. */
+  posterUrl?: string | null;
   curvePreset: string;
   balance: number;
   price: number;
@@ -803,6 +805,26 @@ export type Trader = {
   holding: number;
   isCreator: boolean;
   followers: number;
+};
+
+/** `GET /api/juno/profiles/<wallet>`. */
+export type CreatorProfile = {
+  network: Network;
+  wallet: string;
+  /** Each null when never set. */
+  name: string | null;
+  bio: string | null;
+  link: string | null;
+  /** An X account verified through Privy, when there is one. */
+  identity: { twitter?: string; emailVerified: boolean; via: "privy"; verifiedAt: string } | null;
+  followers: number;
+  following: number;
+  /** Null when no viewer was given. */
+  viewerFollows: boolean | null;
+  /** Every listed coin this wallet launched, newest first. */
+  coins: Coin[];
+  /** Coins the chain read could not price: the list is short by this many. */
+  missing: number;
 };
 
 export type WatchItem = {
@@ -1074,6 +1096,14 @@ export const juno = {
     }>(`/api/juno/coins/${token}`),
 
   portfolio: (wallet: string) => api.get<Portfolio>(`/api/juno/portfolio/${wallet}`),
+
+  /** A creator's profile page: who they are, their follow graph, and every coin they launched. */
+  profile: (wallet: string, viewer?: string | null) =>
+    api.get<CreatorProfile>(`/api/juno/profiles/${wallet}${viewer ? `?viewer=${viewer}` : ""}`),
+
+  /** Set a bio and link, signed by the wallet (see `detailsMessage` in lib/names). */
+  saveProfileDetails: (input: { wallet: string; bio: string; link: string; issuedAt: string; signature: string }) =>
+    api.post<{ wallet: string; bio: string; link: string }>(`/api/juno/profiles/${input.wallet}`, input),
 
   /** Comments on a coin, newest first. */
   comments: (token: string) =>

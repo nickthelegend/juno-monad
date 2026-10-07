@@ -82,7 +82,10 @@ FORK_BLOCK=$(cast block-number --rpc-url "$RPC")
 echo "    forked at block $FORK_BLOCK"
 
 echo "2/7 Databases"
-mkdir -p "$RUN/mongo"
+# Fresh every run, like the Postgres database: the API seals its faucet key in
+# Mongo under this run's JUNO_KEY_SECRET, which a previous run's data cannot
+# be opened with.
+rm -rf "$RUN/mongo" && mkdir -p "$RUN/mongo"
 mongod --dbpath "$RUN/mongo" --port 27018 --bind_ip 127.0.0.1 > "$RUN/logs/mongod.log" 2>&1 &
 echo $! > "$RUN/mongod.pid"
 dropdb --if-exists "$DB" && createdb "$DB"
@@ -122,10 +125,12 @@ echo "3/7 Building the API (production)"
 ./node_modules/.bin/next build --webpack > "$RUN/logs/build.log" 2>&1
 ./node_modules/.bin/next start -p "$API_PORT" > "$RUN/logs/api.log" 2>&1 &
 echo $! > "$RUN/api.pid"
-for _ in $(seq 1 60); do curl -sf "$API/api/juno/config" >/dev/null && break; sleep 1; done
+for _ in $(seq 1 120); do curl -sf "$API/api/juno/config" >/dev/null && break; sleep 1; done
+curl -sf "$API/api/juno/config" >/dev/null || { echo "The API did not start: see $RUN/logs/api.log" >&2; false; }
 
 echo "4/7 Funding the faucet"
-FAUCET=$(curl -s "$API/api/juno/faucet" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).address))')
+FAUCET=$(curl -s "$API/api/juno/faucet" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).address??"")}catch{console.log("")}})')
+[[ "$FAUCET" =~ ^0x[0-9a-fA-F]{40}$ ]] || { echo "The API did not name its faucet address: see $RUN/logs/api.log" >&2; false; }
 cast rpc anvil_setBalance "$FAUCET" 0x3635C9ADC5DEA00000 --rpc-url "$RPC" > /dev/null
 
 echo "5/7 Perpl marks"

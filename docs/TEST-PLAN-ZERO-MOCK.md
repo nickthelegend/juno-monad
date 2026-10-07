@@ -7,10 +7,12 @@ for real. Statuses are updated in place.
 without the owner passed:
 - the app regression: 59 of 60 checks, with 0 console or network problems;
 - the API: 88 of 88 calls;
-- every screen at 375 px: 43 of 43;
+- every screen at 375 px: 43 of 43 (50 of 50 on 7 Oct, with the new creator profile, which `tests/e2e/profile.mjs` also covers: 12 of 12);
 - passkeys and sealed drafts;
 - sponsor features X1, X3, X5, X6, X9 and X11;
 - the suites and gates.
+
+On 7 Oct, after the creator profile, the same runs again: the app regression 59 of 60 (B7 as before) with 0 problems, the API 88 of 88, passkeys and sealed drafts with 0 problems, every screen 50 of 50, and the profile e2e 12 of 12. The profile work also fixed holdings pictures: the portfolio API now serves `ipfs://` media through Juno's own route, as coins already did.
 
 UNTESTED items each name their blocker: an owner key or account, a second
 device, or the testnet go.
@@ -78,7 +80,20 @@ are from this run. Items S, P, X and T are new.
 
 | ID | Correct means | Status |
 |---|---|---|
-| S1 | All 43 screens and tabs render content, with no sideways overflow, no `NaN`/`undefined`, no console error and no failed request | PASS: 43/43 on the final build |
+| S1 | All 50 screens and tabs (43 before the 7 Oct profile) render content, with no sideways overflow, no `NaN`/`undefined`, no console error and no failed request | PASS: 43/43 on the final build |
+
+### R. Creator profile (`tests/e2e/profile.mjs`, 7 Oct)
+
+| ID | Correct means | Status |
+|---|---|---|
+| R1 | Visitor view at 1440 and 390 px: @handle, Posts, Followers, Following, Follow; no Edit profile | PASS |
+| R2 | Own view at 1440 and 390 px: Edit profile, Share profile, Posts, Reels, Coins, Backed and Wallet tabs; no Follow | PASS |
+| R3 | The Posts grid has one square tile per photo post the API lists, three to a row, each with its coin's price change | PASS |
+| R4 | Reels shows one tile per reel; Coins lists every coin launched; Backed shows the leaderboard record and other creators' coins held | PASS |
+| R5 | A tile opens its coin (click and touch tap) | PASS |
+| R6 | Edit profile saves a bio and link signed by the wallet; the server stores exactly them; a visitor sees both; a `javascript:` link cannot be saved | PASS |
+| R7 | A new wallet's own profile: "No posts yet" with Post your first; an address that is not one: "No such wallet" | PASS |
+| R8 | No console error or warning, and no failed request, in any of the above | PASS |
 
 ### P. Passkeys (Mera)
 
@@ -124,7 +139,7 @@ are from this run. Items S, P, X and T are new.
 | ID | Correct means | Status |
 |---|---|---|
 | K1 | `forge test` | PASS: 83 passed, 1 skipped (the env-gated Kuru fork suite) |
-| K2 | Root unit tests, typechecks, production build | PASS: 399 unit tests; `tsc` clean in the root, the app, the plugin and the CRE workflow; `next build` and the web export built |
+| K2 | Root unit tests, typechecks, production build | PASS: 409 tests in the root suite (380 of them the unit tests CI runs); `tsc` clean in the root, the app, the plugin and the CRE workflow; `next build` and the web export built |
 | K3 | Indexer `pnpm test` | PASS: 10/10 |
 | K4 | No mock, stub or fallback data in shipped code | PASS: the grep over `lib`, `app`, the Expo app, the plugin, the CRE workflow and `scripts` finds only comments that say "never fake", the contract parity fixtures' generator, the Privy types module (not loaded at runtime), and Chainlink's MockKeystoneForwarder by name |
 | K5 | Plugin tests, CRE workflow tests, WASM build | PASS: plugin 20, CRE 7, the workflow compiles to WASM |

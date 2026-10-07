@@ -149,6 +149,7 @@ function position(over: Partial<Position> = {}): Position {
     symbol: "COIN",
     mediaUrl: null,
     mediaMime: null,
+    posterUrl: null,
     curvePreset: "content",
     balance: 100,
     price: 2,

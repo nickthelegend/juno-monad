@@ -22,7 +22,7 @@ Every item, with its result, is in
 | Repo | <https://github.com/nickthelegend/juno-monad> (MIT) |
 | Live app | <https://juno-monad-app.vercel.app> (API <https://juno-api-production-04ea.up.railway.app>). Hosted build of 5 Oct; the 6 Oct features go up when the testnet hold lifts ([DEPLOY-LATER.md](DEPLOY-LATER.md)). |
 | Run it locally | `npm run demo:local`: the whole stack on a fork of Monad testnet, seeded, in one command (README) |
-| Judge logins | None needed. Profile → *Sign with* → **Passkey** makes an account in one prompt; *Get testnet MON* funds it. |
+| Judge logins | None needed. Profile → *Sign with* → **Passkey** makes an account in one prompt; Profile → Wallet → *Get testnet MON* funds it. |
 | Contracts (Monad testnet) | `JunoLaunchpad` `0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81`, `UniswapV2Graduator` `0x6924937d7DDDD7D1c931Dc7a9779bD32F807FeAA`, `KuruGraduator` `0xBeFD5740896D157A3E9821939e5ba213BEf50F99`, `JunoSwapRouter` `0x648c6E84F779Cf20730Db26d49B7B950ca256366`, v2 factory `0xA81f5D4884d56B7F648bCAb6e6fcdc8b8f54fb81`. All are verified on MonadVision ([`10143.json`](../contracts/deployments/10143.json)). `JunoNavOracle`: [address after the testnet go]. |
 | On-chain proof | `$GENESIS` [`0x1409…6360`](https://testnet.monadvision.com/token/0x14092A529e2e5EB4DECB4a1828f6aFa72e026360): launched, bought, sold, filled, [graduated](https://testnet.monadvision.com/tx/0x799309cc168b1b1ea248d04fb9b9c6b90972fc7090bf42765a1cf52dc0907ed4) and traded on its pair ([E2E-PLAN.md](E2E-PLAN.md), phase 6). A Perpl round trip with Agora AUSD on 5 Oct ([E2E-HOSTED.md](E2E-HOSTED.md)). |
 | Builds | Web (live). Native iOS and Android from `juno-expo/` (README, *Install it*). |
@@ -61,7 +61,7 @@ planned by **Kimi**.
 
 - **Product quality.** A phone-first feed of reels and photo posts, each with
   a price, a chart and a buy button. iOS, Android and web come from one Expo
-  codebase. All 43 screens and tabs pass at 375 px with no console or
+  codebase. All 50 screens and tabs pass at 375 px with no console or
   network errors (`tests/e2e/walk.mjs`).
 - **Technical excellence.**
   - Contracts: Juno's own `JunoLaunchpad`, `CurveMath`, `JunoToken`, the
@@ -69,7 +69,7 @@ planned by **Kimi**.
     83 Foundry tests with fuzzed invariants, a Solidity ↔ TypeScript parity
     test for every curve preset, fork tests against Kuru's live contracts,
     and Slither with 0 findings at medium and above.
-  - Server: 399 unit tests. Plugin and Kimi agent: 20 tests. CRE workflow:
+  - Server: 409 tests (380 unit tests run in CI). Plugin and Kimi agent: 20 tests. CRE workflow:
     7 tests on Chainlink's SDK test runtime. Envio: 10 handler tests.
   - A production build, end to end on a fork with real signed transactions:
     59 of 60 app checks, the 88-call API harness, passkeys, sealed drafts,
@@ -316,12 +316,12 @@ demo:local`.
 | Time | On screen | Say |
 |---|---|---|
 | 0:00–0:12 | The feed: reels and photo posts, each with a price and Buy | "Every post on Juno is a market on Monad." |
-| 0:12–0:35 | Profile → Passkey → Create (one prompt) → Get testnet MON → buy a post from the feed. The receipt: confirmed in under a second, MonadVision link. | "One passkey is the whole account, through Mera. The buy is confirmed in the same call." |
+| 0:12–0:35 | Profile → Passkey → Create (one prompt) → Wallet → Get testnet MON → buy a post from the feed. The receipt: confirmed in under a second, MonadVision link. | "One passkey is the whole account, through Mera. The buy is confirmed in the same call." |
 | 0:35–0:55 | + → Post a photo → name, preset → Launch. The live tape: Proposed → Voted → Finalized. | "Publishing is one transaction: token, curve and the lock on its future pair." |
 | 0:55–1:20 | A coin graduated into Kuru: its book, a market buy, a limit order placed and cancelled; Trade → Kuru lists Juno's markets | "When a curve fills, the post opens its own Kuru order book, seeded from its raise and locked." |
 | 1:20–1:45 | Trade → Perps → Get 10,000 AUSD (Agora) → open 2x BTC → Risk: liquidation distance, funding → close | "Perps on Perpl with Agora's AUSD, and a risk view on Perpl's API." |
 | 1:45–2:05 | Trade → Pre-IPO → OpenAI: the Tessera mark, the band, "Attested on Monad by Chainlink CRE" | "Pre-IPO trackers, marked against Tessera, with the NAV attested on chain by a CRE workflow." |
-| 2:05–2:25 | Privy sign-in → Profile → Plans → Turn on autopilot → a plan bought, gas paid by Privy | "Autopilot: Juno's signer under a Privy policy that only allows Juno trades paid to you." |
+| 2:05–2:25 | Privy sign-in → Profile → Wallet → Plans → Turn on autopilot → a plan bought, gas paid by Privy | "Autopilot: Juno's signer under a Privy policy that only allows Juno trades paid to you." |
 | 2:25–2:50 | Terminal: `mm juno ask "buy 1 MON of the coin closest to graduating"`. Kimi's tool calls, then the Agent Wallet signs. | "An agent can trade Juno too: Kimi plans it, MetaMask's Agent Wallet signs it." |
 | 2:50–3:00 | The repo: tests passing, `npm run demo:local` | "Open source, tested, and runnable in one command." |
 
@@ -346,7 +346,7 @@ demo:local`.
    prompt). Trades then sign without prompts for 15 minutes; *End session*
    wipes the key. Clear the browser and *Sign in with my passkey*: same
    address.
-3. Fund it: Profile → *Get testnet MON* (Juno's faucet).
+3. Fund it: Profile → **Wallet** → *Get testnet MON* (Juno's faucet).
 4. Trade → **Perps** → *Get 10,000 test AUSD* (Agora's faucet) → *Open
    account* → open a 2x position → **Risk** shows its distance to
    liquidation, margin health and funding → close and withdraw.
@@ -355,7 +355,7 @@ demo:local`.
    the live tape shows it move Proposed → Voted → Finalized.
 7. + → Post a photo → launch: one transaction. A passkey account can also
    *Seal this draft*: encrypted to the passkey, opened on any device with it.
-8. Signed in with Privy: Profile → Plans → **Turn on autopilot**
+8. Signed in with Privy: Profile → Wallet → Plans → **Turn on autopilot**
    ([AUTOPILOT.md](AUTOPILOT.md)).
 9. From a clone: `npm run juno:perpl-bot -- status` shows the markets the
    Perpl bot watches and what it would do; `run --dry-run --once` decides

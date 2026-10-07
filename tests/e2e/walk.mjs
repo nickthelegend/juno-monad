@@ -142,10 +142,16 @@ await visit("/profile", "Profile (no wallet)", ["Create wallet"]);
 current = "Profile · create wallet";
 await page.getByRole("button", { name: "Create wallet" }).first().click();
 await settle(2500);
-await check("Profile (wallet)", [/0x[0-9a-fA-F]{4}/]);
+await check("Profile (wallet)", [/0x[0-9a-fA-F]{4}/, "Edit profile", "No posts yet"]);
+for (const tab of ["Reels", "Coins", "Backed"]) {
+  await tap(tab, { ms: tab === "Backed" ? 3500 : 1500 });
+  await check(`Profile · ${tab}`);
+}
+await tap("Wallet", { ms: 2500 });
+await check("Profile · Wallet", ["Get testnet MON"]);
 for (const tab of ["Holdings", "Watching", "Plans", "Activity", "About"]) {
   await tap(tab, { ms: 1800 });
-  await check(`Profile · ${tab}`, tab === "Plans" ? ["Autopilot"] : []);
+  await check(`Profile · Wallet · ${tab}`, tab === "Plans" ? ["Autopilot"] : []);
 }
 await visit("/post", "Create", ["Publishing opens a real bonding curve"]);
 
@@ -168,7 +174,13 @@ for (const [kind, address] of Object.entries(COIN)) {
 }
 allowed.add("/api/juno/coins/0x000000000000000000000000000000000000dEaD");
 await visit("/coin/0x000000000000000000000000000000000000dEaD", "Coin · unknown", ["No such coin"]);
-if (creator) await visit(`/trader/${creator}`, "Trader", [/0x[0-9a-fA-F]{4}|demo_/], 2500);
+if (creator) {
+  await visit(`/trader/${creator}`, "Creator profile", [/0x[0-9a-fA-F]{4}|demo_/, "Follow", "Posts"], 2500);
+  for (const tab of ["Reels", "Coins", "Backed"]) {
+    await tap(tab, { ms: tab === "Backed" ? 3500 : 1500 });
+    await check(`Creator profile · ${tab}`);
+  }
+}
 allowed.add("/api/juno/portfolio/not-a-wallet");
 await visit("/trader/not-a-wallet", "Trader · bad address", []);
 await visit("/nope", "Not found", ["Nothing here"]);

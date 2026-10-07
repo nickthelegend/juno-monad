@@ -5,6 +5,7 @@ import { getAddress, isAddress, type Address } from "viem";
 import { junoTokenAbi } from "./abi";
 import { publicClient } from "./client";
 import { markPrice } from "./mark";
+import { mediaSrc } from "./media";
 import { fetchPoolSnapshot } from "./launchpad";
 import { quoteTokenUsdPrice } from "./pyth";
 import { listPools } from "./registry";
@@ -48,8 +49,11 @@ export type Position = {
   token: string;
   name: string;
   symbol: string;
+  /** Through `mediaSrc`, as a coin's media is: an `ipfs://` row is served by Juno's own route. */
   mediaUrl: string | null;
   mediaMime: string | null;
+  /** A reel's poster frame, so a still context has a picture to show. */
+  posterUrl: string | null;
   curvePreset: string;
   /** Tokens held right now, in UI units. */
   balance: number;
@@ -265,8 +269,9 @@ async function positionFor(
       token: row.token,
       name: row.name,
       symbol: row.symbol,
-      mediaUrl: row.mediaUrl,
+      mediaUrl: mediaSrc(row.mediaUrl),
       mediaMime: row.mediaMime,
+      posterUrl: mediaSrc(row.posterUrl),
       curvePreset: row.curvePreset,
       balance,
       price,
@@ -421,8 +426,9 @@ async function portfolioFromIndexer(owner: Address, rows: JunoPoolRow[]): Promis
       token: row.token,
       name: row.name,
       symbol: row.symbol,
-      mediaUrl: row.mediaUrl,
+      mediaUrl: mediaSrc(row.mediaUrl),
       mediaMime: row.mediaMime,
+      posterUrl: mediaSrc(row.posterUrl),
       curvePreset: row.curvePreset,
       balance: entry.balance,
       price,

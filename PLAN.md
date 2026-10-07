@@ -68,6 +68,7 @@ innovation. Bounties are judged 40% on meeting the stated requirement. So:
 | 6.3 | `docs/DEPLOY-LATER.md` | Ordered runbook: addresses and MON, keys and where set, deploy and verify, hosting, smoke test, shot list | Read; under 1 hour | DONE (about 50 minutes) |
 | 7.1 | Fund deployers; deploy `JunoNavOracle`; redeploy API, indexer and web | Hosted app on HEAD | Post-deploy smoke test | **BLOCKED**: testnet go and MON |
 | 7.2 | Video, 3 minutes or less | Recorded from the shot list | — | **BLOCKED**: testnet go (hosted app on HEAD) |
+| 8.1 | Creator profile, Instagram style (user, 7 Oct) | Header with avatar, name, @handle, signed bio and link; posts, followers, following; Follow / Buy / Share; highlights; Posts, Reels, Coins, Backed tabs; 3-column square grid with price change; own (Edit profile, Wallet tab) and visitor views; loading, empty and error states; 390 px first | `tests/e2e/profile.mjs` (12 checks), `walk.mjs` 50/50, the app regression 59/60 (B7 as before), API 88/88, passkeys and drafts clean; before and after screenshots in `docs/screens/profile/` | DONE |
 
 ## Gap audit (from the code, 6 Oct)
 
@@ -148,7 +149,7 @@ Results are in [`docs/TEST-PLAN-ZERO-MOCK.md`](docs/TEST-PLAN-ZERO-MOCK.md).
 |---|---|---|
 | Contracts | `cd contracts && forge test` | 83 passed, 1 skipped (env-gated Kuru fork suite) |
 | Slither | `slither .` with CI's filters and `--fail-medium` (`.github/workflows/ci.yml`) | 0 medium or high findings |
-| Server unit tests | `npx vitest run tests/unit` | 399 passed |
+| Server tests | `npx vitest run` (CI runs `tests/unit`) | 409 passed on 7 Oct (380 in `tests/unit`); 399 on 6 Oct |
 | Plugin and Kimi agent | `cd mm-plugin-juno && npm test` | 20 passed |
 | CRE workflow | `cd cre/juno-nav && bun test` | 7 passed |
 | Indexer | `cd indexer && pnpm test` | 10 passed |
@@ -156,5 +157,5 @@ Results are in [`docs/TEST-PLAN-ZERO-MOCK.md`](docs/TEST-PLAN-ZERO-MOCK.md).
 | Lint | `npm run lint` (Biome 2.2.4) | clean |
 | Production build | `next build --webpack`; `expo export --platform web` | built |
 | Secrets | grep for keys, JWTs, mnemonics and `.env` files over `git ls-files` | none tracked (the only matches are the public Pyth feed id and CI's placeholder `JUNO_KEY_SECRET`) |
-| 375 px | `tests/e2e/walk.mjs` | 43/43 |
+| 375 px | `tests/e2e/walk.mjs` | 43/43 on 6 Oct; 50/50 on 7 Oct with the new profile |
 | Failure states | E2E A4, B4, E9, E10, E20, I (refusals with a sentence), the walk's unknown coin and bad address | PASS |
