@@ -73,6 +73,34 @@ Done means:
 - **Claim all** where something is claimable (real transactions, on the fork);
 - unit tests for the totals; an e2e checks the panel against the API and the chain.
 
+## What shipped in this wave
+
+All five are built, tested and pushed. Each has before/after screenshots at
+390 and 1440 px in [`docs/screens/wave/`](screens/wave/).
+
+| Feature | Commit | Proof |
+|---|---|---|
+| The Monad speed receipt, with two timers | e935a50, 707c708 | `juno-tx-cost.test.ts` (7); `wave.mjs after receipt`: the ms shown equals the server's measurement, the fee matches the receipt, and the final timer is labelled |
+| The first trade in one sheet | 07a198b | `juno-expo-quick-sizes.test.ts` (5); `wave.mjs after first-trade`: a newcomer goes from no wallet to Done in one sheet |
+| A live first minute | 189021c | `juno-live-minute.test.ts` (6); `wave.mjs after landing`: figures equal the API, the block ticks, and pictures are warmed |
+| Notifications | c198acc | `juno-inbox.test.ts` (4); `wave.mjs after inbox`: another wallet follows, buys and comments, and the creator's bell and inbox show it |
+| Creator analytics | 098e52b | `juno-expo-earnings.test.ts` (4); `wave.mjs after analytics`: the total equals the chain reads |
+
+## Monad-native coverage (items 1–8)
+
+The full write-up, with evidence, is [MONAD-NATIVE.md](MONAD-NATIVE.md).
+
+| # | Item | Coverage |
+|---|---|---|
+| 1 | Live commit-state strip (`monadNewHeads`) | **Live testnet read.** Built: chips per block with measured medians (voted ~295 ms, final ~570 ms, verified 1.5 s, 300 ms blocks) |
+| 2 | Two-timer receipts | **Built.** Executed is this trade (labelled as a fork timing). Final is this trade's own on Monad; on a fork, Monad testnet's live median, labelled |
+| 3 | `txpool_statusByHash` / `ByAddress` | **Built.** Works on a testnet deployment; on the fork it answers `supported: false` (anvil lacks the methods) |
+| 4 | Passkeys on chain (P256 `0x0100`) | **Built, local fork.** The precompile checks a Mera passkey's WebAuthn signature (also checked live on testnet); web only, native capture not built |
+| 5 | Native staking (`0x1000`) | **Live testnet read.** Epoch, proposer, set size, delegations. Delegating: awaiting testnet go |
+| 6 | Monad gas correctness | **Built + documented.** Explicit limits, limit billing shown, the 10 MON reserve rule in the sheet, 19.9 KB contract, the one shared storage slot named for the next release |
+| 7 | x402 / MPP payments | **Not applicable today.** Juno sells no pay-per-request API; settlement would be a testnet transaction (awaiting testnet go) |
+| 8 | Canonical contracts, verification, links | **Built.** Canonical WMON, Circle USDC and Multicall3 (pinned by a test), Sourcify-verified contracts, MonadVision links |
+
 ## The next 5, after this wave
 
 1. Sponsor badges in the UI: "Filled on Kuru", "Attested by Chainlink CRE", "Signed with a passkey (Mera)", "Margin in Agora AUSD" (weakness 8).

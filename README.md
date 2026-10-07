@@ -160,6 +160,15 @@ read fails the app says so — it does not print a zero it never measured.
   pairs and Kuru books to the MetaMask Agent Wallet. `mm juno ask "…"` lets
   Kimi plan the trade with tool calls, inside a spend cap
   ([`mm-plugin-juno/`](mm-plugin-juno/README.md)).
+- **Notifications.** A bell on the feed, and an inbox built only from what
+  already happened: fills on your coins, follows, comments, likes, price
+  alerts that crossed, plans that fell due ([`inbox.ts`](lib/juno/inbox.ts)).
+- **Creator earnings, from the chain.** Your own Coins tab opens with what
+  your posts have earned (claimable plus claimed), volume, holders and
+  fills, a bar per post, and Claim all ([`Earnings.tsx`](juno-expo/components/Earnings.tsx)).
+- **A first trade that works.** Quick sizes never exceed what the wallet can
+  spend, and the buy sheet offers Juno's faucet in place: no wallet to Done
+  in one sheet.
 - **A Perpl bot.** Funding carry and a position guard on Perpl's API, with
   caps, a daily loss limit and a kill switch ([`docs/PERPL-BOT.md`](docs/PERPL-BOT.md)).
 - **History without hammering the RPC.** Monad's public RPC answers
@@ -169,22 +178,44 @@ read fails the app says so — it does not print a zero it never measured.
 
 ## Why Monad
 
-- **A buy that lands mid-scroll.** The server submits with
-  `eth_sendRawTransactionSync`, and the receipt comes back in the same call.
-  The trade receipt shows the confirmation time it measured, and the live
-  tape follows each trade through Monad's commit states (Proposed → Voted →
-  Finalized) over its WebSocket.
+- **Speed you can see.** The landing shows Monad testnet's real blocks moving
+  Proposed → Voted → Finalized → Verified, live from Monad's `monadNewHeads`
+  stream: 300 ms blocks, final in about 570 ms. Every trade's receipt has
+  two timers: *executed* (broadcast to receipt in one
+  `eth_sendRawTransactionSync` round trip) and *final*. It also shows what
+  the gas cost beside the same gas at Ethereum's live price.
 - **Cheap enough to price a single post.** A launch is one transaction of
   about 2M gas: the token, the curve, the lock on its future pair and the
   creator's first buy.
 - **Native venues to graduate into.** Kuru's on-chain order book is on Monad,
   so a coin that fills can open its own spot market, seeded and locked. Perpl's
   perps and Agora's AUSD sit beside it in the same app and wallet.
-- **Built for Monad's rules.** Monad charges the gas limit, not the gas used,
-  so every limit is an estimate plus a measured margin. Juno's faucet never
-  pays out below Monad's 10 MON sender reserve. The public
-  RPC answers `eth_getLogs` over 100 blocks only, so history comes from
-  receipts, one log cursor and Envio.
+- **Monad's own primitives, not generic EVM.**
+  - A passkey account proved by Monad's P256 precompile.
+  - Native staking read from the staking precompile.
+  - `txpool_statusByHash` for a send that is not in a block yet.
+  - Monad's 10 MON reserve rule enforced before a buy can revert.
+  - Gas is billed on the limit, so every limit is explicit and the receipt
+    says what was billed.
+  - The public RPC answers `eth_getLogs` over 100 blocks only, so history
+    comes from receipts, one log cursor and Envio.
+
+## Monad-native
+
+Each Monad-specific feature, and where it runs. Full evidence, measured
+numbers and the reasons for what is not used:
+[docs/MONAD-NATIVE.md](docs/MONAD-NATIVE.md).
+
+| Monad feature | In Juno | Runs |
+|---|---|---|
+| `monadNewHeads` commit states | Live block strip on the landing, with stage medians ([`heartbeat.ts`](lib/juno/heartbeat.ts)) | Live Monad testnet read |
+| `eth_sendRawTransactionSync` + commit stream | The receipt's *executed* and *final* timers ([`SpeedReceipt.tsx`](juno-expo/components/SpeedReceipt.tsx)) | Local fork (labelled); final from Monad testnet |
+| `txpool_statusByHash` | Status of a send not in a block yet ([`txpool.ts`](lib/juno/txpool.ts)) | Testnet deployments |
+| P256 precompile `0x0100` | A passkey account proved on chain ([`passkey-verify.ts`](lib/juno/passkey-verify.ts)) | Local fork; checked live on testnet |
+| Staking precompile `0x1000` | Epoch, proposer, validator set, delegations ([`staking.ts`](lib/juno/staking.ts)) | Live Monad testnet read |
+| Gas on the limit; 10 MON reserve | Explicit limits; the reserve rule in the sheet ([`reserve.ts`](juno-expo/lib/reserve.ts)) | Everywhere |
+| Canonical contracts | WMON, Circle USDC, Multicall3; Sourcify-verified contracts | Testnet deployment |
+| x402 / MPP | Not applicable today: Juno sells no pay-per-request API | — |
 
 ## Architecture
 
@@ -299,6 +330,7 @@ repository: no commit was squashed.
 | 5 Oct | Track 01: Agora's AUSD faucet, the Perpl risk view, Kuru's markets on the Trade tab, Mera passkey accounts and sealed drafts |
 | 6 Oct | The Perpl bot; Privy autopilot (policies, session signers, gas sponsorship); Chainlink CRE `juno-nav` and `JunoNavOracle`; the MetaMask Agent Wallet plugin with Kimi; native Mera; zero-mock verification on a production build; lint |
 | 7 Oct | The creator profile, laid out like Instagram: signed bio and link, highlights, a grid of posts with their price change, Reels, Coins and Backed tabs, Edit profile, and the wallet in its own tab |
+| 7–8 Oct | The development wave: the speed receipt (two timers, cost against Ethereum), the first trade in one sheet, the live landing, notifications, creator earnings; then Monad-native features: Monad's live commit-state strip, staking precompile reads, txpool status, the reserve rule, passkeys proved by the P256 precompile, 300 ms blocks everywhere |
 
 **External code**, all under its own licence: OpenZeppelin Contracts, Uniswap
 v2-core (GPL-3.0, compiled unmodified for testnet's v2 factory through

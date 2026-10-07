@@ -95,6 +95,27 @@ are from this run. Items S, P, X and T are new.
 | R7 | A new wallet's own profile: "No posts yet" with Post your first; an address that is not one: "No such wallet" | PASS |
 | R8 | No console error or warning, and no failed request, in any of the above | PASS |
 
+### W. Development wave and Monad-native (7–8 Oct, `tests/e2e/wave.mjs after`)
+
+Run on a production build against the local fork, at 390 and 1440 px.
+Console and network were clean in every step.
+
+| ID | Correct means | Status |
+|---|---|---|
+| W1 | Speed receipt: the ms shown equals the server's `confirmedInMs`; the fee matches the API's reading of the receipt; the Ethereum line appears exactly when the API has one; a labelled second (final) timer | PASS |
+| W2 | First trade: from no wallet, Create a wallet → Get testnet MON → a quick size that fits 0.5 MON → Buy → Done, in one sheet; the feed's figure says "mcap" | PASS |
+| W3 | Landing: markets and trades equal `/api/juno/stats`; the block ticks; the warm-up holds every feed picture within a minute | PASS |
+| W4 | Inbox: another wallet follows, buys and comments; the creator's bell counts ≥ 3; the inbox names each; the badge clears once opened | PASS |
+| W5 | Earnings: the total equals the chain reads (claimable + claimed); one bar per coin | PASS |
+| M1 | Heartbeat: connected to Monad testnet; block time 200–500 ms (measured ~300); final after voted; says the app runs on a fork | PASS (live testnet read) |
+| M3 | Txpool status on the fork answers `supported: false`, not a guess | PASS |
+| M4 | A passkey account (Chrome's virtual authenticator, PRF) proved by the P256 precompile; the profile has `passkey.where = "local fork"`; a visitor sees the badge | PASS |
+| M5 | Staking card's epoch equals `/api/juno/staking` (read live from testnet); a proposer is shown | PASS (live testnet read) |
+| M6 | A 0.1 MON buy from 0.5 MON shows the reserve-rule note before signing | PASS |
+| M7 | x402 / MPP | NOT APPLICABLE (see MONAD-NATIVE.md §7) |
+| M8 | Canonical WMON, USDC and Multicall3 pinned (`juno-canonical.test.ts`) | PASS |
+| W-R | No regressions: every screen 50/50; the profile e2e 12/12; passkeys (1 prompt to create, 0 in session, 1 after End session, the same account after a wipe); sealed drafts | PASS |
+
 ### P. Passkeys (Mera)
 
 | ID | Correct means | Status |

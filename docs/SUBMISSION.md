@@ -45,17 +45,45 @@ planned by **Kimi**.
 
 ## Why Monad
 
-- **A buy that lands mid-scroll.** `eth_sendRawTransactionSync` returns the
-  receipt in the same call. The receipt shows its measured confirmation time,
-  and the live tape follows each trade through Proposed → Voted → Finalized.
+- **Speed you can see.** The landing shows Monad testnet's real blocks moving
+  Proposed → Voted → Finalized → Verified, live from `monadNewHeads` (300 ms
+  blocks; final in about 570 ms). Every trade's receipt has two timers:
+  executed (broadcast to receipt through `eth_sendRawTransactionSync`) and
+  final. It also shows what the gas cost against the same gas on Ethereum
+  now.
 - **One transaction per launch, about 2M gas:** the token, the curve, the
   lock on its future pair and the creator's first buy. That is cheap enough
   to price a single post.
 - **Native venues:** Kuru's order book, Perpl's perps and Agora's AUSD are on
   Monad, so a coin can graduate into a real market and sit beside perps.
-- **Monad's rules handled:** gas is billed on the limit, so limits are
-  estimates plus a measured margin; the faucet respects the 10 MON sender
-  reserve; history doesn't depend on the public RPC's 100-block `eth_getLogs`.
+- **Monad's own primitives:**
+  - a passkey account proved by the P256 precompile;
+  - native staking read from the staking precompile;
+  - `txpool_statusByHash` for sends not yet in a block.
+- **Monad's rules handled:**
+  - gas is billed on the limit, so limits are explicit and the receipt
+    shows it;
+  - the 10 MON reserve rule is enforced in the buy sheet;
+  - history doesn't depend on the public RPC's 100-block `eth_getLogs`.
+- The full list, with where each runs, is in the *Monad-native* section
+  below.
+
+## Monad-native
+
+What Juno uses that a plain EVM chain doesn't have, and where each runs
+(full evidence in [MONAD-NATIVE.md](MONAD-NATIVE.md)):
+
+| Monad feature | In Juno | Runs |
+|---|---|---|
+| `monadNewHeads` commit states | The landing's live block strip, with stage medians | Live Monad testnet read |
+| `eth_sendRawTransactionSync` | One-call submit; the receipt's "executed" timer | Local fork, labelled |
+| Commit stream finality | The receipt's "final" timer | This trade's own on Monad; Monad testnet's live median on a fork |
+| `txpool_statusByHash` | What happened to a send that is not in a block yet | Testnet deployments (`supported: false` on a fork) |
+| P256 precompile `0x0100` | A Mera passkey account proved on chain; a profile badge | Local fork (precompile runs there); checked live on testnet |
+| Staking precompile `0x1000` | Epoch, proposer, validator set, delegations in the Wallet tab | Live Monad testnet read; delegating awaits testnet go |
+| Gas billed on the limit, 10 MON reserve | Explicit limits; the receipt's billing line; the reserve rule in the sheet | Everywhere |
+| Canonical contracts | WMON, Circle USDC, Multicall3; Sourcify-verified contracts | Testnet deployment |
+| x402 / MPP | Not applicable today: Juno sells no pay-per-request API | — |
 
 ## Judging criteria (20% each)
 
@@ -69,7 +97,7 @@ planned by **Kimi**.
     83 Foundry tests with fuzzed invariants, a Solidity ↔ TypeScript parity
     test for every curve preset, fork tests against Kuru's live contracts,
     and Slither with 0 findings at medium and above.
-  - Server: 409 tests (380 unit tests run in CI). Plugin and Kimi agent: 20 tests. CRE workflow:
+  - Server: 460 tests (431 unit tests run in CI). Plugin and Kimi agent: 20 tests. CRE workflow:
     7 tests on Chainlink's SDK test runtime. Envio: 10 handler tests.
   - A production build, end to end on a fork with real signed transactions:
     59 of 60 app checks, the 88-call API harness, passkeys, sealed drafts,
@@ -315,14 +343,15 @@ demo:local`.
 
 | Time | On screen | Say |
 |---|---|---|
-| 0:00–0:12 | The feed: reels and photo posts, each with a price and Buy | "Every post on Juno is a market on Monad." |
-| 0:12–0:35 | Profile → Passkey → Create (one prompt) → Wallet → Get testnet MON → buy a post from the feed. The receipt: confirmed in under a second, MonadVision link. | "One passkey is the whole account, through Mera. The buy is confirmed in the same call." |
-| 0:35–0:55 | + → Post a photo → name, preset → Launch. The live tape: Proposed → Voted → Finalized. | "Publishing is one transaction: token, curve and the lock on its future pair." |
-| 0:55–1:20 | A coin graduated into Kuru: its book, a market buy, a limit order placed and cancelled; Trade → Kuru lists Juno's markets | "When a curve fills, the post opens its own Kuru order book, seeded from its raise and locked." |
-| 1:20–1:45 | Trade → Perps → Get 10,000 AUSD (Agora) → open 2x BTC → Risk: liquidation distance, funding → close | "Perps on Perpl with Agora's AUSD, and a risk view on Perpl's API." |
-| 1:45–2:05 | Trade → Pre-IPO → OpenAI: the Tessera mark, the band, "Attested on Monad by Chainlink CRE" | "Pre-IPO trackers, marked against Tessera, with the NAV attested on chain by a CRE workflow." |
-| 2:05–2:25 | Privy sign-in → Profile → Wallet → Plans → Turn on autopilot → a plan bought, gas paid by Privy | "Autopilot: Juno's signer under a Privy policy that only allows Juno trades paid to you." |
-| 2:25–2:50 | Terminal: `mm juno ask "buy 1 MON of the coin closest to graduating"`. Kimi's tool calls, then the Agent Wallet signs. | "An agent can trade Juno too: Kimi plans it, MetaMask's Agent Wallet signs it." |
+| 0:00–0:15 | The landing: the live panel, then Monad testnet's blocks turning Proposed → Voted → Finalized → Verified, 300 ms blocks | "Every post on Juno is a market on Monad. And that's Monad, live: a block every 300 ms, final in under 600." |
+| 0:15–0:40 | Feed → Buy on a post → Create a wallet → Get testnet MON in the sheet → a quick size → Buy. The receipt: executed in ~300 ms, final, what it cost, the same gas on Ethereum. | "No wallet to Done in one sheet. Two timers: executed in one round trip, and final." |
+| 0:40–0:55 | Profile → Passkey → Create (one prompt) → Wallet → Prove my passkey on Monad → "Verified by Monad's P256 precompile" | "One passkey is the whole account, through Mera, and Monad's own P256 precompile checks its signature." |
+| 0:55–1:10 | + → Post a photo → Launch: one transaction | "Publishing is one transaction: token, curve and the lock on its future pair." |
+| 1:10–1:30 | A coin graduated into Kuru: its book, a limit order; Trade → Kuru | "When a curve fills, the post opens its own Kuru order book, seeded from its raise and locked." |
+| 1:30–1:50 | Trade → Perps → AUSD (Agora) → 2x BTC → Risk → close | "Perps on Perpl with Agora's AUSD, and a risk view on Perpl's API." |
+| 1:50–2:05 | Pre-IPO → OpenAI: "Attested on Monad by Chainlink CRE" | "Pre-IPO trackers, marked against Tessera, attested on chain by a CRE workflow." |
+| 2:05–2:25 | The creator: the bell (someone bought, followed, commented), Coins → Earnings and Claim, Wallet → staking from Monad's precompile | "Creators see who backed them and what they earned, read from the chain." |
+| 2:25–2:50 | Terminal: `mm juno ask "buy 1 MON of the coin closest to graduating"` | "An agent can trade Juno too: Kimi plans it, MetaMask's Agent Wallet signs it." |
 | 2:50–3:00 | The repo: tests passing, `npm run demo:local` | "Open source, tested, and runnable in one command." |
 
 ## Rules checklist

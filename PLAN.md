@@ -82,8 +82,23 @@ user key. Each is one commit with tests and before/after screenshots in
 | W1 | Monad speed receipt | Measured ms leads; signed / confirmed / block timeline; fee from the receipt (limit-billed on Monad); the same gas on Ethereum now from a live gas price, or no line | `tests/unit/juno-tx-cost.test.ts` (7); `tests/e2e/wave.mjs after receipt` (2/2) | DONE |
 | W2 | First trade in one sheet | Quick amounts never exceed spendable; Get testnet MON in the sheet; feed card labels its figure | `tests/unit/juno-expo-quick-sizes.test.ts` (5); `wave.mjs after first-trade` (2/2) | DONE |
 | W3 | A live first minute | Landing shows live coins, trades, last confirmation ms, block height; images warmed after start | `tests/unit/juno-live-minute.test.ts` (6); `wave.mjs after landing` (2/2) | DONE |
-| W4 | Notifications | Bell with unread count; inbox of real events; read state per wallet | `wave.mjs after inbox` | NOT STARTED |
-| W5 | Creator analytics | Earnings panel: claimable, claimed, volume, holders, per-post bars; Claim all | `wave.mjs after analytics` | NOT STARTED |
+| W4 | Notifications | Bell with unread count; inbox of real events; read state per wallet | `juno-inbox.test.ts` (4); `wave.mjs after inbox` (2/2) | DONE |
+| W5 | Creator analytics | Earnings panel: claimable, claimed, volume, holders, per-post bars; Claim all | `juno-expo-earnings.test.ts` (4); `wave.mjs after analytics` (2/2) | DONE |
+
+### Monad-native (7 Oct, later): all Monad tech, where it means something for Juno
+
+Full write-up and evidence: [`docs/MONAD-NATIVE.md`](docs/MONAD-NATIVE.md).
+
+| # | Item | Status | Verify |
+|---|---|---|---|
+| M1 | Live commit-state strip (`monadNewHeads`, testnet WebSocket) | DONE (live testnet read) | `juno-heartbeat.test.ts` (5); `wave.mjs after heartbeat` |
+| M2 | Two-timer receipts | DONE (executed on the fork, labelled; final = Monad testnet live median on a fork) | `wave.mjs after receipt` |
+| M3 | `txpool_status*` | DONE (testnet deployments; `supported: false` on the fork) | `juno-txpool.test.ts` (4); `wave.mjs after txpool` |
+| M4 | Passkeys on chain (P256 `0x0100`) | DONE (fork; testnet eth_call checked); native capture not built | `juno-passkey-verify.test.ts` (5); `wave.mjs after passkey` |
+| M5 | Native staking (`0x1000`) | DONE (live testnet read); delegate **BLOCKED**: testnet go | `juno-staking.test.ts` (2); `wave.mjs after staking` |
+| M6 | Monad gas correctness | DONE (explicit limits, reserve rule, docs) | `juno-expo-reserve.test.ts` (5), `juno-network.test.ts` |
+| M7 | x402 / MPP | NOT APPLICABLE today (no pay-per-request API; settlement needs testnet) | MONAD-NATIVE.md §7 |
+| M8 | Canonical contracts, Sourcify, links | DONE | `juno-canonical.test.ts` (3) |
 
 ## Gap audit (from the code, 6 Oct)
 
@@ -164,7 +179,7 @@ Results are in [`docs/TEST-PLAN-ZERO-MOCK.md`](docs/TEST-PLAN-ZERO-MOCK.md).
 |---|---|---|
 | Contracts | `cd contracts && forge test` | 83 passed, 1 skipped (env-gated Kuru fork suite) |
 | Slither | `slither .` with CI's filters and `--fail-medium` (`.github/workflows/ci.yml`) | 0 medium or high findings |
-| Server tests | `npx vitest run` (CI runs `tests/unit`) | 409 passed on 7 Oct (380 in `tests/unit`); 399 on 6 Oct |
+| Server tests | `npx vitest run` (CI runs `tests/unit`) | 460 passed on 8 Oct (431 in `tests/unit`); 409 on 7 Oct; 399 on 6 Oct |
 | Plugin and Kimi agent | `cd mm-plugin-juno && npm test` | 20 passed |
 | CRE workflow | `cd cre/juno-nav && bun test` | 7 passed |
 | Indexer | `cd indexer && pnpm test` | 10 passed |
