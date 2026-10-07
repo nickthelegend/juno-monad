@@ -60,15 +60,24 @@ vi.mock("../../juno-expo/node_modules/@category-labs/mera/dist/index.js", async 
   };
 });
 
+/*
+ * Loaded while the file is collected, not inside a test. Importing the app's
+ * Mera module graph (viem, BIP-39, Mera's client) is most of this file's
+ * time and grows with the machine's load; inside a test it counted against
+ * that test's timeout, the one place in the unit suite where load alone could
+ * fail a run.
+ */
+const mera = installed ? ((await import(MERA)) as { createPasskeyWithPrfOutput: unknown; getPasskeyPrfOutput: unknown }) : null;
+const app = installed ? ((await import(APP_MERA)) as AppMera) : null;
+
 describe.skipIf(!installed)("Mera on a phone", () => {
   it("creates the account through Mera's React Native client, for the web app's domain", async () => {
-    const mera = (await import(MERA)) as { createPasskeyWithPrfOutput: unknown; getPasskeyPrfOutput: unknown };
-    const { createMeraAccount, meraAvailable, PASSKEY_RP_ID, unlockMeraAccount, endMeraSession } = (await import(APP_MERA)) as AppMera;
+    const { createMeraAccount, meraAvailable, PASSKEY_RP_ID, unlockMeraAccount, endMeraSession } = app!;
     expect(meraAvailable()).toBe(true);
 
     const address = await createMeraAccount();
     expect(PASSKEY_RP_ID).toBe("juno-monad-app.vercel.app");
-    expect(mera.createPasskeyWithPrfOutput).toHaveBeenCalledWith(
+    expect(mera!.createPasskeyWithPrfOutput).toHaveBeenCalledWith(
       expect.objectContaining({ rp: { id: "juno-monad-app.vercel.app", name: "Juno" }, webAuthnClient: nativeClient }),
     );
     // The keychain holds the address and credential id, nothing secret.
@@ -78,11 +87,11 @@ describe.skipIf(!installed)("Mera on a phone", () => {
     // The same passkey brings back the same account, through the same client.
     endMeraSession();
     expect(await unlockMeraAccount(address)).toBe(address);
-    expect(mera.getPasskeyPrfOutput).toHaveBeenCalledWith({ rpId: "juno-monad-app.vercel.app", webAuthnClient: nativeClient });
+    expect(mera!.getPasskeyPrfOutput).toHaveBeenCalledWith({ rpId: "juno-monad-app.vercel.app", webAuthnClient: nativeClient });
   });
 
   it("refuses sealed drafts on a phone instead of calling the browser's credentials API", async () => {
-    const { sealSecret, sealedDraftsAvailable } = (await import(APP_MERA)) as AppMera;
+    const { sealSecret, sealedDraftsAvailable } = app!;
     expect(sealedDraftsAvailable()).toBe(false);
     await expect(sealSecret(new Uint8Array([1]))).rejects.toThrow("Sealed drafts open in the web app for now.");
   });

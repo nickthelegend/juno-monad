@@ -27,10 +27,17 @@ describe("retryWhenBusy", () => {
 
 describe("junoRead", () => {
   it("answers 503 with a sentence only once the retries are spent", async () => {
-    const response = await junoRead(() => Promise.reject(new Error("rate limit")));
+    // Millisecond waits: the production pauses (1.2 s, 2.5 s) slept for real
+    // here, against this test's own timeout.
+    let calls = 0;
+    const response = await junoRead(() => {
+      calls++;
+      return Promise.reject(new Error("rate limit"));
+    }, [1, 1]);
+    expect(calls).toBe(3);
     expect(response.status).toBe(503);
     expect((await response.json()).error).toMatch(/rate-limiting/);
-  }, 10_000);
+  });
 
   it("classifies refusals, not faults", () => {
     expect(isRpcBusy(new Error("Connection rate limits exceeded"))).toBe(true);
