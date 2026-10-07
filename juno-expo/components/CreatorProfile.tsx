@@ -5,6 +5,7 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from "react-native-svg"
 import styled from "styled-components/native";
 
 import { BottomSheet } from "./BottomSheet";
+import { Earnings } from "./Earnings";
 import { CoinArt, Identicon } from "./art";
 import { ReelBadgeGlyph, ShareGlyph } from "./icons";
 import { Tappable } from "./Press";
@@ -349,7 +350,9 @@ export function CreatorProfile({
           created.length === 0 ? (
             <Empty title="No coins launched" detail={own ? "Every post, reel or tracker you launch is listed here." : "This wallet has not launched a coin."} />
           ) : (
-            <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
+            <View style={{ paddingHorizontal: 16, paddingTop: 14, gap: 14 }}>
+              {/* Your own coins open with what they have earned you. */}
+              {own ? <Earnings wallet={wallet} coins={created} onClaimed={profile.refresh} /> : null}
               <Ledger>
                 {created.map((coin, index) => (
                   <CoinRow key={coin.address} coin={coin} first={index === 0} onPress={() => router.push(`/coin/${coin.address}`)} />

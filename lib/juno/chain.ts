@@ -262,6 +262,9 @@ export async function hydratePool(
   // Creator fees are a field of the pool itself: the claimable balance, read in
   // the same call as the price.
   const creatorRewards = weiToUi(snapshot.pool.creatorFees, snapshot.quoteDecimals) * rate;
+  // Already paid out to the creator: with the claimable balance, what the
+  // coin has earned them in its life.
+  const creatorRewardsClaimed = weiToUi(snapshot.pool.creatorFeesClaimed, snapshot.quoteDecimals) * rate;
 
   // Media kind comes from the stored mime type, never from the URL's tail: an
   // IPFS address is a hash with no extension, so sniffing it classified every
@@ -381,6 +384,8 @@ export async function hydratePool(
         : { source: "pyth", id: row.navFeedId }
       : null,
     creatorRewards,
+    creatorRewardsClaimed,
+    tradeCount: complete ? swaps.length : null,
     holders,
     priceUsd,
     curve: snapshot.curve,

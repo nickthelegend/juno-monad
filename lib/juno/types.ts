@@ -137,6 +137,10 @@ export type Coin = {
   volume24h: number | null;
   totalVolume: number | null;
   creatorRewards: number;
+  /** Creator fees already claimed, in the same currency: with `creatorRewards`, the lifetime total. */
+  creatorRewardsClaimed?: number;
+  /** Fills in the coin's history; null when the history read was short or skipped. */
+  tradeCount?: number | null;
   /**
    * Null when the read failed — a rate-limited RPC must not render as a
    * confident zero, which is what "no holders" would claim.
