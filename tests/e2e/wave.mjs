@@ -16,7 +16,7 @@ import { privateKeyToAccount } from "viem/accounts";
 const APP = (process.env.APP ?? "http://localhost:8183").replace(/\/$/, "");
 const API = (process.env.API ?? "http://localhost:3150").replace(/\/$/, "");
 const MODE = process.argv[2] === "after" ? "after" : "before";
-const ALL = ["receipt", "first-trade", "landing", "inbox", "analytics"];
+const ALL = ["receipt", "first-trade", "landing", "inbox", "analytics", "heartbeat", "staking", "txpool"];
 const WANT = process.argv.slice(3).length ? process.argv.slice(3) : ALL;
 const SHOTS = path.resolve("docs/screens/wave");
 mkdirSync(SHOTS, { recursive: true });
@@ -155,6 +155,8 @@ for (const viewport of ["mobile", "desktop"]) {
       await fundedVisitor(page);
       await openBuy(page);
       await key(page, "0.1");
+      // Monad's reserve rule, said where it applies: 0.5 MON spending 0.1 dips below the reserve once.
+      const reserveNote = MODE === "after" ? /once every 3 blocks/.test(await text(page)) : true;
       // What the server measured and returned for this transaction.
       const submitted = page.waitForResponse((r) => r.url().includes("/api/juno/tx/submit") && r.request().method() === "POST");
       await page.getByRole("button", { name: /^Buy/ }).last().click();
@@ -176,7 +178,10 @@ for (const viewport of ["mobile", "desktop"]) {
       if (!(Math.abs(shownFee - cost.monad.feeMon) <= cost.monad.feeMon * 0.05)) problems.push(`fee ${feeText} vs ${cost.monad.feeMon} MON`);
       const ethereum = await page.getByTestId("speed-ethereum").count();
       if (Boolean(cost.ethereum) !== ethereum > 0) problems.push(`Ethereum line ${ethereum ? "shown" : "absent"} but the API ${cost.ethereum ? "has" : "has no"} a comparison`);
+      if (!reserveNote) problems.push("no reserve-rule note before a buy that dips below 10 MON");
       if (!/Signed here/.test(await text(page))) problems.push("no timeline");
+      // The second timer: on a fork, Monad testnet's own finality, labelled as the network's.
+      if (!(await until(page, /finality right now/, 20_000))) problems.push("no labelled second timer");
       return problems;
     });
     await context.close();
@@ -252,10 +257,63 @@ for (const viewport of ["mobile", "desktop"]) {
   if (WANT.includes("inbox") && creatorKey) {
     const { context, page } = await open(viewport, creatorKey);
     await check(`Inbox · ${viewport}`, async () => {
+      if (MODE === "before") {
+        await page.goto(`${APP}/social`, { waitUntil: "domcontentloaded" });
+        await settle(page, 2500);
+        await shot(page, "inbox", viewport);
+        return [];
+      }
+      const problems = [];
+      // Someone else, in their own browser: follows the creator, buys one of
+      // their coins and comments on it, all through the app.
+      const visitor = await open(viewport);
+      await fundedVisitor(visitor.page);
+      const vp = visitor.page;
+      const post = coins.find((coin) => coin.creator.wallet === creator && coin.format === "post" && !coin.curve.graduated && !coin.reference);
+      await vp.goto(`${APP}/trader/${creator}`, { waitUntil: "domcontentloaded" });
+      await settle(vp, 1500);
+      await vp.getByRole("button", { name: "Follow", exact: true }).first().click();
+      if (!(await until(vp, /Following/, 10_000))) problems.push("the visitor could not follow");
+      await vp.goto(`${APP}/coin/${post.address}`, { waitUntil: "domcontentloaded" });
+      await settle(vp, 2000);
+      await vp.getByRole("button", { name: /^Buy$/ }).last().click();
+      await wait(vp, 1500);
+      await key(vp, "0.1");
+      await vp.getByRole("button", { name: /^Buy$/ }).last().click();
+      if (!(await until(vp, /Done/, 25_000))) problems.push("the visitor's buy did not land");
+      await vp.getByRole("button", { name: "Done", exact: true }).first().click().catch(() => undefined);
+      await wait(vp, 1000);
+      const words = `Lovely light on this one ${String(Date.now()).slice(-5)}`;
+      await vp.getByRole("button", { name: /^Comments/ }).first().click();
+      await wait(vp, 1200);
+      await vp.getByPlaceholder("Add a comment...").last().fill(words);
+      await vp.getByRole("button", { name: "Post comment" }).last().click();
+      await wait(vp, 2500);
+      await visitor.context.close();
+
+      // The creator: a badge on the bell, then each event in the inbox.
       await page.goto(`${APP}/social`, { waitUntil: "domcontentloaded" });
       await settle(page, 2500);
+      const badge = page.getByTestId("bell-badge");
+      if (!(await badge.count())) problems.push("no unread badge on the bell");
+      else if (Number(await badge.first().innerText()) < 3) problems.push(`badge says ${await badge.first().innerText()}, want at least 3`);
+      await page.getByRole("button", { name: /^Notifications/ }).first().click();
+      await settle(page, 2000);
+      const inbox = await text(page);
+      for (const [what, pattern] of [
+        ["follow", /started following you/],
+        ["buy", new RegExp(`bought [\\d.,kMB]+ \\$${post.symbol}`)],
+        ["comment", new RegExp(`commented on \\$${post.symbol}`)],
+      ]) {
+        if (!pattern.test(inbox)) problems.push(`the inbox has no ${what}`);
+      }
+      if (!inbox.includes(words)) problems.push("the comment's words are not shown");
       await shot(page, "inbox", viewport);
-      return [];
+      // Opened is read: back on the feed, the badge is gone.
+      await page.goto(`${APP}/social`, { waitUntil: "domcontentloaded" });
+      await settle(page, 2500);
+      if (await page.getByTestId("bell-badge").count()) problems.push("the badge is still there after the inbox was opened");
+      return problems;
     });
     await context.close();
   }
@@ -266,9 +324,66 @@ for (const viewport of ["mobile", "desktop"]) {
       await page.goto(`${APP}/profile?tab=coins`, { waitUntil: "domcontentloaded" });
       await settle(page, 3000);
       await shot(page, "analytics", viewport);
-      return [];
+      if (MODE === "before") return [];
+      const problems = [];
+      const profile = await (await fetch(`${API}/api/juno/profiles/${creator}`)).json();
+      const earned = profile.coins.reduce((sum, coin) => sum + coin.creatorRewards + (coin.creatorRewardsClaimed ?? 0), 0);
+      const shown = Number((await page.getByTestId("earnings-total").first().innerText()).replace(/[^0-9.]/g, ""));
+      if (!(Math.abs(shown - earned) <= Math.max(0.01, earned * 0.01))) problems.push(`earned shows ${shown}, the chain reads ${earned}`);
+      const bars = await page.getByTestId("earnings-row").count();
+      if (bars !== profile.coins.length) problems.push(`${bars} bars for ${profile.coins.length} coins`);
+      return problems;
     });
     await context.close();
+  }
+
+  if (WANT.includes("heartbeat")) {
+    const { context, page } = await open(viewport);
+    await check(`Monad heartbeat · ${viewport}`, async () => {
+      await page.goto(`${APP}/`, { waitUntil: "domcontentloaded" });
+      await settle(page, 2000);
+      // Live from Monad testnet's WebSocket: wait for a block to finalize.
+      const ready = await until(page, /final \d+ ms/, 30_000);
+      await shot(page, "heartbeat", viewport);
+      if (MODE === "before") return [];
+      const problems = [];
+      if (!ready) return ["no finalized block from Monad testnet within 30 s"];
+      const beat = await (await fetch(`${API}/api/juno/heartbeat`)).json();
+      if (!beat.connected || beat.network !== "monad-testnet") problems.push(`heartbeat ${JSON.stringify({ connected: beat.connected, network: beat.network })}`);
+      if (!(beat.blockMs >= 200 && beat.blockMs <= 500)) problems.push(`block time ${beat.blockMs} ms is not Monad's ~300`);
+      if (!(beat.finalizedMs > beat.votedMs)) problems.push(`finalized ${beat.finalizedMs} ms is not after voted ${beat.votedMs} ms`);
+      if (!/Juno's own trades here run on a local fork/.test(await text(page))) problems.push("the strip does not say the app runs on a fork");
+      return problems;
+    });
+    await context.close();
+  }
+
+  if (WANT.includes("staking")) {
+    const { context, page } = await open(viewport);
+    await check(`Staking card · ${viewport}`, async () => {
+      await fundedVisitor(page);
+      await page.goto(`${APP}/profile?tab=wallet`, { waitUntil: "domcontentloaded" });
+      await settle(page, 2500);
+      await page.getByTestId("staking-card").first().scrollIntoViewIfNeeded();
+      await until(page, /Epoch \d/, 20_000);
+      await wait(page, 800);
+      await shot(page, "staking", viewport);
+      if (MODE === "before") return [];
+      const staking = await (await fetch(`${API}/api/juno/staking`)).json();
+      const epoch = Number((await page.getByTestId("staking-epoch").first().innerText()).replace(/[^0-9]/g, ""));
+      const problems = [];
+      if (Math.abs(epoch - staking.epoch) > 1) problems.push(`epoch ${epoch} vs testnet ${staking.epoch}`);
+      if (!/Proposing now: validator #\d+/.test(await text(page))) problems.push("no proposer");
+      return problems;
+    });
+    await context.close();
+  }
+
+  if (WANT.includes("txpool") && viewport === "mobile" && MODE === "after") {
+    await check("Txpool status on the fork says it is unsupported, not a guess", async () => {
+      const answer = await (await fetch(`${API}/api/juno/tx/status?hash=0x${"ab".repeat(32)}`)).json();
+      return answer.supported === false && answer.where === "local fork" ? [] : [`answered ${JSON.stringify(answer)}`];
+    });
   }
 }
 

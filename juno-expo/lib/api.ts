@@ -474,6 +474,10 @@ export type Coin = {
    * their wallet.
    */
   creatorRewards: number;
+  /** Creator fees already claimed, in `marketCapCurrency`. With `creatorRewards`, the lifetime total. */
+  creatorRewardsClaimed?: number;
+  /** Fills in the coin's history; null when unread. */
+  tradeCount?: number | null;
   holders: number | null;
   priceUsd: number;
   priceHistory?: Array<{ t: string; price: number; volume: number; side: "buy" | "sell" }>;
@@ -807,6 +811,51 @@ export type Trader = {
   followers: number;
 };
 
+/** One notification, built from something that already happened (see lib/juno/inbox.ts). */
+export type InboxItem =
+  | { id: string; kind: "trade"; at: string; actor: string; token: string; symbol: string; side: "buy" | "sell"; base: number; quote: number; quoteSymbol: string; txHash: string }
+  | { id: string; kind: "follow"; at: string; actor: string }
+  | { id: string; kind: "comment"; at: string; actor: string; token: string; symbol: string; body: string }
+  | { id: string; kind: "like"; at: string; actor: string; token: string; symbol: string }
+  | { id: string; kind: "alert"; at: string; token: string; symbol: string; direction: "up" | "down"; alertPrice: number; priceNow: number }
+  | { id: string; kind: "plan"; at: string; token: string; symbol: string; amount: number; cadence: string };
+
+/** `GET /api/juno/notifications?wallet=`. */
+export type Inbox = { items: InboxItem[]; unread: number; seenAt: string | null };
+
+/** `GET /api/juno/staking`. */
+export type StakingView = {
+  network: "monad-testnet" | "monad";
+  epoch: number;
+  inEpochDelayPeriod: boolean;
+  effectiveEpoch: number;
+  proposer: { id: number; authAddress: string; stakeMon: number; commissionPct: number; unclaimedRewardsMon: number };
+  validators: number | null;
+  delegations: number[] | null;
+  at: string;
+};
+
+/** `GET /api/juno/heartbeat`: Monad's network, never the local fork. */
+export type Heartbeat = {
+  network: "monad-testnet" | "monad";
+  source: string;
+  connected: boolean;
+  error: string | null;
+  /** This app's own trades run on a local fork. */
+  appOnFork: boolean;
+  blocks: Array<{
+    number: number;
+    state: "Proposed" | "Voted" | "Finalized" | "Verified";
+    votedMs: number | null;
+    finalizedMs: number | null;
+    verifiedMs: number | null;
+  }>;
+  votedMs: number | null;
+  finalizedMs: number | null;
+  verifiedMs: number | null;
+  blockMs: number | null;
+};
+
 /** `GET /api/juno/stats`. */
 export type JunoStats = {
   network: string;
@@ -1138,6 +1187,21 @@ export const juno = {
     }>(`/api/juno/coins/${token}`),
 
   portfolio: (wallet: string) => api.get<Portfolio>(`/api/juno/portfolio/${wallet}`),
+
+  /** The wallet's notifications, newest first, and how many are new since its last visit. */
+  notifications: (wallet: string) => api.get<Inbox>(`/api/juno/notifications?wallet=${wallet}`),
+  /** The inbox was opened: everything in it is read. */
+  markNotificationsSeen: (wallet: string) => api.post<{ seenAt: string }>("/api/juno/notifications", { wallet }),
+
+  /** What Monad's transaction pool says about a hash (`txpool_statusByHash`); a local fork has no txpool methods. */
+  txStatus: (hash: string) =>
+    api.get<{ hash: string; where: string; supported: boolean; status?: string; reason?: string | null }>(`/api/juno/tx/status?hash=${hash}`),
+
+  /** Monad's native staking, read live from Monad's network: epoch, proposer, the set, a wallet's delegations. */
+  staking: (wallet?: string | null) => api.get<StakingView>(`/api/juno/staking${wallet ? `?wallet=${wallet}` : ""}`),
+
+  /** Monad's own blocks moving through consensus, live from its WebSocket. */
+  heartbeat: () => api.get<Heartbeat>("/api/juno/heartbeat"),
 
   /** The landing's live figures. Each part is null when its read failed. */
   stats: () => api.get<JunoStats>("/api/juno/stats"),
