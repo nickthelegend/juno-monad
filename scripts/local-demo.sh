@@ -9,17 +9,19 @@
 # (`mongod`). `npm install` at the root and in juno-expo/ first.
 #
 # What it does:
+# - Builds the API (production) and the web app first, while nothing else
+#   runs, to keep memory low. SKIP_BUILD=1 reuses the last builds.
 # - Forks Monad testnet with anvil on :8555 (pruned history). Juno's real
 #   testnet contracts, Perpl, Kuru, AUSD, Pyth and Chainlink's feeds are all
 #   on the fork.
 # - Makes a fresh Postgres database and Mongo data directory, and migrates.
-# - Builds the API for production and serves it on :3150.
+# - Serves the API on :3150.
 # - Funds the API's faucet key with fork MON.
 # - Seeds the demo content through the API: twelve coins, trades, comments,
 #   and two coins graduated into Uniswap v2 and Kuru, all as real signed
 #   transactions on the fork.
 # - Keeps Perpl's marks live on the fork (scripts/fork/perpl-keeper.sh).
-# - Exports the web app and serves it on :8183.
+# - Serves the web app on :8183.
 #
 # No keys are needed. PINATA_JWT (uploads) and Privy are optional; without
 # them the app says so where they would be used. Nothing touches Monad
@@ -73,31 +75,13 @@ done
 
 trap 'echo "A step failed: logs are in $RUN/logs. Stopping what this run started." >&2; stop' ERR
 
-echo "1/7 Forking Monad testnet on :$RPC_PORT"
-anvil --fork-url https://testnet-rpc.monad.xyz --chain-id 10143 --port "$RPC_PORT" --block-time 1 \
-  --prune-history 300 --silent --fork-retry-backoff 500 --retries 8 --timeout 30000 > "$RUN/logs/anvil.log" 2>&1 &
-echo $! > "$RUN/anvil.pid"
-for _ in $(seq 1 60); do cast block-number --rpc-url "$RPC" >/dev/null 2>&1 && break; sleep 1; done
-FORK_BLOCK=$(cast block-number --rpc-url "$RPC")
-echo "    forked at block $FORK_BLOCK"
-
-echo "2/7 Databases"
-# Fresh every run, like the Postgres database: the API seals its faucet key in
-# Mongo under this run's JUNO_KEY_SECRET, which a previous run's data cannot
-# be opened with.
-rm -rf "$RUN/mongo" && mkdir -p "$RUN/mongo"
-mongod --dbpath "$RUN/mongo" --port 27018 --bind_ip 127.0.0.1 > "$RUN/logs/mongod.log" 2>&1 &
-echo $! > "$RUN/mongod.pid"
-dropdb --if-exists "$DB" && createdb "$DB"
-# A fresh fork starts the demo content over (the demo wallets' keys are kept).
-[[ -f .juno/demo/fork/progress.json ]] && mv .juno/demo/fork/progress.json "$RUN/progress.previous.json"
 DEPLOY="$ROOT/contracts/deployments/10143.json"
 json() { node -e "console.log(require('$DEPLOY')['$1'] ?? '')"; }
 cat > "$RUN/env" <<EOF
 NEXT_PUBLIC_MONAD_NETWORK=testnet
 MONAD_RPC_URL=$RPC
 NEXT_PUBLIC_JUNO_LAUNCHPAD=$(json launchpad)
-JUNO_LAUNCHPAD_DEPLOY_BLOCK=$FORK_BLOCK
+JUNO_LAUNCHPAD_DEPLOY_BLOCK=0
 JUNO_SWAP_ROUTER=$(json swapRouter)
 JUNO_KURU_GRADUATOR=$(json kuruGraduator)
 NEXT_PUBLIC_JUNO_USDC=$(json usdc)
@@ -119,30 +103,61 @@ EOF
 # that is already set, even to empty). Optional keys there, such as
 # PINATA_JWT, still apply.
 set -a; . "$RUN/env"; set +a
+
+# Both builds first, while nothing else runs: building next to a fork, two
+# databases and a server is the memory peak this order avoids. SKIP_BUILD=1
+# reuses the last builds.
+if [[ "${SKIP_BUILD:-}" == "1" && -d .next && -d juno-expo/dist-local ]]; then
+  echo "1/8 Builds: reusing the last ones (SKIP_BUILD=1)"
+else
+  echo "1/8 Building the API (production) and the web app"
+  ./node_modules/.bin/next build --webpack > "$RUN/logs/build.log" 2>&1
+  (cd juno-expo && EXPO_PUBLIC_API_URL=$API EXPO_PUBLIC_APP_URL=$APP EXPO_PUBLIC_PRIVY_APP_ID= npx expo export --platform web --output-dir dist-local > "$RUN/logs/export.log" 2>&1)
+fi
+
+echo "2/8 Forking Monad testnet on :$RPC_PORT"
+anvil --fork-url https://testnet-rpc.monad.xyz --chain-id 10143 --port "$RPC_PORT" --block-time 1 \
+  --prune-history 300 --silent --fork-retry-backoff 500 --retries 8 --timeout 30000 > "$RUN/logs/anvil.log" 2>&1 &
+echo $! > "$RUN/anvil.pid"
+for _ in $(seq 1 60); do cast block-number --rpc-url "$RPC" >/dev/null 2>&1 && break; sleep 1; done
+FORK_BLOCK=$(cast block-number --rpc-url "$RPC")
+echo "    forked at block $FORK_BLOCK"
+# The launchpad's history on this fork starts here (read at runtime, not built in).
+sed -i.bak "s/^JUNO_LAUNCHPAD_DEPLOY_BLOCK=.*/JUNO_LAUNCHPAD_DEPLOY_BLOCK=$FORK_BLOCK/" "$RUN/env" && rm -f "$RUN/env.bak"
+set -a; . "$RUN/env"; set +a
+
+echo "3/8 Databases"
+# Fresh every run, like the Postgres database: the API seals its faucet key in
+# Mongo under this run's JUNO_KEY_SECRET, which a previous run's data cannot
+# be opened with.
+rm -rf "$RUN/mongo" && mkdir -p "$RUN/mongo"
+mongod --dbpath "$RUN/mongo" --port 27018 --bind_ip 127.0.0.1 > "$RUN/logs/mongod.log" 2>&1 &
+echo $! > "$RUN/mongod.pid"
+dropdb --if-exists "$DB" && createdb "$DB"
+# A fresh fork starts the demo content over (the demo wallets' keys are kept).
+[[ -f .juno/demo/fork/progress.json ]] && mv .juno/demo/fork/progress.json "$RUN/progress.previous.json"
 npx drizzle-kit migrate > "$RUN/logs/migrate.log" 2>&1
 
-echo "3/7 Building the API (production)"
-./node_modules/.bin/next build --webpack > "$RUN/logs/build.log" 2>&1
+echo "4/8 Starting the API"
 ./node_modules/.bin/next start -p "$API_PORT" > "$RUN/logs/api.log" 2>&1 &
 echo $! > "$RUN/api.pid"
 for _ in $(seq 1 120); do curl -sf "$API/api/juno/config" >/dev/null && break; sleep 1; done
 curl -sf "$API/api/juno/config" >/dev/null || { echo "The API did not start: see $RUN/logs/api.log" >&2; false; }
 
-echo "4/7 Funding the faucet"
+echo "5/8 Funding the faucet"
 FAUCET=$(curl -s "$API/api/juno/faucet" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).address??"")}catch{console.log("")}})')
 [[ "$FAUCET" =~ ^0x[0-9a-fA-F]{40}$ ]] || { echo "The API did not name its faucet address: see $RUN/logs/api.log" >&2; false; }
 cast rpc anvil_setBalance "$FAUCET" 0x3635C9ADC5DEA00000 --rpc-url "$RPC" > /dev/null
 
-echo "5/7 Perpl marks"
+echo "6/8 Perpl marks"
 FORK_RPC=$RPC bash scripts/fork/perpl-keeper.sh > "$RUN/logs/keeper.log" 2>&1 &
 echo $! > "$RUN/keeper.pid"
 
-echo "6/7 Seeding the demo (a few minutes: every trade is a signed transaction)"
+echo "7/8 Seeding the demo (a few minutes: every trade is a signed transaction)"
 JUNO_API_URL=$API npx tsx scripts/juno-demo.ts --api "$API" --rpc "$RPC" --round all > "$RUN/logs/seed.log" 2>&1 \
   || { echo "Seeding failed: see $RUN/logs/seed.log. Stopping what this run started." >&2; stop; exit 1; }
 
-echo "7/7 The web app"
-(cd juno-expo && EXPO_PUBLIC_API_URL=$API EXPO_PUBLIC_APP_URL=$APP EXPO_PUBLIC_PRIVY_APP_ID= npx expo export --platform web --output-dir dist-local > "$RUN/logs/export.log" 2>&1)
+echo "8/8 Serving the web app"
 npx --yes serve juno-expo/dist-local -s -l "$APP_PORT" > "$RUN/logs/web.log" 2>&1 &
 echo $! > "$RUN/web.pid"
 
