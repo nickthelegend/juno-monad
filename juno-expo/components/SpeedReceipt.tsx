@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { FinalityTimeline } from "./Finality";
 import { juno } from "../lib/api";
+import { useLive } from "../lib/live";
 import { tokens, useApi } from "../lib/useApi";
 import { theme } from "../theme";
 
@@ -29,20 +31,52 @@ export function SpeedReceipt({
   const cost = useApi(() => juno.txCost(txHash), [txHash]);
   const fork = juno.loadedConfig()?.localFork ?? false;
   const c = cost.data;
+  // The second timer. On Monad it is this trade's own: Proposed to Finalized,
+  // from the commit stream. A local fork has no consensus to time, so it is
+  // Monad testnet's live finality instead, and says it is the network's.
+  const live = useLive({ tx: txHash }, { intervalMs: 350, forMs: 15_000, enabled: !fork });
+  const event = live?.events[0];
+  const ownFinal =
+    event?.stages.Finalized !== undefined && event.stages.Proposed !== undefined ? event.stages.Finalized - event.stages.Proposed : null;
+  const network = useApi(() => (fork ? juno.heartbeat() : Promise.resolve(null)), [fork]);
+  const { refresh: refreshNetwork } = network;
+  const networkFinal = network.data?.finalizedMs ?? null;
+  useEffect(() => {
+    if (!fork || networkFinal !== null) return;
+    const timer = setInterval(refreshNetwork, 1_000);
+    return () => clearInterval(timer);
+  }, [fork, networkFinal, refreshNetwork]);
 
   return (
     <View style={styles.wrap}>
       {confirmedInMs !== null ? (
-        <View style={styles.hero} accessibilityLabel={`Confirmed in ${confirmedInMs} milliseconds`}>
-          <View style={styles.heroRow}>
-            <Text testID="speed-ms" style={styles.ms}>
-              {confirmedInMs.toLocaleString("en-US")}
+        <View style={styles.timers}>
+          <View style={styles.hero} accessibilityLabel={`Executed in ${confirmedInMs} milliseconds`}>
+            <Text style={styles.timerLabel}>Executed</Text>
+            <View style={styles.heroRow}>
+              <Text testID="speed-ms" style={styles.ms}>
+                {confirmedInMs.toLocaleString("en-US")}
+              </Text>
+              <Text style={styles.unit}>ms</Text>
+            </View>
+            <Text style={styles.heroCaption}>
+              broadcast to receipt{fork ? " on a local fork" : ""}, measured by Juno&rsquo;s server
             </Text>
-            <Text style={styles.unit}>ms</Text>
           </View>
-          <Text style={styles.heroCaption}>
-            from broadcast to receipt on {fork ? "a local fork of Monad testnet" : "Monad"}, measured by Juno&rsquo;s server
-          </Text>
+          <View style={styles.hero} accessibilityLabel="Final">
+            <Text style={styles.timerLabel}>Final</Text>
+            <View style={styles.heroRow}>
+              <Text testID="speed-final" style={[styles.ms, styles.msSecond]}>
+                {fork ? (networkFinal ?? "—") : (ownFinal ?? "…")}
+              </Text>
+              <Text style={styles.unit}>ms</Text>
+            </View>
+            <Text style={styles.heroCaption}>
+              {fork
+                ? "Monad testnet's finality right now (live median); a fork has no consensus to time"
+                : "this trade, proposed to finalized, from Monad's commit stream"}
+            </Text>
+          </View>
         </View>
       ) : null}
 
@@ -54,7 +88,7 @@ export function SpeedReceipt({
         <Step label="Block" value={c ? `#${c.blockNumber.toLocaleString("en-US")}` : null} />
       </View>
 
-      <FinalityTimeline txHash={txHash} />
+      {fork ? null : <FinalityTimeline txHash={txHash} />}
 
       {c ? (
         <View style={styles.cost}>
@@ -122,11 +156,14 @@ function gwei(value: number): string {
 
 const styles = StyleSheet.create({
   wrap: { alignSelf: "stretch", gap: 14, marginTop: 6 },
-  hero: { alignItems: "center", gap: 4 },
+  timers: { flexDirection: "row", justifyContent: "center", gap: 18 },
+  hero: { alignItems: "center", gap: 2, flex: 1 },
+  timerLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase", color: theme.colors.muted },
+  msSecond: { color: theme.colors.pos },
   heroRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
   ms: {
-    fontSize: 56,
-    lineHeight: 60,
+    fontSize: 44,
+    lineHeight: 50,
     fontWeight: "800",
     letterSpacing: -2,
     color: theme.colors.text,

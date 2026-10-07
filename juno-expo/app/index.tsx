@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import styled from "styled-components/native";
 
 import { OnboardingArt } from "../components/art";
+import { Heartbeat } from "../components/Heartbeat";
 import { Body, Button, Caption, Display } from "../components/kit";
 import { juno, networkLabel } from "../lib/api";
 import { useApi } from "../lib/useApi";
@@ -92,6 +93,7 @@ export default function Onboarding() {
               <Figure testID="stat-block" value={`#${live.block.number.toLocaleString("en-US")}`} label="latest block" />
             ) : null}
           </Grid>
+          <Heartbeat compact />
         </Live>
       ) : null}
 
