@@ -11,6 +11,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 import { sameAddress } from "./address";
 import { juno, type Address, type Hex, type SubmitResult, type UnsignedTransaction } from "./api";
+import { recordSend } from "./reserve";
 import { autopilotUnavailable, sponsoredSend } from "./autopilot-relay";
 
 /**
@@ -388,6 +389,9 @@ export function WalletProvider({
         onStep?.({ index, total, label: steps[index].label, phase: "submitting" });
         try {
           const result = await juno.submit({ signed: bytes });
+          // For Monad's reserve rule: under 10 MON, a wallet may spend below
+          // its reserve once every 3 blocks (lib/reserve.ts).
+          recordSend(result.from);
           landed.push(result);
           onLanded?.(result, { index, total, label: steps[index].label });
         } catch (caught) {

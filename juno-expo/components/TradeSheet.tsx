@@ -4,7 +4,9 @@ import Svg, { Circle, Path } from "react-native-svg";
 import styled from "styled-components/native";
 
 import { SpeedReceipt } from "./SpeedReceipt";
+import { TxpoolWatch } from "./TxpoolWatch";
 import { quickBuySizes } from "../lib/quick-sizes";
+import { EMPTYING_WINDOW_MS, lastSendOf, reserveCheck } from "../lib/reserve";
 import { Tappable } from "./Press";
 import { Button, Caption, Col, ExternalGlyph, Label, Row } from "./kit";
 import { sameAddress } from "../lib/address";
@@ -63,7 +65,7 @@ const QUICK_TOKENS = [100_000, 1_000_000, 10_000_000, 50_000_000];
  * This is not Monad's own *reserve balance*, and the difference matters. The
  * chain keeps 10 MON per account in reserve: a transaction that sends MON and
  * would leave the account under 10 can revert if the same account sent another
- * transaction in the previous ~3 blocks (about a second), because with
+ * transaction in the previous 3 blocks (about 0.9 s at 300 ms a block), because with
  * execution trailing consensus the earlier one's cost is not settled yet. One
  * buy from a quiet account is fine, which is the case this sheet is built for,
  * so it does not hold 10 MON back from someone who has 3. Two buys fired back
@@ -305,7 +307,10 @@ export function TradeSheet({
   // What this trade takes out of the wallet. For an exact-out buy that is only
   // known once quoted, and the bound that matters is the most it may cost.
   const spend = exactOut ? (quote?.quote.maximumAmountIn ?? null) : value;
-  const blocker = useMemo((): { text: string; url?: string; gas?: boolean } | null => {
+  // Re-checks the reserve rule once its 3-block window has passed.
+  const [reserveTick, setReserveTick] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reserveTick re-runs the time-based reserve check
+  const blocker = useMemo((): { text: string; url?: string; gas?: boolean; reserve?: boolean } | null => {
     if (!valid) return null;
     if (balance !== null && spend !== null && spend > balance) {
       if (side === "sell") return { text: `You hold ${tokens(balance)} ${coin.symbol}.` };
@@ -321,6 +326,13 @@ export function TradeSheet({
           }
         : { text: `This market is priced in ${coin.quote.symbol} and you have ${tokens(balance)}.` };
     }
+    // Monad's reserve rule: a MON spend that ends below min(10 MON, the
+    // balance) is allowed once every 3 blocks for an undelegated wallet, and
+    // a second inside that window would be included and revert.
+    if (native && side === "buy" && balance !== null && spend !== null) {
+      const reserve = reserveCheck({ balance, value: spend, lastSentAt: lastSendOf(wallet.address) });
+      if (!reserve.ok) return { text: reserve.note, gas: false, reserve: true };
+    }
     // Gas is paid in MON whatever the market is priced in. On a MON market the
     // quote balance is the MON balance, on either side of the trade.
     const mon = native ? quoteBalance : feeBalance;
@@ -335,7 +347,12 @@ export function TradeSheet({
       };
     }
     return null;
-  }, [valid, balance, spend, side, coin.symbol, coin.quote.symbol, native, testnet, quoteBalance, feeBalance]);
+  }, [valid, balance, spend, side, coin.symbol, coin.quote.symbol, native, testnet, quoteBalance, feeBalance, wallet.address, reserveTick]);
+  useEffect(() => {
+    if (!blocker?.reserve) return;
+    const timer = setTimeout(() => setReserveTick((n) => n + 1), EMPTYING_WINDOW_MS);
+    return () => clearTimeout(timer);
+  }, [blocker?.reserve]);
 
   /*
    * Short of MON on testnet: Juno's faucet, right here. The first trade used
@@ -929,7 +946,9 @@ export function TradeSheet({
                   stage === "confirming"
                     ? "Confirming…"
                     : blocker
-                      ? `Not enough ${blocker.gas ? "MON" : side === "sell" ? coin.symbol : coin.quote.symbol}`
+                      ? blocker.reserve
+                        ? "Wait a moment"
+                        : `Not enough ${blocker.gas ? "MON" : side === "sell" ? coin.symbol : coin.quote.symbol}`
                       : side === "buy"
                         ? "Buy"
                         : "Sell"
@@ -959,6 +978,14 @@ export function TradeSheet({
                 on has to be said beside it rather than on it. */}
             {stage === "confirming" && progress ? <HintText>{progress}</HintText> : null}
             {navWarning && !blocker ? <WarnText>{navWarning}</WarnText> : null}
+            {/* Monad's reserve rule, said where it applies: a buy that spends
+                below the 10 MON reserve, which Monad allows once every 3 blocks. */}
+            {!blocker && valid && native && side === "buy" && balance !== null && spend !== null
+              ? (() => {
+                  const reserve = reserveCheck({ balance, value: spend, lastSentAt: lastSendOf(wallet.address) });
+                  return reserve.ok && reserve.rule === "emptying-allowed" ? <HintText testID="reserve-note">{reserve.note}</HintText> : null;
+                })()
+              : null}
             {blocker ? (
               <HintText>
                 {blocker.text}
@@ -968,6 +995,10 @@ export function TradeSheet({
               </HintText>
             ) : null}
             {error ? <ErrorText>{error}</ErrorText> : null}
+            {/* Accepted but not confirmed: ask Monad's txpool what became of it. */}
+            {error && /has not confirmed yet\. It is (0x[0-9a-fA-F]{64})/.test(error) ? (
+              <TxpoolWatch hash={error.match(/0x[0-9a-fA-F]{64}/)![0]} />
+            ) : null}
 
             <Pad>
               {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"].map((key) => (
