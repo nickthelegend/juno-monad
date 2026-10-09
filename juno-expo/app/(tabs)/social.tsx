@@ -10,6 +10,7 @@ import { CoachMarks, COACH_STEPS } from "../../components/CoachMarks";
 import { CommentsSheet } from "../../components/CommentsSheet";
 import { FeedCard, type Buyers } from "../../components/FeedCard";
 import { Button, Placeholder, RETRY_HINT, Skeleton } from "../../components/kit";
+import { SearchGlyph } from "../../components/icons";
 import { JunoMark } from "../../components/logo";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
@@ -154,6 +155,9 @@ export default function SocialScreen() {
         <JunoMark size={28} color={theme.colors.text} />
         <Text style={styles.wordmark}>juno</Text>
         <View style={{ flex: 1 }} />
+        <Pressable onPress={() => router.push("/search" as never)} accessibilityRole="button" accessibilityLabel="Search" style={styles.searchTap}>
+          <SearchGlyph size={22} />
+        </Pressable>
         {wallet.address ? <Bell wallet={wallet.address} /> : null}
         {/* Whose posts, not what kind. Absent without a wallet, because there
             is no following list to have. */}
@@ -373,6 +377,7 @@ function ReelRing({ coin, onPress }: { coin: Coin; onPress: () => void }) {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: theme.colors.surfaceAlt },
+  searchTap: { padding: 6 },
   header: {
     flexDirection: "row",
     alignItems: "center",

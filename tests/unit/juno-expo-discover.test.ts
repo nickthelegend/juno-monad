@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Coin } from "../../juno-expo/lib/api";
-import { newestOf, topCreatorOf, trendingOf } from "../../juno-expo/lib/discover";
+import { newestOf, searchMarkets, topCreatorOf, trendingOf } from "../../juno-expo/lib/discover";
 
 /** The desktop rails' lists and the no-wallet profile's example creator. */
 
@@ -68,5 +68,26 @@ describe("topCreatorOf", () => {
 
   it("has no example on an empty feed", () => {
     expect(topCreatorOf([])).toBeNull();
+  });
+});
+
+describe("searchMarkets", () => {
+  const coins = [
+    coin("KURU", { name: "Graduated to Kuru", wallet: "0xAAA" }),
+    coin("SKURUX", { name: "Something", wallet: "0xBBB" }),
+    coin("TIDE", { name: "Low tide", wallet: "0xAAA" }),
+  ];
+
+  it("ranks an exact ticker over a prefix over a match anywhere, with or without $", () => {
+    expect(searchMarkets("$kuru", coins).filter((h) => h.kind === "coin").map((h) => (h.kind === "coin" ? h.coin.symbol : ""))).toEqual(["KURU", "SKURUX"]);
+  });
+
+  it("finds a creator by handle and counts their posts", () => {
+    const [hit] = searchMarkets("0xaaa", coins).filter((h) => h.kind === "creator");
+    expect(hit).toMatchObject({ kind: "creator", wallet: "0xAAA", posts: 2 });
+  });
+
+  it("matches nothing on a single character", () => {
+    expect(searchMarkets("k", coins)).toEqual([]);
   });
 });

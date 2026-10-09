@@ -67,6 +67,15 @@ export function ShareGlyph({ size = 22, color = "#12150E", stroke = 1.9 }: Glyph
   );
 }
 
+export function SearchGlyph({ size = 22, color = "#12150E", stroke = 2 }: Glyph) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={11} cy={11} r={6.5} stroke={color} strokeWidth={stroke} />
+      <Path d="M16 16l4.5 4.5" stroke={color} strokeWidth={stroke} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function SoundGlyph({ size = 22, color = "#FFFFFF", muted }: Glyph & { muted: boolean }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

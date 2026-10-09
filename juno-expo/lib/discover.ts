@@ -53,3 +53,41 @@ export function topCreatorOf(posts: Coin[]) {
     coins,
   };
 }
+
+/** A coin or a creator that matches what was typed. */
+export type SearchHit =
+  | { kind: "coin"; coin: Coin; score: number }
+  | { kind: "creator"; wallet: string; name: string; posts: number; score: number };
+
+/**
+ * Coins by ticker, name or address, and creators by handle, name or wallet.
+ * An exact ticker or handle ranks first, then a prefix, then a match anywhere.
+ * Under two characters nothing matches: one letter matches everything.
+ */
+export function searchMarkets(query: string, coins: Coin[], limit = 20): SearchHit[] {
+  const q = query.trim().replace(/^\$/, "").toLowerCase();
+  if (q.length < 2) return [];
+  const rank = (...fields: string[]) => {
+    let best = 0;
+    for (const field of fields.map((f) => f.toLowerCase())) {
+      if (field === q) best = Math.max(best, 3);
+      else if (field.startsWith(q)) best = Math.max(best, 2);
+      else if (field.includes(q)) best = Math.max(best, 1);
+    }
+    return best;
+  };
+  const hits: SearchHit[] = [];
+  const creators = new Map<string, { name: string; posts: number; score: number }>();
+  for (const coin of coins) {
+    const score = rank(coin.symbol, coin.name, coin.address);
+    if (score > 0) hits.push({ kind: "coin", coin, score });
+    const creator = creators.get(coin.creator.wallet) ?? { name: coin.creator.displayName || coin.creator.handle, posts: 0, score: 0 };
+    creator.posts += 1;
+    creator.score = Math.max(creator.score, rank(coin.creator.handle, coin.creator.displayName ?? "", coin.creator.wallet));
+    creators.set(coin.creator.wallet, creator);
+  }
+  for (const [wallet, creator] of creators) {
+    if (creator.score > 0) hits.push({ kind: "creator", wallet, name: creator.name, posts: creator.posts, score: creator.score });
+  }
+  return hits.sort((a, b) => b.score - a.score).slice(0, limit);
+}
