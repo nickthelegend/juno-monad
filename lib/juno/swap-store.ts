@@ -96,6 +96,16 @@ export async function recalledSwapsFor(tokens: string[], limit = 2_000): Promise
   return out;
 }
 
+/** The trades one transaction made, in log order. */
+export async function swapsOfTransaction(hash: string): Promise<PoolSwap[]> {
+  const rows = await getDb()
+    .select()
+    .from(junoSwaps)
+    .where(and(eq(junoSwaps.network, networkKey()), eq(junoSwaps.txHash, hash.toLowerCase())))
+    .orderBy(junoSwaps.logIndex);
+  return rows.map(toSwap);
+}
+
 /** Every trade one wallet made, across all tokens, newest first. */
 export async function recalledSwapsByTrader(trader: string, limit = 1_000): Promise<PoolSwap[]> {
   const rows = await getDb()

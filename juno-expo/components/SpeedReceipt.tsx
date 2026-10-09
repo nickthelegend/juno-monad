@@ -1,8 +1,10 @@
-import { useEffect } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { useEffect, useState } from "react";
+import { Image, Platform, Share, StyleSheet, Text, View } from "react-native";
 
 import { FinalityTimeline } from "./Finality";
-import { juno } from "../lib/api";
+import { Button } from "./kit";
+import { API_URL, juno } from "../lib/api";
 import { useLive } from "../lib/live";
 import { tokens, useApi } from "../lib/useApi";
 import { theme } from "../theme";
@@ -120,6 +122,65 @@ export function SpeedReceipt({
           ) : null}
         </View>
       ) : null}
+
+      <ShareCard txHash={txHash} />
+    </View>
+  );
+}
+
+/**
+ * The receipt as an image, for posting: `GET /tx/card` draws it on the
+ * server from the server's own figures, so what is shared is what was
+ * measured. Shown on request, then shared as a file where the browser can
+ * (a phone's share sheet), downloaded where it cannot, or copied as a link.
+ */
+function ShareCard({ txHash }: { txHash: string }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const url = `${API_URL}/api/juno/tx/card?hash=${txHash}`;
+
+  const share = async () => {
+    setNote(null);
+    try {
+      if (Platform.OS !== "web") {
+        await Share.share({ url, message: "My trade on Juno, on Monad" });
+        return;
+      }
+      const blob = await (await fetch(url)).blob();
+      const file = new File([blob], `juno-receipt-${txHash.slice(2, 10)}.png`, { type: "image/png" });
+      const nav = globalThis.navigator as Navigator & { canShare?: (data: ShareData) => boolean };
+      if (nav.canShare?.({ files: [file] })) {
+        await nav.share({ files: [file], title: "My Juno receipt" });
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setNote("Saved the image.");
+    } catch (error) {
+      if ((error as Error)?.name === "AbortError") return;
+      setNote("Could not share the image. Copy the link instead.");
+    }
+  };
+
+  const copy = async () => {
+    await Clipboard.setStringAsync(url);
+    setNote("Link copied.");
+  };
+
+  if (!open) {
+    return <Button label="Share this receipt" variant="quiet" onPress={() => setOpen(true)} />;
+  }
+  return (
+    <View style={styles.share} testID="receipt-card">
+      <Image source={{ uri: url }} style={styles.card} accessibilityLabel="Your receipt, as an image" resizeMode="contain" />
+      <View style={styles.shareRow}>
+        <Button label={Platform.OS === "web" ? "Share image" : "Share"} onPress={() => void share()} style={{ flex: 1 }} />
+        <Button label="Copy link" variant="quiet" onPress={() => void copy()} style={{ flex: 1 }} />
+      </View>
+      {note ? <Text style={styles.shareNote}>{note}</Text> : null}
     </View>
   );
 }
@@ -183,4 +244,8 @@ const styles = StyleSheet.create({
   costLabel: { fontSize: 13, fontWeight: "700", color: theme.colors.text, flexShrink: 1 },
   costValue: { fontSize: 13, fontWeight: "800", color: theme.colors.text, fontVariant: ["tabular-nums"] },
   costCaption: { fontSize: 11, lineHeight: 15, color: theme.colors.muted, marginTop: 4 },
+  share: { gap: 8 },
+  card: { width: "100%", aspectRatio: 1200 / 630, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceAlt },
+  shareRow: { flexDirection: "row", gap: 8 },
+  shareNote: { fontSize: 12, color: theme.colors.muted, textAlign: "center" },
 });

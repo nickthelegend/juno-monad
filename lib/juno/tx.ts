@@ -76,6 +76,7 @@ import { perplExchangeAbi } from "./perpl-abi";
 import { quoteTokenUsdPrice } from "./pyth";
 import { withRetry } from "./rpc";
 import { invalidateSwapHistory, recordReceiptKuruFills, recordReceiptTrades } from "./swaps";
+import { rememberTiming } from "./tx-timing";
 import type { CurvePresetId, TradeSide, Venue } from "./types";
 import { buildV2SwapCalls, quoteV2Trade } from "./v2";
 
@@ -805,6 +806,8 @@ export async function submitSigned(params: { signed: Hex }): Promise<SubmitResul
   }
 
   recordConfirmation(confirmedInMs, Number(receipt.blockNumber));
+  // Kept for the receipt card, which may be made long after this process.
+  await rememberTiming(hash, confirmedInMs, Number(receipt.blockNumber)).catch(() => undefined);
   return { ...(await describeReceipt(receipt, from)), confirmedInMs };
 }
 
