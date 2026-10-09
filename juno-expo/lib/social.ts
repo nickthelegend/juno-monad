@@ -190,6 +190,7 @@ export async function shareCoin(
     coinLink(appUrl(), coin),
     coin.name,
     `${coin.name} — $${coin.symbol} is live on Juno. Every post is a market.`,
+    `${API_URL}/api/juno/coins/${coin.address}/card`,
   );
 }
 
@@ -202,17 +203,31 @@ export async function shareProfile(
   return shareLink(`${appUrl()}/trader/${wallet}`, name ? `@${name} on Juno` : "Juno", `${who} on Juno, where every post is a market.`);
 }
 
+/** The card image as a file to share, or null if it could not be fetched. */
+async function cardFile(imageUrl: string): Promise<File[] | null> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) return null;
+    return [new File([await response.blob()], "juno-coin.png", { type: "image/png" })];
+  } catch {
+    return null;
+  }
+}
+
 async function shareLink(
   url: string,
   title: string,
   message: string,
+  /** A picture to send with the link, where the browser can share files (a phone's share sheet). */
+  imageUrl?: string,
 ): Promise<"shared" | "copied" | "cancelled" | "failed"> {
   try {
     if (Platform.OS === "web") {
       const nav = globalThis.navigator as Navigator | undefined;
       if (nav?.share) {
         try {
-          await nav.share({ title, text: message, url });
+          const files = imageUrl ? await cardFile(imageUrl) : null;
+          await nav.share(files && nav.canShare?.({ files }) ? { title, text: message, url, files } : { title, text: message, url });
           return "shared";
         } catch (error) {
           // Closing the share sheet is a choice, not a failure — copying the
