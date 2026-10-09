@@ -21,7 +21,7 @@ import {
 } from "viem";
 
 import { recordConfirmation } from "./speed-log";
-import { junoLaunchpadAbi, junoTokenAbi, kuruGraduatorAbi, kuruOrderBookAbi } from "./abi";
+import { junoLaunchpadAbi, junoTokenAbi, kuruGraduatorAbi } from "./abi";
 import { CallerError } from "./api";
 import { publicClient } from "./client";
 import { CURVE_PRESETS, type CurvePreset } from "./curves";
@@ -57,7 +57,6 @@ import {
   buildKuruOrder,
   buildKuruWithdraw,
   kuruMarketOf,
-  kuruTokenOf,
   quoteKuruTrade,
 } from "./kuru";
 import { rememberKuruOrders } from "./kuru-orders";
@@ -76,7 +75,7 @@ import {
 import { perplExchangeAbi } from "./perpl-abi";
 import { quoteTokenUsdPrice } from "./pyth";
 import { withRetry } from "./rpc";
-import { invalidateSwapHistory, recordReceiptTrades } from "./swaps";
+import { invalidateSwapHistory, recordReceiptKuruFills, recordReceiptTrades } from "./swaps";
 import type { CurvePresetId, TradeSide, Venue } from "./types";
 import { buildV2SwapCalls, quoteV2Trade } from "./v2";
 
@@ -913,17 +912,11 @@ async function describeReceipt(receipt: TransactionReceipt, from: Address): Prom
     result.perp = perp;
   }
 
-  // Fills on a graduated coin's Kuru market. Envio indexes them for history;
-  // here they only count, and mark the coin as moved.
-  for (const log of receipt.logs) {
-    const token = kuruTokenOf(getAddress(log.address));
-    if (!token) continue;
-    const [fill] = parseEventLogs({ abi: kuruOrderBookAbi, eventName: "Trade", logs: [log] });
-    if (fill && getAddress(fill.args.takerAddress) === from) {
-      result.trades += 1;
-      touched.add(token);
-    }
-  }
+  // Fills on a graduated coin's Kuru market, recorded as its trades: one per
+  // order, whatever number of price levels it took.
+  const kuruFills = await recordReceiptKuruFills(receipt, from).catch(() => []);
+  result.trades += kuruFills.length;
+  for (const fill of kuruFills) touched.add(fill.token);
 
   // Orders it rested on a Kuru book, so the orders list works without an indexer.
   await rememberKuruOrders(receipt, from).catch(() => 0);

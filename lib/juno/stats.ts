@@ -15,9 +15,9 @@ import { recentConfirmations, type ConfirmationSummary } from "./speed-log";
  * What the landing page says is happening, read when it asks.
  *
  * - `coins`: listed markets on this network, from the registry;
- * - `trades24h` / `traders24h`: fills recorded in the last day on curves and
- *   Uniswap pairs, and how many wallets made them (Kuru fills live on Kuru's
- *   own book and are not in this table);
+ * - `trades24h` / `traders24h`: trades recorded in the last day, and how many
+ *   wallets made them: every trade on the curves and Uniswap pairs, and the
+ *   Kuru fills of the transactions Juno submitted (`recordReceiptKuruFills`);
  * - `block`: the chain's latest block, number and time, from the RPC;
  * - `confirmation`: the confirmation times this server measured, or null
  *   when it has submitted nothing since it started;

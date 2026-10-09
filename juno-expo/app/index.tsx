@@ -74,8 +74,9 @@ export default function Onboarding() {
               <Figure
                 testID="stat-trades"
                 value={String(live.trades24h)}
-                // Fills Juno recorded on curves and Uniswap pairs; Kuru keeps its own book.
-                label={`curve & pair trades, 24h${live.traders24h ? ` · ${live.traders24h} wallets` : ""}`}
+                // Every curve and Uniswap-pair trade, and the Kuru fills of the
+                // trades Juno submitted (a fill made on Kuru's own site is not seen here).
+                label={`trades, 24h${live.traders24h ? ` · ${live.traders24h} wallets` : ""}`}
               />
             ) : null}
             {live.confirmation ? (

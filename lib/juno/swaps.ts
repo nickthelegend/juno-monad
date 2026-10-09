@@ -9,10 +9,12 @@ import {
   type TransactionReceipt,
 } from "viem";
 
-import { junoLaunchpadAbi } from "./abi";
+import { junoLaunchpadAbi, kuruOrderBookAbi } from "./abi";
 import { publicClient } from "./client";
 import { sqrtX96ToPrice } from "./curve-math";
 import { envioConfigured, envioKuruTradesPage, envioPairTrades, envioTrades } from "./envio";
+import { coalesceFills, kuruTakerSwap } from "./fills";
+import { kuruMarketParams, kuruTokenOf } from "./kuru";
 import { quoteTokenOfPool } from "./launchpad";
 import { launchpadAddress, launchpadDeployBlock, swapRouterAddress } from "./network";
 import { ttlCache, withRetry } from "./rpc";
@@ -189,6 +191,84 @@ export async function recordReceiptTrades(receipt: TransactionReceipt): Promise<
     const lookup = (token: Address) => quoteTokenOfPool(token, launchpad);
     swaps.push(...(await routerSwapsIn(receipt, lookup, block.timestamp).catch(() => [] as PoolSwap[])));
   }
+  await rememberSwaps(swaps).catch(() => undefined);
+  for (const swap of swaps) invalidateSwapHistory(swap.token);
+  return swaps;
+}
+
+/**
+ * The fills a transaction's sender took on Juno's Kuru markets, as trades:
+ * one per order (`coalesceFills`), from the taker's side, as the indexer
+ * reads them.
+ *
+ * Kuru logs each fill gross: `filledSize` in the market's size precision, the
+ * price as a WAD. Juno's markets use one precision for both (`KuruGraduator`),
+ * which `sizePrecisionOf` supplies per market. `tokenOf` names the coin a
+ * market trades, null for a market that is not Juno's.
+ */
+export function kuruFillsFromLogs(
+  logs: Log[],
+  params: {
+    from: Address;
+    tokenOf: (market: Address) => Address | null;
+    sizePrecisionOf: (market: Address) => bigint | undefined;
+    timestamp: bigint | number;
+  },
+): PoolSwap[] {
+  const fills: PoolSwap[] = [];
+  for (const log of logs) {
+    const market = getAddress(log.address);
+    const token = params.tokenOf(market);
+    const precision = params.sizePrecisionOf(market);
+    if (!token || !precision || log.transactionHash === null || log.logIndex === null || log.blockNumber === null) continue;
+    for (const event of parseEventLogs({ abi: kuruOrderBookAbi, eventName: "Trade", logs: [log] })) {
+      const { takerAddress, isBuy, price, filledSize } = event.args;
+      if (filledSize === 0n || getAddress(takerAddress) !== getAddress(params.from)) continue;
+      const grossBase = Number(filledSize) / Number(precision);
+      const priceUnits = Number(price) / 1e18;
+      fills.push(
+        kuruTakerSwap({
+          id: `${log.transactionHash}:${log.logIndex}`,
+          txHash: log.transactionHash,
+          logIndex: log.logIndex,
+          token,
+          trader: getAddress(params.from),
+          isBuy,
+          grossBase,
+          grossQuote: grossBase * priceUnits,
+          price: priceUnits,
+          timestamp: new Date(Number(params.timestamp) * 1000).toISOString(),
+          blockNumber: Number(log.blockNumber),
+        }),
+      );
+    }
+  }
+  return coalesceFills(fills);
+}
+
+/**
+ * Record the Kuru fills in a receipt Juno submitted, as `recordReceiptTrades`
+ * records curve and pair trades.
+ *
+ * Without an indexer these fills were counted and then forgotten: a Kuru
+ * coin's activity stayed empty after graduation, and the landing's trade
+ * count left them out. The same rows an indexer would write (same id, same
+ * amounts) go into the trade table now, so the two sources merge without
+ * double counting.
+ */
+export async function recordReceiptKuruFills(receipt: TransactionReceipt, from: Address): Promise<PoolSwap[]> {
+  const markets = [...new Set(receipt.logs.map((log) => getAddress(log.address)))].filter((market) => kuruTokenOf(market));
+  if (markets.length === 0) return [];
+  const precisions = new Map(
+    await Promise.all(markets.map(async (market) => [market, (await kuruMarketParams(market)).sizePrecision] as const)),
+  );
+  const block = await withRetry(() => publicClient().getBlock({ blockNumber: receipt.blockNumber }));
+  const swaps = kuruFillsFromLogs(receipt.logs, {
+    from,
+    tokenOf: kuruTokenOf,
+    sizePrecisionOf: (market) => precisions.get(market),
+    timestamp: block.timestamp,
+  });
   await rememberSwaps(swaps).catch(() => undefined);
   for (const swap of swaps) invalidateSwapHistory(swap.token);
   return swaps;

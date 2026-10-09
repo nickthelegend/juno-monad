@@ -1,6 +1,49 @@
 import type { PoolSwap } from "./swaps";
 
 /**
+ * Kuru's taker fee on the markets Juno opens (`KuruGraduator.TAKER_FEE_BPS`).
+ * Kuru takes it from what the order receives; its events report the gross fill.
+ */
+export const KURU_TAKER_FEE = 0.003;
+
+/**
+ * One Kuru fill from the taker's side, as a trade, given the gross fill in
+ * display units. A buy's fee comes out of the tokens and a sell's out of the
+ * MON; it is stated in MON either way. `quoteAmount` is what was paid (buy) or
+ * received (sell), the curve's convention, so one cost basis spans both venues.
+ */
+export function kuruTakerSwap(fill: {
+  id: string;
+  txHash: string;
+  logIndex: number;
+  token: string;
+  trader: string;
+  isBuy: boolean;
+  grossBase: number;
+  grossQuote: number;
+  price: number;
+  timestamp: string;
+  blockNumber: number;
+}): PoolSwap {
+  const fee = fill.grossQuote * KURU_TAKER_FEE;
+  return {
+    id: fill.id,
+    txHash: fill.txHash,
+    logIndex: fill.logIndex,
+    token: fill.token,
+    side: fill.isBuy ? "buy" : "sell",
+    baseAmount: fill.grossBase * (fill.isBuy ? 1 - KURU_TAKER_FEE : 1),
+    quoteAmount: fill.isBuy ? fill.grossQuote : fill.grossQuote - fee,
+    fee,
+    price: fill.price,
+    trader: fill.trader,
+    timestamp: fill.timestamp,
+    blockNumber: fill.blockNumber,
+    venue: "kuru",
+  };
+}
+
+/**
  * One Kuru market order, as one trade.
  *
  * Kuru logs a `Trade` for every price level an order takes — each resting

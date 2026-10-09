@@ -1,7 +1,7 @@
 import { getAddress } from "viem";
 
 import type { PoolSwap } from "./swaps";
-import { coalesceFills } from "./fills";
+import { coalesceFills, kuruTakerSwap } from "./fills";
 
 /**
  * Reads from Juno's Envio HyperIndex deployment (see `indexer/`).
@@ -120,12 +120,6 @@ type KuruTradeRow = {
 };
 
 /**
- * Kuru's taker fee on the markets Juno opens (`KuruGraduator.TAKER_FEE_BPS`).
- * Kuru takes it from what the order receives; its events report the gross fill.
- */
-const KURU_TAKER_FEE = 0.003;
-
-/**
  * Fills on the Kuru markets coins graduated into, newest first, as trades.
  * The indexer reports each fill gross; a sell's proceeds here are net of
  * Kuru's taker fee, matching what a curve sell reports.
@@ -165,26 +159,23 @@ export async function envioKuruTradesPage(params: {
   );
   // One row per price level an order took, from the indexer; one per order
   // from here. See `coalesceFills`.
-  const trades = coalesceFills(data.KuruTrade.map((row) => {
-    const gross = Number(row.quoteAmount);
-    const fee = gross * KURU_TAKER_FEE;
-    return {
-      id: row.id,
-      txHash: row.txHash,
-      logIndex: Number(row.logIndex),
-      token: getAddress(row.token),
-      side: row.isBuy ? "buy" : "sell",
-      // A buy's fee comes out of the tokens; it is stated here in MON.
-      baseAmount: Number(row.baseAmount) * (row.isBuy ? 1 - KURU_TAKER_FEE : 1),
-      quoteAmount: row.isBuy ? gross : gross - fee,
-      fee,
-      price: Number(row.price),
-      trader: getAddress(row.trader),
-      timestamp: new Date(Number(row.timestamp) * 1000).toISOString(),
-      blockNumber: Number(row.blockNumber),
-      venue: "kuru" as const,
-    };
-  }));
+  const trades = coalesceFills(
+    data.KuruTrade.map((row) =>
+      kuruTakerSwap({
+        id: row.id,
+        txHash: row.txHash,
+        logIndex: Number(row.logIndex),
+        token: getAddress(row.token),
+        trader: getAddress(row.trader),
+        isBuy: row.isBuy,
+        grossBase: Number(row.baseAmount),
+        grossQuote: Number(row.quoteAmount),
+        price: Number(row.price),
+        timestamp: new Date(Number(row.timestamp) * 1000).toISOString(),
+        blockNumber: Number(row.blockNumber),
+      }),
+    ),
+  );
   return { trades, fills: data.KuruTrade.length };
 }
 
