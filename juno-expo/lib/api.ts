@@ -547,6 +547,8 @@ export type Activity = {
   timestamp: string;
   /** The transaction that made the trade. */
   txHash?: string;
+  /** Where it filled after graduation; absent on the curve. */
+  venue?: "kuru" | "uniswap-v2";
 };
 
 export type Holder = {

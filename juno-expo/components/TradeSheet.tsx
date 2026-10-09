@@ -4,6 +4,7 @@ import Svg, { Circle, Path } from "react-native-svg";
 import styled from "styled-components/native";
 
 import { SpeedReceipt } from "./SpeedReceipt";
+import { SponsorBadge, SponsorRow } from "./Sponsor";
 import { TxpoolWatch } from "./TxpoolWatch";
 import { quickBuySizes } from "../lib/quick-sizes";
 import { EMPTYING_WINDOW_MS, lastSendOf, reserveCheck } from "../lib/reserve";
@@ -676,6 +677,21 @@ export function TradeSheet({
                 : `Sold ${tokens(value)} ${coin.symbol} for ${receiving ?? ""}`}{" "}
               {onKuru ? "on Kuru" : onPair ? "on Uniswap v2" : "on its curve"}.
             </Label>
+            {/* Which partner did the work: the book that filled it, and the
+                passkey that signed it. Only what is true of this trade. */}
+            {onKuru || wallet.mode === "mera" ? (
+              <SponsorRow center>
+                {onKuru ? (
+                  <SponsorBadge
+                    sponsor="kuru"
+                    claim="Filled on Kuru"
+                    detail="on-chain order book"
+                    href={coin.kuru?.market && juno.explorable() ? juno.explorer("address", coin.kuru.market) : null}
+                  />
+                ) : null}
+                {wallet.mode === "mera" ? <SponsorBadge sponsor="mera" claim="Signed with a passkey" detail="Mera" /> : null}
+              </SponsorRow>
+            ) : null}
             {/* The measured time, the trade's own timeline, its finality and
                 what it cost against Ethereum: the receipt that says why this
                 runs on Monad. */}

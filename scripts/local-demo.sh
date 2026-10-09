@@ -125,6 +125,17 @@ echo "    forked at block $FORK_BLOCK"
 # The launchpad's history on this fork starts here (read at runtime, not built in).
 sed -i.bak "s/^JUNO_LAUNCHPAD_DEPLOY_BLOCK=.*/JUNO_LAUNCHPAD_DEPLOY_BLOCK=$FORK_BLOCK/" "$RUN/env" && rm -f "$RUN/env.bak"
 set -a; . "$RUN/env"; set +a
+# Chainlink CRE on the fork: JunoNavOracle, and one juno-nav report delivered
+# through Monad testnet's MockKeystoneForwarder, so the trackers' attested NAV
+# is on chain before the API reads it. Optional: the demo runs without it.
+ORACLE=$(bash scripts/fork/cre-attest.sh deploy "$RPC" "$RUN" 2>> "$RUN/logs/cre.log" || true)
+if [[ "$ORACLE" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
+  sed -i.bak "s/^JUNO_NAV_ORACLE=.*/JUNO_NAV_ORACLE=$ORACLE/" "$RUN/env" && rm -f "$RUN/env.bak"
+  set -a; . "$RUN/env"; set +a
+  echo "    Chainlink CRE: JunoNavOracle $ORACLE (attested after seeding)"
+else
+  echo "    Chainlink CRE: skipped, see $RUN/logs/cre.log"
+fi
 
 echo "3/8 Databases"
 # Fresh every run, like the Postgres database: the API seals its faucet key in
@@ -156,6 +167,12 @@ echo $! > "$RUN/keeper.pid"
 echo "7/8 Seeding the demo (a few minutes: every trade is a signed transaction)"
 JUNO_API_URL=$API npx tsx scripts/juno-demo.ts --api "$API" --rpc "$RPC" --round all > "$RUN/logs/seed.log" 2>&1 \
   || { echo "Seeding failed: see $RUN/logs/seed.log. Stopping what this run started." >&2; stop; exit 1; }
+
+# The trackers exist now: one juno-nav report for them.
+if [[ "${ORACLE:-}" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
+  bash scripts/fork/cre-attest.sh attest "$RPC" "$RUN" 2>> "$RUN/logs/cre.log" \
+    && grep -q "onReport succeeded" "$RUN/logs/cre.log" && echo "    Chainlink CRE: NAV attested" || echo "    Chainlink CRE: report failed, see $RUN/logs/cre.log"
+fi
 
 echo "8/8 Serving the web app"
 npx --yes serve juno-expo/dist-local -s -l "$APP_PORT" > "$RUN/logs/web.log" 2>&1 &

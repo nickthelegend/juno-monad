@@ -38,6 +38,7 @@ export function activityFromSwap(swap: PoolSwap, quoteUsdRate: number): Activity
     valueUsd: swap.quoteAmount * quoteUsdRate,
     timestamp: swap.timestamp,
     txHash: swap.txHash,
+    ...(swap.venue ? { venue: swap.venue } : {}),
   };
 }
 

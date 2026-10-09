@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Linking, RefreshControl, ScrollView } from "react-native";
+import { Linking, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path, Rect } from "react-native-svg";
 import styled from "styled-components/native";
@@ -20,6 +20,7 @@ import {
   type SavedState,
 } from "../../components/Save";
 import { KuruOrdersCard } from "../../components/KuruOrders";
+import { SponsorBadge } from "../../components/Sponsor";
 import { TradeSheet } from "../../components/TradeSheet";
 import {
   Body,
@@ -422,6 +423,17 @@ function CoinDetail({ token }: { token: string }) {
                   </Chip>
                 </Tappable>
               </Row>
+              {/* The NAV a Chainlink DON attested on Monad: the figures sit in Details. */}
+              {coin.nav?.attested ? (
+                <View style={{ marginTop: 10 }}>
+                  <SponsorBadge
+                    sponsor="chainlink"
+                    claim="NAV attested by Chainlink CRE"
+                    detail={`${since(coin.nav.attested.observedAt)} ago`}
+                    href={juno.explorable() ? juno.explorer("address", coin.nav.attested.oracle) : null}
+                  />
+                </View>
+              ) : null}
 
               {/* Three figures, ruled apart rather than boxed — the band is one
                   reading of size, not three separate cards. */}
@@ -464,7 +476,15 @@ function CoinDetail({ token }: { token: string }) {
               {coin.curve.graduated ? (
                 <Col gap={6} style={{ marginTop: 16 }}>
                   <Row gap={8}>
-                    <Pill label={onKuru ? "On Kuru" : "Graduated"} tone="pos" />
+                    {onKuru ? (
+                      <SponsorBadge
+                        sponsor="kuru"
+                        claim="Order book on Kuru"
+                        href={coin.kuru && juno.explorable() ? juno.explorer("address", coin.kuru.market) : null}
+                      />
+                    ) : (
+                      <Pill label="Graduated" tone="pos" />
+                    )}
                     <Caption style={{ flex: 1 }}>
                       {onKuru
                         ? "Trades on its own Kuru market now: an order book, plus a vault holding the curve's reserves for good."
@@ -793,6 +813,8 @@ function ActivityTab({
             </Row>
           </Tappable>
           <Verb $buy={row.side === "buy"}>{row.side === "buy" ? "Buy" : "Sell"}</Verb>
+          {/* A fill on the coin's Kuru book, not its curve. */}
+          {row.venue === "kuru" ? <VenueTag testID="activity-kuru">KURU</VenueTag> : null}
           <Mono style={{ flex: 1, textAlign: "right" }}>{tokens(row.amount)}</Mono>
           <Mono muted style={{ width: 66, textAlign: "right" }}>
             {money(row.valueUsd, currency)}
@@ -1471,6 +1493,19 @@ const Verb = styled.Text<{ $buy: boolean }>`
   font-weight: 800;
   width: 38px;
   color: ${(p) => (p.$buy ? p.theme.colors.pos : p.theme.colors.neg)};
+`;
+
+/** "KURU" beside a fill that happened on the coin's Kuru book. */
+const VenueTag = styled.Text`
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  color: ${(p) => p.theme.colors.muted};
+  background-color: ${(p) => p.theme.colors.surfaceAlt};
+  border-radius: 4px;
+  padding: 2px 4px;
+  overflow: hidden;
+  margin-left: -6px;
 `;
 
 const Rank = styled.Text`

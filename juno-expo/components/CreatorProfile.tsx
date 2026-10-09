@@ -10,6 +10,7 @@ import { CoinArt, Identicon } from "./art";
 import { ReelBadgeGlyph, ShareGlyph } from "./icons";
 import { Tappable } from "./Press";
 import { QuickTrade } from "./QuickTrade";
+import { SponsorBadge } from "./Sponsor";
 import { TradeList } from "./TradeList";
 import {
   Body,
@@ -236,7 +237,11 @@ export function CreatorProfile({
                 {created.length > 0 ? <Pill label="Creator" tone="lime" /> : null}
                 {data.identity?.twitter ? <Pill label={`𝕏 @${data.identity.twitter}`} tone="ink" /> : null}
                 {data.passkey ? (
-                  <Pill label={data.passkey.where === "monad" ? "Passkey verified on Monad" : "Passkey verified (fork)"} tone="pos" />
+                  <SponsorBadge
+                    sponsor="mera"
+                    claim={data.passkey.where === "monad" ? "Passkey verified on Monad" : "Passkey verified (fork)"}
+                    detail="Mera"
+                  />
                 ) : null}
               </Row>
               {/* The address, under a name; without one the name line already is it. */}

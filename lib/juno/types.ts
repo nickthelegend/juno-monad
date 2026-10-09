@@ -293,6 +293,8 @@ export type Activity = {
   timestamp: string;
   /** The transaction that made the trade — the link a judge clicks. */
   txHash?: string;
+  /** Where it filled after graduation: the coin's Kuru book or its v2 pair. Absent on the curve. */
+  venue?: "kuru" | "uniswap-v2";
 };
 
 export type Holder = {

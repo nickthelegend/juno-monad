@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Linking, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BottomSheet } from "./BottomSheet";
+import { SponsorBadge, SponsorRow } from "./Sponsor";
 import { Button, Caption, Label, Mono, Pill, Segmented, Skeleton } from "./kit";
 import { juno, type MarketRisk, type PerpAccount, type PerpMarket, type PerpPosition, type PositionRisk } from "../lib/api";
 import { money, useApi } from "../lib/useApi";
@@ -53,6 +54,10 @@ export function PerpsPanel() {
         Perpetuals on Perpl, Monad&apos;s on-chain perps exchange. Isolated margin, collateral in AUSD, prices live
         from Perpl.
       </Caption>
+      <SponsorRow>
+        <SponsorBadge sponsor="perpl" claim="Perps on Perpl" detail="on-chain" />
+        <SponsorBadge sponsor="agora" claim="Margin in Agora AUSD" />
+      </SponsorRow>
 
       {wallet.address ? (
         <AccountCard
