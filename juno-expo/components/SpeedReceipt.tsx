@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import { useEffect, useState } from "react";
-import { Image, Platform, Share, StyleSheet, Text, View } from "react-native";
+import { Image, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native";
 
 import { FinalityTimeline } from "./Finality";
 import { Button } from "./kit";
@@ -32,6 +32,7 @@ export function SpeedReceipt({
 }) {
   const cost = useApi(() => juno.txCost(txHash), [txHash]);
   const fork = juno.loadedConfig()?.localFork ?? false;
+  const [details, setDetails] = useState(false);
   const c = cost.data;
   // The second timer. On Monad it is this trade's own: Proposed to Finalized,
   // from the commit stream. A local fork has no consensus to time, so it is
@@ -61,9 +62,7 @@ export function SpeedReceipt({
               </Text>
               <Text style={styles.unit}>ms</Text>
             </View>
-            <Text style={styles.heroCaption}>
-              broadcast to receipt{fork ? " on a local fork" : ""}, measured by Juno&rsquo;s server
-            </Text>
+            {fork ? <Tag label="local fork" /> : null}
           </View>
           <View style={styles.hero} accessibilityLabel="Final">
             <Text style={styles.timerLabel}>Final</Text>
@@ -73,53 +72,56 @@ export function SpeedReceipt({
               </Text>
               <Text style={styles.unit}>ms</Text>
             </View>
-            <Text style={styles.heroCaption}>
-              {fork
-                ? "Monad testnet's finality right now (live median); a fork has no consensus to time"
-                : "this trade, proposed to finalized, from Monad's commit stream"}
-            </Text>
+            {/* A fork has no consensus to time: this is Monad testnet's, now. */}
+            {fork ? <Tag label="Monad testnet, live" /> : null}
           </View>
         </View>
       ) : null}
 
-      <View style={styles.steps}>
-        <Step label="Signed here" value={signedInMs === null ? null : `${signedInMs} ms`} />
-        <View style={styles.link} />
-        <Step label="Confirmed" value={confirmedInMs === null ? null : `${confirmedInMs} ms`} />
-        <View style={styles.link} />
-        <Step label="Block" value={c ? `#${c.blockNumber.toLocaleString("en-US")}` : null} />
-      </View>
-
-      {fork ? null : <FinalityTimeline txHash={txHash} />}
-
       {c ? (
-        <View style={styles.cost}>
-          <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Paid</Text>
-            <Text testID="speed-fee" style={styles.costValue}>
-              {feeMon(c.monad.feeMon)} MON{c.monad.feeUsd === null ? "" : ` · ${usd(c.monad.feeUsd)}`}
-            </Text>
+        <View style={styles.compare}>
+          <View style={styles.compareCell}>
+            <Text style={styles.compareLabel}>Paid here</Text>
+            <Text style={styles.compareValue}>{c.monad.feeUsd === null ? `${feeMon(c.monad.feeMon)} MON` : usd(c.monad.feeUsd)}</Text>
           </View>
-          <Text style={styles.costCaption}>
-            {c.monad.billed === "limit"
-              ? `${c.monad.gasCharged.toLocaleString("en-US")} gas at ${gwei(c.monad.gasPriceGwei)} gwei. Monad bills the gas limit; this trade used ${c.monad.gasUsed.toLocaleString("en-US")}.`
-              : `${c.monad.gasUsed.toLocaleString("en-US")} gas at ${gwei(c.monad.gasPriceGwei)} gwei, billed as used on this fork.`}
-          </Text>
           {c.ethereum ? (
-            <>
-              <View style={[styles.costRow, { marginTop: 10 }]}>
-                <Text style={styles.costLabel}>Same gas on Ethereum now</Text>
-                <Text testID="speed-ethereum" style={styles.costValue}>
-                  {c.ethereum.feeUsd === null ? `${tokens(c.ethereum.feeEth)} ETH` : usd(c.ethereum.feeUsd)} ·{" "}
-                  {c.ethereum.blockSeconds} s blocks
-                </Text>
-              </View>
-              <Text style={styles.costCaption}>
-                {`${c.monad.gasUsed.toLocaleString("en-US")} gas at Ethereum mainnet's ${gwei(c.ethereum.gasPriceGwei)} gwei, read from ${c.ethereum.gasPriceSource} just now`}
-                {c.ethereum.ethUsd === null ? "." : `, ETH ${usd(c.ethereum.ethUsd)} from Pyth.`}
+            <View style={styles.compareCell}>
+              <Text style={styles.compareLabel}>Same gas on Ethereum</Text>
+              <Text testID="speed-ethereum" style={[styles.compareValue, { color: theme.colors.neg }]}>
+                {c.ethereum.feeUsd === null ? `${tokens(c.ethereum.feeEth)} ETH` : usd(c.ethereum.feeUsd)}
               </Text>
-            </>
+            </View>
           ) : null}
+        </View>
+      ) : null}
+
+      <Pressable onPress={() => setDetails((open) => !open)} accessibilityRole="button" accessibilityState={{ expanded: details }} style={styles.detailsToggle} testID="speed-details-toggle">
+        <Text style={styles.detailsToggleText}>{details ? "Hide details" : "Details"}</Text>
+      </Pressable>
+      {details ? (
+        <View style={styles.cost} testID="speed-details">
+          <Detail label="Signed here" value={signedInMs === null ? "—" : `${signedInMs} ms`} />
+          <Detail label="Block" value={c ? `#${c.blockNumber.toLocaleString("en-US")}` : "—"} />
+          {c ? <Detail label="Fee" value={`${feeMon(c.monad.feeMon)} MON`} testID="speed-fee" /> : null}
+          {c ? (
+            <Detail
+              label="Gas"
+              value={
+                c.monad.billed === "limit"
+                  ? `${c.monad.gasCharged.toLocaleString("en-US")} billed (limit) · ${c.monad.gasUsed.toLocaleString("en-US")} used`
+                  : `${c.monad.gasUsed.toLocaleString("en-US")} used, billed as used (fork)`
+              }
+            />
+          ) : null}
+          {c ? <Detail label="Gas price" value={`${gwei(c.monad.gasPriceGwei)} gwei`} /> : null}
+          {c?.ethereum ? (
+            <Detail
+              label="Ethereum"
+              value={`${gwei(c.ethereum.gasPriceGwei)} gwei from ${c.ethereum.gasPriceSource}${c.ethereum.ethUsd === null ? "" : ` · ETH ${usd(c.ethereum.ethUsd)} (Pyth)`}`}
+            />
+          ) : null}
+          <Detail label="Executed" value="broadcast to receipt, timed by Juno's server" />
+          {fork ? null : <FinalityTimeline txHash={txHash} />}
         </View>
       ) : null}
 
@@ -185,12 +187,21 @@ function ShareCard({ txHash }: { txHash: string }) {
   );
 }
 
-function Step({ label, value }: { label: string; value: string | null }) {
+function Tag({ label }: { label: string }) {
   return (
-    <View style={styles.step}>
-      <View style={[styles.dot, value !== null ? styles.dotOn : null]} />
-      <Text style={styles.stepLabel}>{label}</Text>
-      <Text style={styles.stepValue}>{value ?? "—"}</Text>
+    <View style={styles.tag}>
+      <Text style={styles.tagText}>{label}</Text>
+    </View>
+  );
+}
+
+function Detail({ label, value, testID }: { label: string; value: string; testID?: string }) {
+  return (
+    <View style={styles.detail}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={styles.detailValue} testID={testID}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -231,19 +242,18 @@ const styles = StyleSheet.create({
     fontVariant: ["tabular-nums"],
   },
   unit: { fontSize: 22, fontWeight: "800", color: theme.colors.pos },
-  heroCaption: { fontSize: 12, lineHeight: 16, color: theme.colors.muted, textAlign: "center", maxWidth: 300 },
-  steps: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center" },
-  step: { alignItems: "center", gap: 4, minWidth: 84 },
-  link: { height: 2, width: 22, backgroundColor: theme.colors.lime, marginTop: 5 },
-  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: theme.colors.line },
-  dotOn: { backgroundColor: theme.colors.pos },
-  stepLabel: { fontSize: 11, fontWeight: "700", color: theme.colors.muted },
-  stepValue: { fontSize: 13, fontWeight: "800", color: theme.colors.text, fontVariant: ["tabular-nums"] },
   cost: { backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radius.md, padding: 14 },
-  costRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 8 },
-  costLabel: { fontSize: 13, fontWeight: "700", color: theme.colors.text, flexShrink: 1 },
-  costValue: { fontSize: 13, fontWeight: "800", color: theme.colors.text, fontVariant: ["tabular-nums"] },
-  costCaption: { fontSize: 11, lineHeight: 15, color: theme.colors.muted, marginTop: 4 },
+  tag: { marginTop: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: theme.colors.surfaceAlt },
+  tagText: { fontSize: 11, fontWeight: "700", color: theme.colors.muted },
+  compare: { flexDirection: "row", gap: 8 },
+  compareCell: { flex: 1, backgroundColor: theme.colors.surfaceAlt, borderRadius: theme.radius.md, padding: 12, alignItems: "center", gap: 2 },
+  compareLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.muted },
+  compareValue: { fontSize: 20, fontWeight: "800", color: theme.colors.text, fontVariant: ["tabular-nums"] },
+  detailsToggle: { alignSelf: "center", paddingVertical: 4, paddingHorizontal: 10 },
+  detailsToggleText: { fontSize: 13, fontWeight: "700", color: theme.colors.muted, textDecorationLine: "underline" },
+  detail: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 3 },
+  detailLabel: { fontSize: 12, color: theme.colors.muted },
+  detailValue: { fontSize: 12, fontWeight: "700", color: theme.colors.text, flexShrink: 1, textAlign: "right" },
   share: { gap: 8 },
   card: { width: "100%", aspectRatio: 1200 / 630, borderRadius: theme.radius.md, backgroundColor: theme.colors.surfaceAlt },
   shareRow: { flexDirection: "row", gap: 8 },

@@ -165,7 +165,7 @@ for (const viewport of ["mobile", "desktop"]) {
       const result = await (await submitted).json();
       const done = await until(page, /Done/, 20_000);
       if (MODE === "after") {
-        await page.getByTestId("speed-fee").first().waitFor({ timeout: 15_000 }).catch(() => undefined);
+        await page.getByTestId("speed-ethereum").first().waitFor({ timeout: 15_000 }).catch(() => undefined);
       }
       await wait(page, 1500);
       await shot(page, "receipt", viewport);
@@ -173,6 +173,9 @@ for (const viewport of ["mobile", "desktop"]) {
       if (MODE === "before") return [];
       const problems = [];
       const shownMs = Number((await page.getByTestId("speed-ms").first().innerText()).replace(/[^0-9]/g, ""));
+      // Wave 3: the fee, gas and timeline sit behind Details.
+      await page.getByTestId("speed-details-toggle").first().click();
+      await wait(page, 500);
       if (shownMs !== result.confirmedInMs) problems.push(`shows ${shownMs} ms, the server measured ${result.confirmedInMs}`);
       const cost = await (await fetch(`${API}/api/juno/tx/cost?hash=${result.hash}`)).json();
       const feeText = await page.getByTestId("speed-fee").first().innerText();
@@ -183,7 +186,7 @@ for (const viewport of ["mobile", "desktop"]) {
       if (!reserveNote) problems.push("no reserve-rule note before a buy that dips below 10 MON");
       if (!/Signed here/.test(await text(page))) problems.push("no timeline");
       // The second timer: on a fork, Monad testnet's own finality, labelled as the network's.
-      if (!(await until(page, /finality right now/, 20_000))) problems.push("no labelled second timer");
+      if (!(await until(page, /Monad testnet, live/, 20_000))) problems.push("no labelled second timer");
       return problems;
     });
     await context.close();
