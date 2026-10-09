@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Platform } from "react-native";
+import { Platform, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import styled from "styled-components/native";
 
@@ -10,6 +10,7 @@ import { CreatorProfile } from "../../components/CreatorProfile";
 import { Tappable } from "../../components/Press";
 import { AutopilotCard } from "../../components/Autopilot";
 import { SignerChoice } from "../../components/SignerChoice";
+import { WalletPreview } from "../../components/WalletPreview";
 import { PasskeyOnChain } from "../../components/PasskeyOnChain";
 import { StakingCard } from "../../components/StakingCard";
 import { TradeList } from "../../components/TradeList";
@@ -21,7 +22,6 @@ import { useLinkedState } from "../../lib/linked";
 import { money, tokens, useApi } from "../../lib/useApi";
 import { useIdentity } from "../../lib/names";
 import { useWallet } from "../../lib/wallet";
-import { useWalletChoice } from "../../lib/wallet-choice";
 import { theme } from "../../theme";
 
 type Tab = "holdings" | "watching" | "plans" | "activity" | "about";
@@ -44,7 +44,6 @@ const TABS = [
  */
 export default function ProfileScreen() {
   const wallet = useWallet();
-  const walletChoice = useWalletChoice();
 
   if (!wallet.ready) {
     return (
@@ -57,29 +56,12 @@ export default function ProfileScreen() {
   }
 
   if (!wallet.address) {
+    // What a profile is and what starting costs, with the account one tap away.
     return (
       <Page edges={["top"]}>
-        <Padded>
-          <SignerChoice />
-        </Padded>
-        <Placeholder
-          title="No wallet yet"
-          detail={
-            walletChoice.choice === "privy"
-              ? "Sign in with Privy to get an embedded wallet for trading and launching."
-              : "Create one to trade and to launch your own coins. No sign-up."
-          }
-          action={
-            // Not `.then(portfolio.refresh)`: that refresh was captured before
-            // the wallet existed, re-ran the read with no address, and its
-            // null landed last — "Holdings could not be read" on a wallet
-            // created a second ago. The address change re-reads on its own.
-            <Button
-              label={walletChoice.choice === "privy" ? "Sign in with Privy" : "Create wallet"}
-              onPress={() => void wallet.connect().catch(() => undefined)}
-            />
-          }
-        />
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <WalletPreview />
+        </ScrollView>
       </Page>
     );
   }
