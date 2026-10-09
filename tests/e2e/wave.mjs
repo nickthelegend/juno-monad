@@ -54,6 +54,8 @@ async function open(viewport, key = null) {
     hasTouch: v.isMobile,
   });
   if (key) await context.addInitScript((value) => window.localStorage.setItem("juno.monad.signer.v1", value), key);
+  // The feed's first-run tips came later (wave 2); these checks are about other things.
+  await context.addInitScript(() => window.localStorage.setItem("juno.coach.feed.v1", "done"));
   const page = await context.newPage();
   page.on("console", (m) => {
     if (m.type() === "error" || m.type() === "warning") issues.push(`[${current}] console.${m.type()}: ${m.text().slice(0, 200)}`);

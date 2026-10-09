@@ -6,15 +6,17 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
 import { Bell } from "../../components/Bell";
 import { CoinArt } from "../../components/art";
+import { CoachMarks, COACH_STEPS } from "../../components/CoachMarks";
 import { CommentsSheet } from "../../components/CommentsSheet";
 import { FeedCard, type Buyers } from "../../components/FeedCard";
 import { Button, Placeholder, RETRY_HINT, Skeleton } from "../../components/kit";
 import { JunoMark } from "../../components/logo";
 import { Tappable } from "../../components/Press";
 import { QuickTrade } from "../../components/QuickTrade";
+import { useCoach } from "../../lib/coach";
 import { useRefreshOnFocus } from "../../lib/focus";
 import { juno, type Coin } from "../../lib/api";
-import { invalidateMarkets, loadMarkets } from "../../lib/markets";
+import { invalidateMarkets, loadMarkets, tradesInApp } from "../../lib/markets";
 import { useFeedRevision } from "../../lib/refresh";
 import { onAnyFollow, shareCoin, useViewerOnce } from "../../lib/social";
 import { useApi } from "../../lib/useApi";
@@ -50,6 +52,7 @@ export default function SocialScreen() {
   const revision = useFeedRevision();
   const tabBar = useTabBarHeight();
   const [scope, setScope] = useState<Scope>("everyone");
+  const coach = useCoach(COACH_STEPS);
 
   const once = useViewerOnce();
   const markets = useApi(
@@ -104,6 +107,9 @@ export default function SocialScreen() {
       return changed.get(creator) ?? followed.has(creator);
     });
   }, [markets.data?.posts, scope, follows.data, changed]);
+
+  /** The post the first tip rings: the first one with a Buy. */
+  const firstBuyable = useMemo(() => posts.findIndex(tradesInApp), [posts]);
 
   const reels = useMemo(
     () => (markets.data?.posts ?? []).filter((coin) => coin.format === "reel" && coin.media.kind === "video"),
@@ -268,10 +274,11 @@ export default function SocialScreen() {
               />
             )
           ) : (
-            posts.map((coin) => (
+            posts.map((coin, index) => (
               <FeedCard
                 key={coin.address}
                 coin={coin}
+                coached={coach.step === 0 && index === firstBuyable}
                 caption={captions.get(coin.address) ?? coin.description ?? null}
                 // Unknown while the record loads — "No buyers yet" would be a
                 // claim made before reading.
@@ -292,6 +299,11 @@ export default function SocialScreen() {
           )}
         </ScrollView>
       )}
+
+      {/* First visit: three tips, once per device. Only over a loaded feed. */}
+      {coach.step !== null && posts.length > 0 && !trade ? (
+        <CoachMarks step={coach.step} onNext={coach.next} onSkip={coach.finish} top={64} bottom={tabBar.height + 8} />
+      ) : null}
 
       {toast ? (
         <View style={[styles.toast, { pointerEvents: "none" }]}>

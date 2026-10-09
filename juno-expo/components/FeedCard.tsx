@@ -41,6 +41,7 @@ export function FeedCard({
   onPlay,
   onOpenCreator,
   extraComments = 0,
+  coached = false,
 }: {
   coin: Coin;
   /** What the creator wrote about it, when they posted about it. Falls back to the launch description. */
@@ -53,6 +54,8 @@ export function FeedCard({
   onPlay: () => void;
   onOpenCreator: () => void;
   extraComments?: number;
+  /** The first-run tips are pointing at this post's Buy: draw the ring. */
+  coached?: boolean;
 }) {
   const like = useLike(coin);
   const follow = useFollow(coin.creator.wallet);
@@ -218,7 +221,7 @@ export function FeedCard({
           </View>
         ) : (
           <Tappable onPress={onBuy} to={0.94} accessibilityLabel={`Buy $${coin.symbol}`}>
-            <View style={styles.buy}>
+            <View style={[styles.buy, coached ? styles.buyCoached : null]} testID={coached ? "coach-target" : undefined}>
               <Text style={styles.buyText}>Buy</Text>
             </View>
           </Tappable>
@@ -414,6 +417,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.lime,
   },
   buyText: { fontSize: 15, fontWeight: "800", color: theme.colors.onLime },
+  buyCoached: { boxShadow: `0 0 0 3px ${theme.colors.ink}, 0 0 0 7px rgba(214,255,61,0.85)` },
   graduated: {
     height: 40,
     paddingHorizontal: 14,
