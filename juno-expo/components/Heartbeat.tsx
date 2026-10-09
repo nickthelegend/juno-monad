@@ -55,11 +55,15 @@ export function Heartbeat({ compact = false }: { compact?: boolean }) {
           .filter(Boolean)
           .join("  ·  ") || "waiting for the next block…"}
       </Text>
-      <Text style={styles.caption}>
-        {data.error
-          ? data.error
-          : `Read live from ${data.network === "monad" ? "Monad" : "Monad testnet"}'s WebSocket.${data.appOnFork ? " Juno's own trades here run on a local fork." : ""}`}
-      </Text>
+      {/* Where the strip comes from, as a chip rather than a sentence; an
+          error is the one thing that still gets words. */}
+      {data.error ? (
+        <Text style={styles.caption}>{data.error}</Text>
+      ) : data.appOnFork ? (
+        <View style={styles.source}>
+          <Text style={styles.sourceText}>live from {data.network === "monad" ? "Monad" : "Monad testnet"} · trades here: local fork</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -90,6 +94,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 12, fontWeight: "800", letterSpacing: 0.4, textTransform: "uppercase", color: theme.colors.muted },
   blockMs: { fontSize: 12, fontWeight: "800", color: theme.colors.text, fontVariant: ["tabular-nums"] },
   chips: { gap: 6 },
+  source: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: theme.colors.surfaceAlt },
+  sourceText: { fontSize: 11, fontWeight: "700", color: theme.colors.muted },
   chip: {
     alignItems: "center",
     gap: 3,
