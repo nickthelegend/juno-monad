@@ -2,12 +2,13 @@ import "../lib/polyfills";
 
 import { Stack } from "expo-router";
 import { useEffect } from "react";
-import { Platform, View } from "react-native";
+import { Platform, View, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "styled-components/native";
 
+import { LeftRail, RAILS_MIN_WIDTH, RightRail } from "../components/DesktopRails";
 import { PortalHost } from "../components/Portal";
 import { juno } from "../lib/api";
 import { PrivyBridge } from "../lib/privy";
@@ -77,11 +78,21 @@ export default function RootLayout() {
  * the web build keeps the proportions the app was designed at — 480pt at most,
  * centred on the canvas colour, full width on an actual phone. Native builds
  * are untouched.
+ *
+ * A window wide enough for more gets the market beside the column
+ * (`DesktopRails`): Monad live on the left, what is moving on the right.
  */
 function PhoneFrame({ children }: { children: React.ReactNode }) {
+  const { width } = useWindowDimensions();
   if (Platform.OS !== "web") return <>{children}</>;
+  const rails = width >= RAILS_MIN_WIDTH;
   return (
-    <View style={{ flex: 1, alignItems: "center", backgroundColor: "#C9D6C1" }}>
+    <View style={{ flex: 1, flexDirection: "row", justifyContent: "center", gap: 28, backgroundColor: "#C9D6C1" }}>
+      {rails ? (
+        <ThemeProvider theme={theme}>
+          <LeftRail />
+        </ThemeProvider>
+      ) : null}
       <View
         style={{
           flex: 1,
@@ -94,6 +105,11 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
       >
         {children}
       </View>
+      {rails ? (
+        <ThemeProvider theme={theme}>
+          <RightRail />
+        </ThemeProvider>
+      ) : null}
     </View>
   );
 }
