@@ -41,15 +41,18 @@ if (process.argv[2] === "--audition") {
   process.exit(0);
 }
 
-const spec = JSON.parse(readFileSync("script.json", "utf8"));
-const manifest = "work/vo/lines.json";
+const arg = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
+const SCRIPT = arg("--script", "script.json"), VO = arg("--out", "work/vo");
+mkdirSync(VO, { recursive: true });
+const spec = JSON.parse(readFileSync(SCRIPT, "utf8"));
+const manifest = `${VO}/lines.json`;
 const prev = existsSync(manifest) ? Object.fromEntries(JSON.parse(readFileSync(manifest, "utf8")).map((l) => [l.id, l])) : {};
 const out = [];
 let chars = 0;
 for (const sc of spec.scenes) {
   for (const [i, text] of sc.lines.entries()) {
     const id = `${sc.id}_${i + 1}`;
-    const file = `work/vo/${id}.mp3`;
+    const file = `${VO}/${id}.mp3`;
     const old = prev[id];
     if (old && old.text === text && old.voice === spec.voice && existsSync(file)) { out.push(old); continue; }
     const j = await speak(spec.voice, spec.model, text);

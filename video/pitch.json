@@ -1,0 +1,14 @@
+{
+  "voice": "hpp4J3VqNfWAUOO0d1Us",
+  "model": "eleven_multilingual_v2",
+  "scenes": [
+    { "id": "b1", "lines": ["What if every post you scrolled past was a market, and you could own a piece of it?"] },
+    { "id": "b2", "lines": ["We build for creators. We've watched them do the work while platforms keep the money, and we want the people who make the posts, and the fans who find them early, to share in what they create."] },
+    { "id": "b3", "lines": ["Today a creator earns a sliver of ad revenue, and early fans get nothing. Creator coins exist, but they die on their curve."] },
+    { "id": "b4", "lines": ["Monad changes that. Blocks every three hundred milliseconds, final in about half a second, for a fraction of a cent. Fast enough to put a market under every post."] },
+    { "id": "b5", "lines": ["Juno does three things. Post: a photo becomes its own coin. Buy: one tap, straight from the feed. Graduate: when a curve fills, the post opens its own Kuru order book."] },
+    { "id": "b6", "lines": ["And it's live on Monad testnet. A buy executed in four hundred sixteen milliseconds. A post graduated into Kuru. Perps on Perpl, and a Chainlink CRE attestation. Each one a real transaction."] },
+    { "id": "b7", "lines": ["It's for creators, and the fans who find them first. Every receipt is a card they share, and every graduation lists a new market on Kuru."] },
+    { "id": "b8", "lines": ["Juno. Every post is a market."] }
+  ]
+}
