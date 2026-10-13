@@ -21,7 +21,7 @@ passkey prompt; the buy sheet's faucet gives it testnet MON.
 
 **Live on Monad testnet (13 Oct):** a buy through the hosted app executed in
 416 ms and was final in 579 ms (295 ms blocks). Kuru, Perpl, Agora AUSD,
-Chainlink CRE, Mera, Envio and Privy are each working, with transaction hashes in
+Chainlink CRE, Mera and Envio are each working, with evidence in
 [docs/evidence/testnet-13oct.md](docs/evidence/testnet-13oct.md) and the full
 sponsor table in [docs/SPONSOR-COVERAGE.md](docs/SPONSOR-COVERAGE.md).
 

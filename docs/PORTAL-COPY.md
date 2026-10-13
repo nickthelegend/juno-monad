@@ -47,21 +47,19 @@ Track 01: Onchain Finance & Trading.
 
 **Perpl: Best use of the API.** `npm run juno:perpl-bot`, a funding-carry and position-guard bot on Perpl's public API and `execOrder`. It has caps, a daily loss limit, a kill switch and a mainnet refusal, and its state survives restarts.
 
-**Agora: Best Mobile Trading App.** An Expo app (iOS, Android, web) trading Perpl perps with AUSD margin, with an in-app Agora AUSD faucet and a Mera passkey sign-in. Proof: AUSD [`0x6bd741fb…dd84`](https://testnet.monadvision.com/tx/0x6bd741fb729021b61fc37a41eb3e7d3188a8bf787e4a3258f857ff12ae92dd84).
+**Agora: Best Mobile Trading App.** One Expo codebase (`juno-expo/`) for iOS, Android and web, trading Perpl perps with AUSD margin, with an in-app Agora AUSD faucet and a Mera passkey sign-in. The live web build runs in a phone browser. Native builds come from source (README, *Install it*); there is no store listing. Proof: AUSD [`0x6bd741fb…dd84`](https://testnet.monadvision.com/tx/0x6bd741fb729021b61fc37a41eb3e7d3188a8bf787e4a3258f857ff12ae92dd84).
 
 **Mera: Best UX / One Passkey, Many Keys.**
-- One passkey prompt makes the account, with 15-minute signing sessions.
+- One passkey prompt makes the account (Mera derives an ordinary Monad key from the passkey's PRF output, so the account is a plain EOA), with 15-minute signing sessions.
 - Sealed drafts: post text encrypted under a second PRF salt.
-- Monad's P256 precompile verifies the passkey.
-- Proof: passkey buy [`0xdaddc274…ac96`](https://testnet.monadvision.com/tx/0xdaddc274487914411eaea54d8792297482d0eefdd77d7d85d5e5be73b15aac96).
+- Profile → Wallet → "Prove my passkey on Monad" sends the passkey's WebAuthn signature to Monad's P256 precompile (`0x0100`) with an `eth_call`, the same check a contract would make. It is a read, so it has no tx hash; the profile then shows "Passkey verified on Monad".
+- Proof: a buy signed by a passkey session, [`0xdaddc274…ac96`](https://testnet.monadvision.com/tx/0xdaddc274487914411eaea54d8792297482d0eefdd77d7d85d5e5be73b15aac96).
 
-**Chainlink: Best workflow with CRE.** `cre/juno-nav`: a cron reads Tessera over HTTP with consensus, plus Pyth, the USDC/USD Data Feed and the launchpad. It writes NAV and the premium to `JunoNavOracle`, and coin pages show the badge. Proof: report [`0xc777646c…2b10`](https://testnet.monadvision.com/tx/0xc777646ce8fee4d90e5da2fa2244b8ea84ddde8e40bb02b914f0e0ea0abb2b10).
+**Chainlink: Best workflow with CRE.** `cre/juno-nav`: a cron-triggered workflow reads Tessera over HTTP with consensus, plus Pyth, the USDC/USD Data Feed and the launchpad. It writes NAV and the premium to `JunoNavOracle`, and coin pages show the badge. It ran with the CRE CLI's `cre workflow simulate --broadcast`, which delivers a real report through Monad testnet's MockKeystoneForwarder. It is not deployed to a live DON, which needs CRE deploy access. Proof: report [`0xc777646c…2b10`](https://testnet.monadvision.com/tx/0xc777646ce8fee4d90e5da2fa2244b8ea84ddde8e40bb02b914f0e0ea0abb2b10); `JunoNavOracle.navOf(token)` returns it.
 
-**Privy: beyond authentication.**
-- Embedded wallets sign every launch and trade.
-- Autopilot runs plans through per-wallet Privy policies and a server key-quorum signer.
+**Envio: Best Use of Envio.** HyperIndex v3 over five contracts, with dynamic registration, positions with cost basis, holders and open Kuru orders. Hosted on Railway behind Juno's API. Check it: `GET https://juno-api-production-04ea.up.railway.app/api/juno/coins/0x2DA4841d9694Ae7Ac6D609D824EbD9A1FBf96754` returns `holdersSource: "indexer"` and `indexer: { progressBlock, behind }`.
 
-**Envio: Best Use of Envio.** HyperIndex v3 over five contracts, with dynamic registration, positions with cost basis, holders and open Kuru orders. Hosted, and 0 blocks behind.
+**Also integrated, not claimed:** Privy. Embedded wallets sign every launch and trade, and autopilot runs plans through per-wallet Privy policies and a server key-quorum signer. The hosted app's Privy sign-in waits on the owner's dashboard settings.
 
 ## Links
 - Repo: <https://github.com/nickthelegend/juno-monad> (MIT)
