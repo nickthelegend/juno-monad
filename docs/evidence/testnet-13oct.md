@@ -23,7 +23,7 @@ sends it. Open any of them at `https://testnet.monadvision.com/tx/<hash>`.
 - Also a Uniswap v2 graduation: $GRADV2, `0xdc992728203c0a961d93d1e3b365416560babd55e592e3f59a0e704b0663697a`
 
 ## Chainlink CRE: NAV attested on Monad testnet
-- `cre workflow simulate juno-nav --target staging-settings --broadcast` (the CRE CLI). It read Tessera over HTTP with consensus, plus Pyth, Chainlink's USDC/USD feed and the launchpad. One report through the MockKeystoneForwarder attested OPENAIX, KALSHIX and SPACEXX: `0xc777646ce8fee4d90e5da2fa2244b8ea84ddde8e40bb02b914f0e0ea0abb2b10`
+- `cre workflow simulate juno-nav --target staging-settings --broadcast` (the CRE CLI). It read Tessera over HTTP with consensus, plus Pyth's MON/USD and the launchpad. All three trackers are MON-quoted, so Chainlink's USDC/USD feed, which the workflow reads for USDC-quoted coins, was not part of this run. One report through the MockKeystoneForwarder attested OPENAIX, KALSHIX and SPACEXX: `0xc777646ce8fee4d90e5da2fa2244b8ea84ddde8e40bb02b914f0e0ea0abb2b10`
 - `JunoNavOracle.reportCount()` = 1. The hosted API serves the attestation (OPENAIX: NAV $812.79, premium −0.35%, inside its 2% band).
 
 ## Mera: a passkey account on the hosted app (Chrome's virtual authenticator, PRF)

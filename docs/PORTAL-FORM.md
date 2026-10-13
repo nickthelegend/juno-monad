@@ -130,11 +130,21 @@ Team: [user fills in]
 - Profile → Wallet → "Prove my passkey on Monad" sends the passkey's WebAuthn signature to Monad's P256 precompile (`0x0100`) with an `eth_call`, the same check a contract would make. It is a read, so it has no tx hash; the profile then shows "Passkey verified on Monad".
 - Proof: a buy signed by a passkey session, [`0xdaddc274…ac96`](https://testnet.monadvision.com/tx/0xdaddc274487914411eaea54d8792297482d0eefdd77d7d85d5e5be73b15aac96).
 
-**Chainlink: Best workflow with CRE.** `cre/juno-nav`: a cron-triggered workflow reads Tessera over HTTP with consensus, plus Pyth, the USDC/USD Data Feed and the launchpad. It writes NAV and the premium to `JunoNavOracle`, and coin pages show the badge. It ran with the CRE CLI's `cre workflow simulate --broadcast`, which delivers a real report through Monad testnet's MockKeystoneForwarder. It is not deployed to a live DON, which needs CRE deploy access. Proof: report [`0xc777646c…2b10`](https://testnet.monadvision.com/tx/0xc777646ce8fee4d90e5da2fa2244b8ea84ddde8e40bb02b914f0e0ea0abb2b10); `JunoNavOracle.navOf(token)` returns it.
+**Chainlink: Best workflow with CRE.** `cre/juno-nav`: a cron-triggered workflow reads Tessera over HTTP with consensus, plus Pyth on Monad and the launchpad, and Chainlink's USDC/USD Data Feed for USDC-quoted trackers. The 13 Oct report's three trackers are MON-quoted, so that run priced them with Pyth's MON/USD. It writes NAV and the premium to `JunoNavOracle`, and coin pages show the badge. It ran with the CRE CLI's `cre workflow simulate --broadcast`, which delivers a real report through Monad testnet's MockKeystoneForwarder. It is not deployed to a live DON, which needs CRE deploy access. Proof: report [`0xc777646c…2b10`](https://testnet.monadvision.com/tx/0xc777646ce8fee4d90e5da2fa2244b8ea84ddde8e40bb02b914f0e0ea0abb2b10); `JunoNavOracle.navOf(token)` returns it.
 
 **Envio: Best Use of Envio.** HyperIndex v3 over five contracts, with dynamic registration, positions with cost basis, holders and open Kuru orders. Hosted on Railway behind Juno's API. Check it: `GET https://juno-api-production-04ea.up.railway.app/api/juno/coins/0x2DA4841d9694Ae7Ac6D609D824EbD9A1FBf96754` returns `holdersSource: "indexer"` and `indexer: { progressBlock, behind }`.
 
 **Also integrated, not claimed:** Privy. Embedded wallets sign every launch and trade, and autopilot runs plans through per-wallet Privy policies and a server key-quorum signer. The hosted app's Privy sign-in waits on the owner's dashboard settings.
+
+## Bounty article links
+One per bounty, for the portal's required field "Published article describing how <sponsor> was used and what value it brought".
+
+- Kuru (New Assets & Markets; Consumer Trading App): https://github.com/nickthelegend/juno-monad/blob/main/docs/KURU.md
+- Perpl (Analytics / Risk; Best use of the API): https://github.com/nickthelegend/juno-monad/blob/main/docs/PERPL.md
+- Agora (Best Mobile Trading App): https://github.com/nickthelegend/juno-monad/blob/main/docs/AGORA.md
+- Mera (Best UX; One Passkey, Many Keys): https://github.com/nickthelegend/juno-monad/blob/main/docs/MERA.md
+- Chainlink (Best workflow with CRE): https://github.com/nickthelegend/juno-monad/blob/main/docs/CHAINLINK-CRE.md
+- Envio (Best Use of Envio): https://github.com/nickthelegend/juno-monad/blob/main/docs/ENVIO.md
 
 ## 13. Optional promo clip (≤ 0:30)
 Not made yet: it waits on the demo recording. It will be at `docs/demo/juno-promo.mp4`.

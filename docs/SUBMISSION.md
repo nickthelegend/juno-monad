@@ -144,7 +144,7 @@ asks, then says how Juno meets it and where the proof is.
 - **Evidence:** [`KuruGraduator.sol`](../contracts/src/graduators/KuruGraduator.sol);
   fork tests against Kuru's live contracts (`contracts/test`); E2E F1–F4 on the
   fork (graduate, trade, limit orders, history); the Kuru markets list.
-- **Status:** fork. A Kuru-venue coin on hosted testnet needs MON (owner).
+- **Status:** testnet (13 Oct): $GRADKURU graduated into its own Kuru market (`0x04de4115…`) and traded on its book (team-seeded; `evidence/testnet-13oct.md`).
 
 ### Kuru: Build the Next Consumer Trading App on Kuru ($5k, T1)
 
@@ -168,7 +168,7 @@ asks, then says how Juno meets it and where the proof is.
   them. Creators keep posting because each post pays them.
 - **Continuation plan:** after the hackathon, move to Kuru on mainnet with
   Kuru's market-creation access, and ship the native apps to the stores.
-- **Status:** fork (F1–F4). Hosted testnet as above.
+- **Status:** testnet (13 Oct): buys and sells on the graduated coin's Kuru book from the hosted app (`0xe68f8fff…`, `0x2c58097c…`), plus fork E2E F1–F4.
 
 ### Perpl: Analytics / Risk Tool (3 × $1k, T1)
 
@@ -288,8 +288,7 @@ asks, then says how Juno meets it and where the proof is.
   X3 on the fork: a report the workflow's code built from live readings went
   through Monad's MockKeystoneForwarder, `navOf` holds it, and the app shows
   it.
-- **Status:** fork. `cre workflow simulate --broadcast` needs the owner's
-  `cre login` and the testnet go.
+- **Status:** testnet (13 Oct): `cre workflow simulate --broadcast` delivered a real report through the MockKeystoneForwarder to `JunoNavOracle` `0x2DF3…DC9f` (`0xc777646c…`). It is not deployed to a live DON, which needs CRE deploy access.
 
 ### MetaMask: Best Agent Wallet Plugin ($2.5k, T1)
 
