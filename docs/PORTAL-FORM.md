@@ -72,7 +72,7 @@ https://juno-monad-app.vercel.app
 **Pending.** The full-flow recording waits on the owner's call about how to record it (see the session report). The current cut is `docs/demo/juno-metropolis.mp4` (2:21, live on testnet, but it opens with a 35 s motion-graphics intro, which this field's rules exclude). Upload the final file and paste its link.
 
 ## 10. Pitch video (≤ 2:00)
-`docs/demo/juno-pitch.mp4`. Upload it and paste the link.
+`docs/demo/juno-pitch.mp4` (1:22, kinetic type in Juno's palette with one live glimpse; captions in `juno-pitch.srt`). Upload it and paste the link.
 Team: [user fills in]
 
 ## 11. Testing instructions for judges (≤ 8,000)

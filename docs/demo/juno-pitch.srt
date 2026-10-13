@@ -1,0 +1,159 @@
+1
+00:00:00,350 --> 00:00:02,188
+What if every post you scrolled past
+
+2
+00:00:02,208 --> 00:00:03,151
+was a market,
+
+3
+00:00:03,171 --> 00:00:04,277
+and you could own a piece of
+
+4
+00:00:04,297 --> 00:00:05,012
+it?
+
+5
+00:00:05,762 --> 00:00:07,382
+We build for creators.
+
+6
+00:00:07,457 --> 00:00:08,946
+We've watched them do the work while
+
+7
+00:00:08,966 --> 00:00:10,502
+platforms keep the money,
+
+8
+00:00:10,522 --> 00:00:11,826
+and we want the people who make
+
+9
+00:00:11,846 --> 00:00:13,590
+the posts, and the fans who find
+
+10
+00:00:13,610 --> 00:00:15,564
+them early, to share in what they
+
+11
+00:00:15,584 --> 00:00:16,647
+create.
+
+12
+00:00:17,397 --> 00:00:19,339
+Today a creator earns a sliver of
+
+13
+00:00:19,359 --> 00:00:22,210
+ad revenue, and early fans get nothing.
+
+14
+00:00:22,563 --> 00:00:24,262
+Creator coins exist,
+
+15
+00:00:24,282 --> 00:00:26,331
+but they die on their curve.
+
+16
+00:00:27,081 --> 00:00:28,701
+Monad changes that.
+
+17
+00:00:28,730 --> 00:00:30,707
+Blocks every three hundred milliseconds,
+
+18
+00:00:30,727 --> 00:00:32,413
+final in about half a second,
+
+19
+00:00:32,433 --> 00:00:34,053
+for a fraction of a cent.
+
+20
+00:00:34,186 --> 00:00:35,699
+Fast enough to put a market under
+
+21
+00:00:35,719 --> 00:00:36,991
+every post.
+
+22
+00:00:37,741 --> 00:00:39,486
+Juno does three things.
+
+23
+00:00:39,506 --> 00:00:42,481
+Post: a photo becomes its own coin.
+
+24
+00:00:42,501 --> 00:00:44,292
+Buy: one tap,
+
+25
+00:00:44,312 --> 00:00:45,735
+straight from the feed.
+
+26
+00:00:45,810 --> 00:00:47,810
+Graduate: when a curve fills,
+
+27
+00:00:47,830 --> 00:00:50,074
+the post opens its own Kuru order
+
+28
+00:00:50,094 --> 00:00:50,948
+book.
+
+29
+00:00:51,698 --> 00:00:53,988
+And it's live on Monad testnet.
+
+30
+00:00:54,008 --> 00:00:56,252
+A buy executed in four hundred sixteen
+
+31
+00:00:56,272 --> 00:00:59,492
+milliseconds. A post graduated into Kuru.
+
+32
+00:00:59,512 --> 00:01:00,711
+Perps on Perpl,
+
+33
+00:01:00,731 --> 00:01:03,198
+and a Chainlink CRE attestation.
+
+34
+00:01:03,273 --> 00:01:05,462
+Each one a real transaction.
+
+35
+00:01:06,212 --> 00:01:07,504
+It's for creators,
+
+36
+00:01:07,524 --> 00:01:09,655
+and the fans who find them first.
+
+37
+00:01:10,008 --> 00:01:12,125
+Every receipt is a card they share,
+
+38
+00:01:12,145 --> 00:01:14,574
+and every graduation lists a new market
+
+39
+00:01:14,594 --> 00:01:15,796
+on Kuru.
+
+40
+00:01:16,546 --> 00:01:19,118
+Juno. Every post is a market.
