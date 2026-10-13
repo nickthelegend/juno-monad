@@ -29,6 +29,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import {
+  createPublicClient,
   createWalletClient,
   formatEther,
   http,
@@ -156,6 +157,11 @@ async function fund(config: Config, rpc: string, accounts: PrivateKeyAccount[], 
         chain: { id: config.chainId, name: "Monad", nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 }, rpcUrls: { default: { http: [rpc] } } },
       });
       const hash = await client.sendTransaction({ to: account.address, value: target - held });
+      // Wait for it: the next transfer's nonce is read from the chain, and
+      // Monad's RPC does not count a transfer still in flight, so sending the
+      // next one at once reused this nonce ("an existing transaction had
+      // higher priority").
+      await createPublicClient({ transport: http(rpc) }).waitForTransactionReceipt({ hash, timeout: 30_000 });
       console.log(`  funded ${account.address} with ${formatEther(target - held)} MON (${hash})`);
     }
   }
