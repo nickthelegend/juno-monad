@@ -74,3 +74,53 @@ It is a well-engineered demo of an economy with no economy. The headline Kuru gr
 3. Make the mobile and passkey claims checkable, or drop them.
 4. Run CRE for real, or say plainly that it is simulated. Show the attested NAV and premium.
 5. Give desktop a real layout, unify the buy presets, and reconnect silently instead of showing "WebSocket closed".
+
+## Fixes after round 1 (13 Oct, 20:10–20:25 IST)
+- **Claims made checkable** (4e07d8d):
+  - the P256 check is an `eth_call`, not a tx;
+  - CRE ran as `simulate --broadcast` through the mock forwarder;
+  - Envio is checkable through the API's `holdersSource` and `indexer.behind` fields;
+  - Privy moved from "working" to "partial";
+  - the mobile claim says how a judge can run it.
+- **UI** (5d77a87):
+  - the buy sheet names the coin, and its quick sizes stay in one unit;
+  - "reconnecting…" replaces the socket's closing message;
+  - rails show only beside the feed and markets;
+  - the example profile is labelled, and the sign-in options shrink to one primary, one secondary and two links;
+  - Segmented tabs scroll at 390 px.
+
+## Round 2 verdict (13 Oct, 20:25 IST), a fresh judge with the same brief, summarised
+
+| Criterion | Round 1 | Round 2 |
+|---|---|---|
+| Product quality | 7 | 7 |
+| Technical excellence | 8 | 8 (it docked for CI being red at that moment; see below) |
+| Monad integration | 8 | 8 (its own buy: 414 ms executed, 683 ms final) |
+| Track fit | 8 | 8 |
+| Innovation | 6 | 6 |
+| **Weighted** | **7.4** | **7.4** |
+
+Bounties moved:
+- **Mera:** 5.4 → 6.7. The P256 claim now matches what can be checked.
+- **Envio:** 6.6 → 7.0. The named endpoint verified.
+- **Chainlink CRE:** 6.4 → 5.9. The simulation is now stated plainly.
+- **Kuru:** 7.9 → 7.2 and 6.5 → 6.4. The graduated market is small.
+- **Perpl:** about the same.
+- **Agora:** about the same.
+
+Its reason to vote no: every market and trade is the team's own seed data, and the graduated Kuru market is worth $0.30.
+
+## Fixes after round 2 (20:25–20:40 IST)
+- **CI:** the quick-sizes test update had been left out of 5d77a87. It was committed in the next commit, and CI is green again.
+- **Pre-IPO pages:** the CRE badge shows the attested NAV and premium as numbers ("NAV $812.79 · attested by Chainlink CRE · 0.35% under").
+- **No-wallet profile:** the "Sign in with Privy" link is gone. It silently created a device wallet, because the hosted origin is not yet allowed in Privy.
+- **Buy sheet:** the reserve note is plain words.
+- **Portal copy:** it points at where `eth_sendRawTransactionSync` is used (the server's submit path).
+
+## Not fixable tonight
+Each of these needs the owner, MON or keys:
+- **Real outside users:** the seed data is labelled `demo_`.
+- **A deep Kuru market:** needs MON to fill a larger curve and rest maker orders.
+- **A deployed CRE DON workflow:** needs CRE deploy access.
+- **Privy on the hosted origin:** the owner's dashboard.
+- **A store or TestFlight build for the Agora claim.**
