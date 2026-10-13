@@ -19,6 +19,8 @@ books, with perps on Perpl and pre-IPO trackers beside them.
 install. Profile → **Create a passkey account** makes an account from one
 passkey prompt; the buy sheet's faucet gives it testnet MON.
 
+**Demo video (2:21):** [docs/demo/juno-metropolis.mp4](docs/demo/juno-metropolis.mp4) ([captions](docs/demo/juno-metropolis.srt)), recorded from the live app on Monad testnet.
+
 **Live on Monad testnet (13 Oct):** a buy through the hosted app executed in
 416 ms and was final in 579 ms (295 ms blocks). Kuru, Perpl, Agora AUSD,
 Chainlink CRE, Mera and Envio are each working, with evidence in

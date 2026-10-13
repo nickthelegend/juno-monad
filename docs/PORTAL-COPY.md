@@ -62,6 +62,7 @@ Track 01: Onchain Finance & Trading.
 **Also integrated, not claimed:** Privy. Embedded wallets sign every launch and trade, and autopilot runs plans through per-wallet Privy policies and a server key-quorum signer. The hosted app's Privy sign-in waits on the owner's dashboard settings.
 
 ## Links
+- Demo video (2:21): `docs/demo/juno-metropolis.mp4` in the repo (captions: `docs/demo/juno-metropolis.srt`). Upload it to YouTube and paste that link here.
 - Repo: <https://github.com/nickthelegend/juno-monad> (MIT)
 - Live app: <https://juno-monad-app.vercel.app>
 - API: <https://juno-api-production-04ea.up.railway.app>

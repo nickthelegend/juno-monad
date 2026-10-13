@@ -1,0 +1,96 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800;900&display=block" rel="stylesheet">
+<style>
+  :root { --sage:#DCE7D5; --ink:#12150E; --lime:#D6FF3D; --pos:#0E9F6E; --muted:#5C6655; --card:#FFFFFF; --blue:#2F5BEA; --line:#C4D2BB; }
+  html,body { margin:0; width:1920px; height:1080px; overflow:hidden; background:var(--sage); font-family:"Inter Tight",system-ui,sans-serif; color:var(--ink); }
+  .scene { position:absolute; inset:0; opacity:0; }
+  .big { font-size:118px; font-weight:900; letter-spacing:-5px; line-height:1.0; }
+  .mid { font-size:56px; font-weight:800; letter-spacing:-2px; }
+  .small { font-size:30px; font-weight:600; color:var(--muted); }
+  .tag { position:absolute; top:56px; left:72px; font-size:24px; font-weight:800; letter-spacing:2px; color:var(--muted); }
+  .chip { display:inline-flex; align-items:center; gap:14px; padding:18px 30px; border-radius:999px; background:var(--card); border:2px solid var(--line); font-size:34px; font-weight:800; }
+  .dot { width:22px; height:22px; border-radius:11px; display:inline-block; }
+  .card { position:absolute; background:var(--card); border-radius:40px; box-shadow:0 20px 60px rgba(18,21,14,.14); }
+  .mark { width:96px; height:96px; border-radius:48px; background:var(--ink); display:flex; align-items:center; justify-content:center; }
+  .mark i { width:38px; height:38px; border-radius:19px; background:var(--lime); display:block; }
+  .block { width:150px; height:150px; border-radius:30px; background:var(--card); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; font-size:26px; font-weight:800; }
+  .block b { width:34px; height:34px; border-radius:17px; display:block; }
+</style></head>
+<body>
+<!-- i1: the problem -->
+<section class="scene" id="s1">
+  <div class="tag">THE PROBLEM</div>
+  <div style="position:absolute;left:150px;top:300px">
+    <div class="big" id="s1a">Creators make the posts.</div>
+    <div class="big" id="s1b" style="color:var(--muted)">The platform keeps the money.</div>
+    <div class="mid" id="s1c" style="margin-top:50px">The fans who found them first get <span style="background:var(--ink);color:var(--lime);padding:0 18px;border-radius:14px">nothing</span>.</div>
+  </div>
+</section>
+<!-- i2: Juno -->
+<section class="scene" id="s2">
+  <div style="position:absolute;left:150px;top:250px;display:flex;align-items:center;gap:34px" id="s2a"><div class="mark"><i></i></div><div class="big" style="font-size:150px">juno</div></div>
+  <div class="mid" id="s2b" style="position:absolute;left:150px;top:470px;font-size:84px;letter-spacing:-3px">Every post is a market.</div>
+  <div class="small" id="s2c" style="position:absolute;left:150px;top:600px;font-size:38px;max-width:1000px;line-height:1.35">A photo or a reel launches its own coin on a bonding curve, on Monad.</div>
+  <div class="card" id="s2d" style="left:1270px;top:170px;width:500px;height:740px;overflow:hidden">
+    <div style="height:480px;background:linear-gradient(135deg,#ff4f9a,#ffb347 55%,#6fdc8c)"></div>
+    <div style="padding:30px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:40px;font-weight:900">$BLOOM</div><div class="small" style="font-size:24px">$1.01k mcap</div></div><div style="background:var(--lime);padding:18px 40px;border-radius:999px;font-size:34px;font-weight:900">Buy</div></div>
+    <svg width="440" height="120" style="margin-left:30px"><path id="s2curve" d="M0 110 C 120 108, 230 95, 300 70 S 400 20, 440 5" fill="none" stroke="#0E9F6E" stroke-width="8" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg>
+  </div>
+</section>
+<!-- i3: how it pays -->
+<section class="scene" id="s3">
+  <div class="tag">HOW IT WORKS</div>
+  <div style="position:absolute;left:150px;top:260px;display:flex;flex-direction:column;gap:60px">
+    <div id="s3a" style="display:flex;align-items:center;gap:36px"><span class="chip">1</span><span class="mid">Fans buy in as they scroll.</span></div>
+    <div id="s3b" style="display:flex;align-items:center;gap:36px"><span class="chip">2</span><span class="mid">The creator earns the trading fees.</span></div>
+    <div id="s3c" style="display:flex;align-items:center;gap:36px"><span class="chip" style="background:var(--lime)">3</span><span class="mid">A full curve opens its own <span style="background:var(--ink);color:var(--lime);padding:0 16px;border-radius:14px">Kuru order book</span>.</span></div>
+  </div>
+</section>
+<!-- i4: why Monad -->
+<section class="scene" id="s4">
+  <div class="tag">WHY MONAD</div>
+  <div style="position:absolute;left:150px;top:230px">
+    <div class="mid" id="s4a" style="font-size:64px">Trading at the speed of a feed.</div>
+    <div style="display:flex;gap:120px;margin-top:60px" id="s4b">
+      <div><div class="big" style="font-size:170px"><span id="n1">0</span><span style="font-size:80px;color:var(--pos)"> ms</span></div><div class="small">blocks</div></div>
+      <div><div class="big" style="font-size:170px;color:var(--pos)"><span id="n2">0</span><span style="font-size:80px"> ms</span></div><div class="small">to final</div></div>
+    </div>
+    <div style="display:flex;gap:26px;margin-top:70px" id="s4c">
+      <div class="block"><b id="b1"></b><span id="l1">Proposed</span></div><div class="block"><b id="b2"></b><span id="l2">Proposed</span></div><div class="block"><b id="b3"></b><span id="l3">Proposed</span></div><div class="block"><b id="b4"></b><span id="l4">Proposed</span></div><div class="block"><b id="b5"></b><span id="l5">Proposed</span></div><div class="block"><b id="b6"></b><span id="l6">Proposed</span></div>
+    </div>
+  </div>
+</section>
+<!-- outro -->
+<section class="scene" id="s5">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px">
+    <div id="s5a" style="display:flex;align-items:center;gap:30px"><div class="mark" style="width:120px;height:120px;border-radius:60px"><i style="width:48px;height:48px;border-radius:24px"></i></div><div class="big" style="font-size:170px">juno</div></div>
+    <div id="s5b" class="mid" style="font-size:72px">Every post is a market.</div>
+    <div id="s5c" class="chip" style="font-size:40px;background:var(--ink);color:var(--lime);border-color:var(--ink)">juno-monad-app.vercel.app</div>
+    <div id="s5d" class="small" style="letter-spacing:3px;font-weight:800">LIVE · MONAD TESTNET</div>
+  </div>
+</section>
+<script>
+const $ = (id) => document.getElementById(id);
+const clamp = (x) => Math.max(0, Math.min(1, x));
+const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+function show(el, t, at, dur = 0.5, dy = 40) { const k = ease((t - at) / dur); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * dy}px)`; }
+// Scene windows (seconds), set from the voice by render_graphics.mjs.
+window.W = { s1: [0, 7.8], s2: [7.8, 16], s3: [16, 25.2], s4: [25.2, 34.4], s5: [0, 4.8] };
+window.mode = "intro";
+window.render = (t) => {
+  document.querySelectorAll(".scene").forEach((s) => (s.style.opacity = 0));
+  const on = (id) => { const [a, b] = W[id]; if (t < a || t >= b) return null; const s = $(id); const fade = Math.min(ease((t - a) / 0.35), ease((b - t) / 0.35)); s.style.opacity = fade; return t - a; };
+  if (mode === "outro") { const u = on("s5"); if (u !== null) { show($("s5a"), u, 0.1, 0.6); show($("s5b"), u, 0.6); show($("s5c"), u, 1.2); show($("s5d"), u, 1.7); } return; }
+  let u;
+  if ((u = on("s1")) !== null) { show($("s1a"), u, 0.2, 0.6); show($("s1b"), u, 1.9, 0.6); show($("s1c"), u, 4.2, 0.6); }
+  if ((u = on("s2")) !== null) { show($("s2a"), u, 0.1, 0.6); show($("s2b"), u, 0.9); show($("s2c"), u, 2.4); show($("s2d"), u, 0.5, 0.8, 80); $("s2curve").style.strokeDashoffset = 1 - ease((u - 3.2) / 2.5); }
+  if ((u = on("s3")) !== null) { show($("s3a"), u, 0.2); show($("s3b"), u, 2.6); show($("s3c"), u, 5.2); }
+  if ((u = on("s4")) !== null) {
+    show($("s4a"), u, 0.1); show($("s4b"), u, 0.6); show($("s4c"), u, 1.2);
+    $("n1").textContent = Math.round(300 * ease((u - 0.8) / 1.6)); $("n2").textContent = Math.round(580 * ease((u - 1.2) / 1.8));
+    const states = [["Proposed", "#C4D2BB"], ["Voted", "#2F5BEA"], ["Finalized", "#0E9F6E"]];
+    for (let i = 1; i <= 6; i++) { const age = (u - 1.4) / 0.3 - (6 - i); const st = age < 1 ? 0 : age < 2 ? 1 : 2; $(`b${i}`).style.background = states[st][1]; $(`l${i}`).textContent = states[st][0]; $(`b${i}`).parentElement.style.opacity = age < 0 ? 0.25 : 1; }
+  }
+};
+</script></body></html>

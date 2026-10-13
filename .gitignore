@@ -48,3 +48,6 @@ npm-debug.log*
 __pycache__/
 /juno-expo/dist-fork
 /juno-expo/dist-local
+
+# Demo film working files (renders, captures, voice)
+video/work/

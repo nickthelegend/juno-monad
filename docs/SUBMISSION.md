@@ -28,7 +28,7 @@ Every item, with its result, is in
 | Live speed | A buy through the hosted app: executed 416 ms, final 579 ms; Monad testnet 295 ms blocks, voted 292 ms, verified 1.5 s. Tx `0x25238c32a06aa6fe7d6d3acd280570593fc2a6a38171a350e16c45e7e7be7e96`. |
 | On-chain proof | 13 Oct: Kuru graduation [`0x04de4115…`](https://testnet.monadvision.com/tx/0x04de4115b0a993676289c9c94b98f9d96f5927c5ea56d1262312dce5ef715bda) and trades on its new book; Perpl 2x BTC long [`0x3f81ae5a…`](https://testnet.monadvision.com/tx/0x3f81ae5afaf036f4b38b1e94f4b9bccc10fad402db8b735afa613088b011864b) with Agora AUSD margin; CRE attestation [`0xc777646c…`](https://testnet.monadvision.com/tx/0xc777646ce8fee4d90e5da2fa2244b8ea84ddde8e40bb02b914f0e0ea0abb2b10); a Mera passkey buy [`0xdaddc274…`](https://testnet.monadvision.com/tx/0xdaddc274487914411eaea54d8792297482d0eefdd77d7d85d5e5be73b15aac96). Earlier: `$GENESIS` [`0x1409…6360`](https://testnet.monadvision.com/token/0x14092A529e2e5EB4DECB4a1828f6aFa72e026360): launched, bought, sold, filled, [graduated](https://testnet.monadvision.com/tx/0x799309cc168b1b1ea248d04fb9b9c6b90972fc7090bf42765a1cf52dc0907ed4) and traded on its pair ([E2E-PLAN.md](E2E-PLAN.md), phase 6). A Perpl round trip with Agora AUSD on 5 Oct ([E2E-HOSTED.md](E2E-HOSTED.md)). |
 | Builds | Web (live). Native iOS and Android from `juno-expo/` (README, *Install it*). |
-| Technical demo (≤ 3 min) | [video link] (script below) |
+| Technical demo (≤ 3 min) | [demo/juno-metropolis.mp4](demo/juno-metropolis.mp4) (2:21, captions in [juno-metropolis.srt](demo/juno-metropolis.srt)). Recorded from the live app on Monad testnet with real transactions. |
 | Founder pitch (≤ 2 min) | [video link] |
 | Cover graphic (≤ 3 MB) | [file] |
 

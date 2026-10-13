@@ -1,0 +1,104 @@
+{
+  "voice": "hpp4J3VqNfWAUOO0d1Us",
+  "model": "eleven_multilingual_v2",
+  "scenes": [
+    {
+      "id": "i1",
+      "kind": "intro",
+      "lines": [
+        "Creators make the posts we all scroll past. The money goes to the platform, and the fans who found them first get nothing for it."
+      ]
+    },
+    {
+      "id": "i2",
+      "kind": "intro",
+      "lines": [
+        "Juno turns every post into a market. Post a photo or a reel, and it launches its own coin on a bonding curve, on Monad."
+      ]
+    },
+    {
+      "id": "i3",
+      "kind": "intro",
+      "lines": [
+        "Fans buy in as they scroll, and the creator earns the trading fees. When a curve fills, the post opens its own Kuru order book."
+      ]
+    },
+    {
+      "id": "i4",
+      "kind": "intro",
+      "lines": [
+        "It works because Monad is fast enough to trade at the speed of a feed: blocks every three hundred milliseconds, final in about half a second."
+      ]
+    },
+    {
+      "id": "d1",
+      "kind": "demo",
+      "lines": [
+        "This is the live app, on Monad testnet. These are Monad's real blocks, going from proposed, to voted, to finalized, about three hundred milliseconds apart."
+      ]
+    },
+    {
+      "id": "d2",
+      "kind": "demo",
+      "lines": [
+        "The feed is posts, and every post is a market. On a laptop, Monad's live activity sits right beside it."
+      ]
+    },
+    {
+      "id": "d3",
+      "kind": "demo",
+      "lines": [
+        "No wallet yet? One passkey prompt makes an account, through Mera. No seed phrase, and no extension."
+      ]
+    },
+    {
+      "id": "d4",
+      "kind": "demo",
+      "lines": [
+        "Tap Buy. The sheet gives a new wallet testnet MON from Juno's faucet, right here. Pick a size, and buy."
+      ]
+    },
+    {
+      "id": "d5",
+      "kind": "demo",
+      "lines": [
+        "Executed in one round trip, and final a moment later, measured on Monad. It cost a fraction of a cent, next to the same gas on Ethereum. And every receipt is a card you can post."
+      ]
+    },
+    {
+      "id": "d6",
+      "kind": "demo",
+      "lines": [
+        "The passkey itself is checked by Monad's own P256 precompile."
+      ]
+    },
+    {
+      "id": "d7",
+      "kind": "demo",
+      "lines": [
+        "This post filled its curve. It graduated into its own Kuru market, seeded from its raise, and its trades now fill on Kuru's order book."
+      ]
+    },
+    {
+      "id": "d8",
+      "kind": "demo",
+      "lines": [
+        "The same wallet trades perps on Perpl, with Agora's AUSD as margin. One tap brings ten thousand test AUSD from Agora's faucet. Deposit it into a Perpl account, open a two times long on Bitcoin, and close it. Every step is a real transaction on Monad."
+      ]
+    },
+    {
+      "id": "d9",
+      "kind": "demo",
+      "lines": [
+        "Pre-IPO trackers, like OpenAI, are marked against Tessera, and their net asset value is attested on chain by a Chainlink CRE workflow."
+      ]
+    },
+    {
+      "id": "o1",
+      "kind": "outro",
+      "lines": [
+        "Juno. Every post is a market, live on Monad testnet."
+      ]
+    }
+  ]
+}
