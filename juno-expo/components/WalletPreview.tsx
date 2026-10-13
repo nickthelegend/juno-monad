@@ -143,17 +143,6 @@ export function WalletPreview() {
               <Text style={styles.link}>{busy === "unlock" ? "Waiting for your passkey…" : "I have a passkey account"}</Text>
             </Pressable>
           ) : null}
-          {choice.privyAvailable ? (
-            <Pressable
-              onPress={() => {
-                choice.choose("privy");
-                void wallet.connect().catch(() => undefined);
-              }}
-              accessibilityRole="button"
-            >
-              <Text style={styles.link}>Sign in with Privy</Text>
-            </Pressable>
-          ) : null}
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>

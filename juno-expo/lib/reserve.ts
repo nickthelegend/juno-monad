@@ -45,7 +45,7 @@ export function reserveCheck(input: {
   return {
     ok: true,
     rule: "emptying-allowed",
-    note: "Under 10 MON, Monad lets this wallet spend below its reserve once every 3 blocks (about 0.9 s).",
+    note: "Fine on Monad: a small wallet can do this once every 3 blocks.",
   };
 }
 

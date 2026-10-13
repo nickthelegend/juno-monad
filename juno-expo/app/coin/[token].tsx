@@ -428,8 +428,8 @@ function CoinDetail({ token }: { token: string }) {
                 <View style={{ marginTop: 10 }}>
                   <SponsorBadge
                     sponsor="chainlink"
-                    claim="NAV attested by Chainlink CRE"
-                    detail={`${since(coin.nav.attested.observedAt)} ago`}
+                    claim={`NAV ${money(coin.nav.attested.navUsd, "USD", { compact: false })} · attested by Chainlink CRE`}
+                    detail={`${Math.abs(coin.nav.attested.premium * 100).toFixed(2)}% ${coin.nav.attested.premium < 0 ? "under" : "over"} · ${since(coin.nav.attested.observedAt)} ago`}
                     href={juno.explorable() ? juno.explorer("address", coin.nav.attested.oracle) : null}
                   />
                 </View>
