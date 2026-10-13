@@ -86,7 +86,7 @@ export default function Onboarding() {
                 label={
                   live.confirmation.samples === 1
                     ? "to confirm, the last trade"
-                    : `to confirm, median of the last ${live.confirmation.samples} trades`
+                    : "to confirm (median)"
                 }
               />
             ) : null}

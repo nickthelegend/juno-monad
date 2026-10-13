@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, Platform, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 
@@ -22,6 +22,7 @@ import { useFeedRevision } from "../../lib/refresh";
 import { onAnyFollow, shareCoin, useViewerOnce } from "../../lib/social";
 import { useApi } from "../../lib/useApi";
 import { LiveTape } from "../../components/LiveTape";
+import { RAILS_MIN_WIDTH } from "../../components/DesktopRails";
 import { useWallet } from "../../lib/wallet";
 import { useTabBarHeight } from "../../lib/tabbar";
 import { theme } from "../../theme";
@@ -54,6 +55,7 @@ export default function SocialScreen() {
   const tabBar = useTabBarHeight();
   const [scope, setScope] = useState<Scope>("everyone");
   const coach = useCoach(COACH_STEPS);
+  const { width: windowWidth } = useWindowDimensions();
 
   const once = useViewerOnce();
   const markets = useApi(
@@ -244,7 +246,8 @@ export default function SocialScreen() {
 
           {/* Trades as Monad commits them. Renders nothing until the server
               has seen one, so a quiet chain costs no space. */}
-          {scope === "everyone" ? <LiveTape coins={markets.data?.posts} /> : null}
+          {/* On a wide window the left rail already carries it. */}
+          {scope === "everyone" && !(Platform.OS === "web" && windowWidth >= RAILS_MIN_WIDTH) ? <LiveTape coins={markets.data?.posts} /> : null}
 
           {(markets.data?.missing ?? 0) > 0 ? (
             <Text style={styles.footnote}>
