@@ -16,5 +16,7 @@
   "uniswapV2FactoryDeployed": true,
   "uniswapV2PairInitCodeHash": "0xb72c7390be34147206eb030378efdb8bbaf0e6062690b743ac58d6920e1577d4",
   "usdc": "0x534b2f3A21130d7a60830c2Df862319e593943A3",
-  "wmon": "0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541"
+  "wmon": "0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541",
+  "navOracle": "0x2DF370b26CaDBCf94Df3e6766B9f7D91Bf36DC9f",
+  "navOracleForwarder": "0xB9F79d863261869B234c481D1f9A7af84AeAd192"
 }
