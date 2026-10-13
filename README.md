@@ -16,13 +16,19 @@ Trading*: a creator launchpad whose coins graduate into real on-chain order
 books, with perps on Perpl and pre-IPO trackers beside them.
 
 **Try it:** <https://juno-monad-app.vercel.app> — Monad testnet, nothing to
-install. Profile → *Sign with* → **Passkey** makes an account from one
-passkey prompt.
+install. Profile → **Create a passkey account** makes an account from one
+passkey prompt; the buy sheet's faucet gives it testnet MON.
+
+**Live on Monad testnet (13 Oct):** a buy through the hosted app executed in
+416 ms and was final in 579 ms (295 ms blocks). Kuru, Perpl, Agora AUSD,
+Chainlink CRE, Mera, Envio and Privy are each working, with transaction hashes in
+[docs/evidence/testnet-13oct.md](docs/evidence/testnet-13oct.md) and the full
+sponsor table in [docs/SPONSOR-COVERAGE.md](docs/SPONSOR-COVERAGE.md).
 
 | | |
 |---|---|
 | **Network** | Monad **testnet** (chain 10143). No real money. |
-| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad` [`0xa8b0…5c81`](https://testnet.monadvision.com/address/0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81), `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`, `JunoSwapRouter`, all verified on MonadVision; every address in [`contracts/deployments/10143.json`](contracts/deployments/10143.json). |
+| **Contracts** | [`contracts/`](contracts/) — `JunoLaunchpad` [`0xa8b0…5c81`](https://testnet.monadvision.com/address/0xa8b009c7848c9f4Fd4dD9447a385DaFB8B865c81), `JunoToken`, `UniswapV2Graduator`, `KuruGraduator`, `JunoSwapRouter`, `JunoNavOracle` [`0x2DF3…DC9f`](https://testnet.monadvision.com/address/0x2DF370b26CaDBCf94Df3e6766B9f7D91Bf36DC9f) (Chainlink CRE receiver), all verified on MonadVision; every address in [`contracts/deployments/10143.json`](contracts/deployments/10143.json). |
 | **App** | <https://juno-monad-app.vercel.app> · [`juno-expo/`](juno-expo/) — Expo (iOS, Android, web). |
 | **API** | <https://juno-api-production-04ea.up.railway.app> · [`app/api/juno/`](app/api/juno/) — the Next.js server the app talks to. [docs/API.md](docs/API.md). |
 | **Indexer** | [`indexer/`](indexer/) — Envio HyperIndex over the launchpad's events. |
