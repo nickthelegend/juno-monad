@@ -1,0 +1,10 @@
+{
+  "voice": "hpp4J3VqNfWAUOO0d1Us",
+  "model": "eleven_multilingual_v2",
+  "scenes": [
+    { "id": "c1", "lines": ["Juno's pre-IPO trackers need a price nobody has to trust Juno for. So a Chainlink CRE workflow, juno-nav, makes the check. Here it runs in the CRE CLI's simulator: a cron trigger fires, it reads Tessera's mark over HTTP with consensus, then Pyth and the launchpad's curve on Monad, and computes each tracker's premium to its net asset value."] },
+    { "id": "c2", "lines": ["All three trackers are inside their bands. This dry run sends nothing. The broadcast run on October thirteenth wrote the same report to Monad testnet."] },
+    { "id": "c3", "lines": ["That transaction went through Monad testnet's MockKeystoneForwarder into Juno's NAV oracle. Reading the oracle back with cast shows one report, and OpenAI's attested net asset value: eight hundred twelve dollars, a third of a percent under, inside its band."] },
+    { "id": "c4", "lines": ["And the app shows it on the tracker's page. It's simulated through the CRE CLI, not yet deployed to a live DON."] }
+  ]
+}

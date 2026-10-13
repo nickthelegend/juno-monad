@@ -1,0 +1,99 @@
+1
+00:00:03,350 --> 00:00:06,244
+Juno's pre-IPO trackers need a price nobody
+
+2
+00:00:06,264 --> 00:00:07,919
+has to trust Juno for.
+
+3
+00:00:08,110 --> 00:00:10,435
+So a Chainlink CRE workflow,
+
+4
+00:00:10,455 --> 00:00:12,575
+juno-nav, makes the check.
+
+5
+00:00:12,766 --> 00:00:14,743
+Here it runs in the CRE CLI's
+
+6
+00:00:14,763 --> 00:00:17,390
+simulator: a cron trigger fires,
+
+7
+00:00:17,410 --> 00:00:20,141
+it reads Tessera's mark over HTTP with
+
+8
+00:00:20,161 --> 00:00:23,218
+consensus, then Pyth and the launchpad's curve
+
+9
+00:00:23,238 --> 00:00:26,179
+on Monad, and computes each tracker's premium
+
+10
+00:00:26,199 --> 00:00:28,399
+to its net asset value.
+
+11
+00:00:28,649 --> 00:00:31,163
+All three trackers are inside their bands.
+
+12
+00:00:31,238 --> 00:00:33,322
+This dry run sends nothing.
+
+13
+00:00:33,397 --> 00:00:35,711
+The broadcast run on October thirteenth wrote
+
+14
+00:00:35,731 --> 00:00:38,326
+the same report to Monad testnet.
+
+15
+00:00:39,026 --> 00:00:42,849
+That transaction went through Monad testnet's MockKeystoneForwarder
+
+16
+00:00:42,869 --> 00:00:45,000
+into Juno's NAV oracle.
+
+17
+00:00:45,191 --> 00:00:47,179
+Reading the oracle back with cast shows
+
+18
+00:00:47,199 --> 00:00:50,186
+one report, and OpenAI's attested net asset
+
+19
+00:00:50,206 --> 00:00:52,683
+value: eight hundred twelve dollars,
+
+20
+00:00:52,703 --> 00:00:54,354
+a third of a percent under,
+
+21
+00:00:54,374 --> 00:00:56,134
+inside its band.
+
+22
+00:00:57,034 --> 00:00:58,210
+And the app shows it on the
+
+23
+00:00:58,230 --> 00:01:01,217
+tracker's page. It's simulated through the CRE
+
+24
+00:01:01,237 --> 00:01:03,817
+CLI, not yet deployed to a live
+
+25
+00:01:03,837 --> 00:01:04,807
+DON.
