@@ -5,6 +5,7 @@ import styled from "styled-components/native";
 
 import { SpeedReceipt } from "./SpeedReceipt";
 import { SponsorBadge, SponsorRow } from "./Sponsor";
+import { CoinArt } from "./art";
 import { TxpoolWatch } from "./TxpoolWatch";
 import { quickBuySizes } from "../lib/quick-sizes";
 import { EMPTYING_WINDOW_MS, lastSendOf, reserveCheck } from "../lib/reserve";
@@ -637,6 +638,17 @@ export function TradeSheet({
 
       <Sheet>
         <Grabber />
+
+        {/* Which coin this is, before anything else: the sheet opens over a feed. */}
+        <Row gap={10} align="center" style={{ marginBottom: 12 }}>
+          <CoinArt uri={juno.still(coin.media)} seed={coin.address} size={36} radius={10} />
+          <Col style={{ flex: 1 }}>
+            <Label numberOfLines={1} testID="sheet-coin">
+              ${coin.symbol}
+            </Label>
+            <Caption numberOfLines={1}>{coin.name}</Caption>
+          </Col>
+        </Row>
 
         <Row justify="space-between" align="center">
           <Row gap={8}>

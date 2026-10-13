@@ -53,12 +53,16 @@ export function Heartbeat({ compact = false }: { compact?: boolean }) {
           data.verifiedMs !== null ? `verified ${(data.verifiedMs / 1000).toFixed(1)} s` : null,
         ]
           .filter(Boolean)
-          .join("  ·  ") || "waiting for the next block…"}
+          .join("  ·  ") || "reading the next block…"}
       </Text>
       {/* Where the strip comes from, as a chip rather than a sentence; an
           error is the one thing that still gets words. */}
-      {data.error ? (
-        <Text style={styles.caption}>{data.error}</Text>
+      {/* A dropped socket reopens on the next read; a visitor only needs to
+          know it is catching up, not why. */}
+      {data.error && data.blocks.length === 0 ? (
+        <View style={styles.source}>
+          <Text style={styles.sourceText}>reconnecting…</Text>
+        </View>
       ) : data.appOnFork ? (
         <View style={styles.source}>
           <Text style={styles.sourceText}>live from {data.network === "monad" ? "Monad" : "Monad testnet"} · trades here: local fork</Text>

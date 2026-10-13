@@ -100,8 +100,8 @@ export function WalletPreview() {
               {example.name}
             </Text>
             <Caption numberOfLines={1}>
-              {example.posts} {example.posts === 1 ? "post" : "posts"}
-              {example.holders > 0 ? ` · ${example.holders.toLocaleString("en-US")} holders` : ""} · a real profile
+              Example: a creator on Juno · {example.posts} {example.posts === 1 ? "post" : "posts"}
+              {example.holders > 0 ? ` · ${example.holders.toLocaleString("en-US")} holders` : ""}
             </Caption>
           </View>
           <View style={styles.thumbs}>
@@ -126,12 +126,6 @@ export function WalletPreview() {
             <View style={{ alignItems: "center" }}>
               <SponsorBadge sponsor="mera" claim="One prompt, no seed phrase" detail="Mera passkey" />
             </View>
-            <Button
-              label={busy === "unlock" ? "Waiting for your passkey…" : "I have a passkey account"}
-              variant="quiet"
-              loading={busy === "unlock"}
-              onPress={() => void unlock()}
-            />
           </>
         ) : null}
         <Button
@@ -142,16 +136,25 @@ export function WalletPreview() {
           onPress={() => void local()}
           style={choice.meraAvailable ? undefined : { alignSelf: "stretch" }}
         />
-        {choice.privyAvailable ? (
-          <Button
-            label="Sign in with Privy"
-            variant="quiet"
-            onPress={() => {
-              choice.choose("privy");
-              void wallet.connect().catch(() => undefined);
-            }}
-          />
-        ) : null}
+        {/* Returning accounts, as quiet links rather than more buttons. */}
+        <View style={styles.links}>
+          {choice.meraAvailable ? (
+            <Pressable onPress={() => void unlock()} accessibilityRole="button">
+              <Text style={styles.link}>{busy === "unlock" ? "Waiting for your passkey…" : "I have a passkey account"}</Text>
+            </Pressable>
+          ) : null}
+          {choice.privyAvailable ? (
+            <Pressable
+              onPress={() => {
+                choice.choose("privy");
+                void wallet.connect().catch(() => undefined);
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.link}>Sign in with Privy</Text>
+            </Pressable>
+          ) : null}
+        </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </View>
     </View>
@@ -191,9 +194,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.line,
   },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.surfaceAlt },
   exampleName: { fontSize: 15, fontWeight: "800", color: theme.colors.text },
   thumbs: { flexDirection: "row", gap: 4 },
   actions: { gap: 8, marginTop: 4 },
+  links: { flexDirection: "row", justifyContent: "center", gap: 18, marginTop: 4 },
+  link: { fontSize: 14, fontWeight: "700", color: theme.colors.muted, textDecorationLine: "underline" },
   error: { color: theme.colors.neg, fontSize: 13, fontWeight: "600", textAlign: "center" },
 });

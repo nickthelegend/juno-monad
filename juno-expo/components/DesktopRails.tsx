@@ -26,6 +26,12 @@ import { theme } from "../theme";
  * is already the live panel.
  */
 
+/**
+ * Where the rails show: beside the feed and the markets. Elsewhere (a coin, a
+ * profile, the landing) the same block on every page read as repetition.
+ */
+const RAIL_ROUTES = new Set(["/social", "/trade"]);
+
 /** The column (480) plus two rails (300) and their gaps. */
 export const RAILS_MIN_WIDTH = 1180;
 
@@ -38,7 +44,7 @@ export function LeftRail() {
     const timer = setInterval(refresh, 2_500);
     return () => clearInterval(timer);
   }, [refresh]);
-  if (pathname === "/") return <View style={styles.rail} />;
+  if (!RAIL_ROUTES.has(pathname)) return <View style={styles.rail} />;
   const s = stats.data;
 
   return (
@@ -87,7 +93,7 @@ export function RightRail() {
     [posts, record.data?.items],
   );
   const fresh = useMemo(() => newestOf(posts), [posts]);
-  if (pathname === "/") return <View style={styles.rail} />;
+  if (!RAIL_ROUTES.has(pathname)) return <View style={styles.rail} />;
 
   return (
     <ScrollView style={styles.rail} contentContainerStyle={styles.railBody} testID="rail-right" showsVerticalScrollIndicator={false}>

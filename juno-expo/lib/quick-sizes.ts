@@ -11,7 +11,6 @@
  */
 export type QuickSize = { label: string; amount: number | null; share: number | null };
 
-export const QUICK_USD = [2, 20, 50];
 export const QUICK_QUOTE = [0.1, 0.25, 0.5];
 export const QUICK_SHARE = [0.25, 0.5, 0.75];
 
@@ -24,15 +23,17 @@ export function quickBuySizes(input: {
 }): QuickSize[] {
   const { spendable, rate, symbol } = input;
   const max: QuickSize = { label: "Max", amount: spendable !== null && spendable > 0 ? spendable : null, share: null };
-  const sizes: QuickSize[] =
-    rate === null || rate <= 0
-      ? QUICK_QUOTE.map((size) => ({ label: `${size} ${symbol}`, amount: size, share: null }))
-      : QUICK_USD.map((dollars) => ({ label: `$${dollars}`, amount: dollars / rate, share: null }));
+  // One unit throughout, the quote token: a judge saw dollars before the
+  // wallet existed, percentages while it was empty, then MON once funded.
+  void rate;
+  const sizes: QuickSize[] = QUICK_QUOTE.map((size) => ({ label: `${size} ${symbol}`, amount: size, share: null }));
+  // Nothing spendable: the same pills, disabled, rather than a size that can only fail.
+  if (spendable !== null && spendable <= 0) return [...sizes.map((size) => ({ ...size, amount: null })), max];
   if (spendable !== null && sizes.some((size) => (size.amount ?? 0) > spendable)) {
     return [
       ...QUICK_SHARE.map((share) => {
-        const amount = spendable > 0 ? spendable * share : null;
-        return { label: amount === null ? `${share * 100}%` : `${Number(amount.toPrecision(2))} ${symbol}`, amount, share: null };
+        const amount = spendable * share;
+        return { label: `${Number(amount.toPrecision(2))} ${symbol}`, amount, share: null };
       }),
       max,
     ];

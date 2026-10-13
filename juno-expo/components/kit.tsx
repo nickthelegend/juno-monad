@@ -1,5 +1,5 @@
 import type React from "react";
-import { ActivityIndicator, Animated, Platform, Pressable, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Platform, Pressable, ScrollView, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import styled, { css } from "styled-components/native";
 
@@ -599,7 +599,10 @@ export function Segmented<T extends string>({
   value: T;
   onChange: (id: T) => void;
 }) {
+  // Scrolls sideways when the tabs outgrow the width (six on the Trade tab at
+  // 390 px clipped the last one); otherwise it sits still.
   return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
     <SegRow role="tablist">
       {items.map((item) => (
         <Seg
@@ -613,6 +616,7 @@ export function Segmented<T extends string>({
         </Seg>
       ))}
     </SegRow>
+    </ScrollView>
   );
 }
 
