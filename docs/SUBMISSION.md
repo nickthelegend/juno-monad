@@ -340,20 +340,20 @@ asks, then says how Juno meets it and where the proof is.
 
 ## Demo script: 3 minutes
 
-Recorded from the hosted app after the testnet go, or from `npm run
-demo:local`.
+Recorded from the hosted app (<https://juno-monad-app.vercel.app>, Monad
+testnet), or from `npm run demo:local`.
 
 | Time | On screen | Say |
 |---|---|---|
 | 0:00–0:15 | The landing: the live panel, then Monad testnet's blocks turning Proposed → Voted → Finalized → Verified, 300 ms blocks | "Every post on Juno is a market on Monad. And that's Monad, live: a block every 300 ms, final in under 600." |
 | 0:15–0:40 | Feed → Buy on a post → Create a wallet → Get testnet MON in the sheet → a quick size → Buy. The receipt: executed in ~300 ms, final, what it cost, the same gas on Ethereum. | "No wallet to Done in one sheet. Two timers: executed in one round trip, and final." |
-| 0:40–0:55 | Profile → Passkey → Create (one prompt) → Wallet → Prove my passkey on Monad → "Verified by Monad's P256 precompile" | "One passkey is the whole account, through Mera, and Monad's own P256 precompile checks its signature." |
+| 0:40–0:55 | Profile → Create a passkey account (one prompt) → Wallet → Prove my passkey on Monad → "Verified by Monad's P256 precompile" | "One passkey is the whole account, through Mera, and Monad's own P256 precompile checks its signature." |
 | 0:55–1:10 | + → Post a photo → Launch: one transaction | "Publishing is one transaction: token, curve and the lock on its future pair." |
 | 1:10–1:30 | A coin graduated into Kuru: its book, a limit order; Trade → Kuru | "When a curve fills, the post opens its own Kuru order book, seeded from its raise and locked." |
 | 1:30–1:50 | Trade → Perps → AUSD (Agora) → 2x BTC → Risk → close | "Perps on Perpl with Agora's AUSD, and a risk view on Perpl's API." |
 | 1:50–2:05 | Pre-IPO → OpenAI: "Attested on Monad by Chainlink CRE" | "Pre-IPO trackers, marked against Tessera, attested on chain by a CRE workflow." |
 | 2:05–2:25 | The creator: the bell (someone bought, followed, commented), Coins → Earnings and Claim, Wallet → staking from Monad's precompile | "Creators see who backed them and what they earned, read from the chain." |
-| 2:25–2:50 | Terminal: `mm juno ask "buy 1 MON of the coin closest to graduating"` | "An agent can trade Juno too: Kimi plans it, MetaMask's Agent Wallet signs it." |
+| 2:25–2:50 | Desktop at 1440: the rails (Monad live, most traded); Search → a coin; its receipt → Share this receipt (the card) | "On a laptop the market sits around the feed, and every receipt is a card you can post." |
 | 2:50–3:00 | The repo: tests passing, `npm run demo:local` | "Open source, tested, and runnable in one command." |
 
 ## Rules checklist
