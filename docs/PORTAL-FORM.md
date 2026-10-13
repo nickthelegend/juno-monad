@@ -69,7 +69,15 @@ https://github.com/nickthelegend/juno-monad
 https://juno-monad-app.vercel.app
 
 ## 9. Demo video (≤ 3:00)
-**Pending.** The full-flow recording waits on the owner's call about how to record it (see the session report). The current cut is `docs/demo/juno-metropolis.mp4` (2:21, live on testnet, but it opens with a 35 s motion-graphics intro, which this field's rules exclude). Upload the final file and paste its link.
+`docs/demo/juno-demo.mp4` (1:46; captions in `juno-demo.srt`). It is all live operation of the app on Monad testnet with real transactions:
+- Monad's commit states;
+- a Mera passkey account buying on Kuru, with the two-timer receipt and its card;
+- the P256 passkey proof;
+- the graduated Kuru coin;
+- a Perpl 2x long and close with Agora AUSD;
+- the CRE-attested NAV.
+
+It is the first cut with its slide intro trimmed. If the owner approves the full-flow recording (post launch, the Kuru book, Perpl Risk), a fuller 2:50–3:00 cut replaces it. Upload the file and paste its link.
 
 ## 10. Pitch video (≤ 2:00)
 `docs/demo/juno-pitch.mp4` (1:22, kinetic type in Juno's palette with one live glimpse; captions in `juno-pitch.srt`). Upload it and paste the link.
